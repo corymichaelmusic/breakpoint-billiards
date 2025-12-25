@@ -36,7 +36,7 @@ export type PlayerStats = {
     nineOnSnaps_9ball: number;
 };
 
-function getInitStats(playerId: string, playerName: string): PlayerStats {
+export function getInitStats(playerId: string, playerName: string): PlayerStats {
     return {
         playerId,
         playerName,
@@ -118,7 +118,7 @@ function calculateEloChange(playerRating: number, opponentRating: number, isWin:
     return Math.round(K * (actualScore - expectedScore));
 }
 
-function aggregateMatchStats(stats: PlayerStats, match: any, playerId: string, games: any[]) {
+export function aggregateMatchStats(stats: PlayerStats, match: any, playerId: string, games: any[]) {
     stats.matchesPlayed++;
     const isP1 = match.player1_id === playerId;
     // Fix: Sum points explicitly from columns as current_points can be unreliable
