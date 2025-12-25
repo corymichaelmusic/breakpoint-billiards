@@ -5,8 +5,8 @@ import Navbar from "@/components/Navbar";
 import Link from "next/link";
 import CreateSessionForm from "@/components/CreateSessionForm";
 
-export default async function NewSessionPage({ params }: { params: { id: string } }) {
-    const { id } = params;
+export default async function NewSessionPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     const { userId } = await auth();
     if (!userId) redirect("/sign-in");
 

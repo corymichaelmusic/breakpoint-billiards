@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
 
-export default async function PayFeePage({ params }: { params: { id: string; sessionId: string } }) {
-    const { id, sessionId } = params;
+export default async function PayFeePage({ params }: { params: Promise<{ id: string; sessionId: string }> }) {
+    const { id, sessionId } = await params;
     const { userId } = await auth();
     if (!userId) redirect("/sign-in");
 
