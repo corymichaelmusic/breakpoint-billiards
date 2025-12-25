@@ -59,7 +59,6 @@ export default async function AdminPlayerPage({ params }: { params: Promise<{ id
                     <FargoEditor playerId={id} currentFargo={player?.fargo_rating} />
                 </div>
             </div>
-        </div>
-        </main >
+        </main>
     );
 }
