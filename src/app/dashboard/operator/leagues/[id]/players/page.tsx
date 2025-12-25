@@ -6,8 +6,8 @@ import Navbar from "@/components/Navbar";
 import Link from "next/link";
 import FargoEditor from "@/components/FargoEditor";
 
-export default async function LeaguePlayersPage({ params }: { params: { id: string } }) {
-    const { id } = params; // League Org ID
+export default async function LeaguePlayersPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params; // League Org ID
     const { userId } = await auth();
     if (!userId) redirect("/sign-in");
 
