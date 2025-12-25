@@ -1,0 +1,301 @@
+.container {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.scoreboard {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--card-bg);
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    margin-bottom: 2rem;
+    border: 1px solid var(--border);
+}
+
+.playerScore {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+}
+
+.name {
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    text-align: center;
+}
+
+.points {
+    display: flex;
+    align-items: baseline;
+    gap: 0.25rem;
+}
+
+.current {
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: var(--primary);
+}
+
+.target {
+    font-size: 1.2rem;
+    opacity: 0.5;
+}
+
+.needs {
+    font-size: 0.8rem;
+    color: var(--foreground);
+    opacity: 0.7;
+    margin-top: 0.25rem;
+}
+
+.vs {
+    font-weight: 900;
+    opacity: 0.3;
+    margin: 0 1rem;
+}
+
+.inputCard {
+    background: var(--card-bg);
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    margin-bottom: 2rem;
+}
+
+.inputCard h3 {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.winnerSelection p,
+.loserScore p {
+    text-align: center;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.buttons {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.playerBtn {
+    flex: 1;
+    padding: 1rem;
+    border: 2px solid var(--border);
+    background: transparent;
+    color: var(--foreground);
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+
+.playerBtn:hover {
+    border-color: var(--primary);
+}
+
+.selected {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.ballButtons {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.ballBtn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: transparent;
+    color: var(--foreground);
+    cursor: pointer;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.ballBtn:hover {
+    border-color: var(--primary);
+}
+
+.selectedBall {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.history h3 {
+    margin-bottom: 1rem;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th,
+.table td {
+    padding: 0.75rem;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+}
+
+.table th {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    opacity: 0.7;
+}
+
+.win {
+    color: var(--primary);
+    font-weight: bold;
+}
+
+.modeToggle {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.modeBtn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--foreground);
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius);
+    cursor: pointer;
+    opacity: 0.6;
+}
+
+.activeMode {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+    opacity: 1;
+}
+
+.nineBallContainer {
+    text-align: center;
+}
+
+.instruction {
+    margin-bottom: 1rem;
+    opacity: 0.7;
+    font-size: 0.9rem;
+}
+
+.poolTable {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    max-width: 300px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.poolBall {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: transform 0.1s;
+    position: relative;
+    color: #000;
+    box-shadow: inset -5px -5px 10px rgba(0, 0, 0, 0.4), 2px 5px 5px rgba(0, 0, 0, 0.3);
+}
+
+.poolBall:active {
+    transform: scale(0.95);
+}
+
+.ownerLabel {
+    font-size: 0.6rem;
+    position: absolute;
+    bottom: 4px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+/* Ball Colors (Simplified) */
+.ballUnassigned {
+    background: #e0e0e0;
+    color: #333;
+}
+
+.ballP1 {
+    background: var(--primary);
+    color: white;
+    border-color: white;
+}
+
+.ballP2 {
+    background: #ff4081;
+    color: white;
+    border-color: white;
+}
+
+/* Secondary color */
+
+.ball9 {
+    border: 4px solid #ffd700;
+    /* Gold border for 9-ball */
+}
+
+.ball9.ballUnassigned {
+    background: #fff;
+    border: 8px solid #ffd700;
+    /* Stripe effect */
+}
+
+/* Dead Ball Style */
+.ballDead {
+    background: #555;
+    color: #999;
+    border-color: #777;
+    opacity: 0.7;
+}
+
+.miniBall {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    font-size: 0.7rem;
+    text-align: center;
+    line-height: 18px;
+    margin-right: 2px;
+    color: var(--foreground);
+}
+
+.resultPreview {
+    background: var(--card-bg);
+    padding: 1rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    margin-top: 1rem;
+}

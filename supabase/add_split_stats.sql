@@ -1,0 +1,8 @@
+
+ALTER TABLE league_players 
+ADD COLUMN IF NOT EXISTS total_break_and_runs_8ball INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS total_break_and_runs_9ball INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS total_rack_and_runs_8ball INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS total_rack_and_runs_9ball INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS total_win_zip_8ball INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS total_win_zip_9ball INTEGER DEFAULT 0;

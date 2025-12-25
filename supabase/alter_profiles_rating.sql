@@ -1,0 +1,3 @@
+
+ALTER TABLE profiles 
+ALTER COLUMN breakpoint_rating TYPE DOUBLE PRECISION;
