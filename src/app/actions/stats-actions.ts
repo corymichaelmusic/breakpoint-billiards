@@ -336,7 +336,7 @@ export async function getPlayerBreakpointHistory(playerId: string) {
         // Return Breakpoint Level
         return {
             date: match.scheduled_date,
-            rating: getBreakpointLevel(currentRating)
+            rating: parseFloat(getBreakpointLevel(currentRating))
         };
     });
 
