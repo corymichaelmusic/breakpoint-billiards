@@ -158,7 +158,7 @@ export async function getPlayerLifetimeStats(playerId: string) {
             matchesPlayed: 0,
             matchesWon: 0,
             matchesLost: 0,
-            matchesLost: 0,
+
             totalPoints: 0,
             pointsPerMatch: "0.00",
             winRate: 0,
@@ -264,7 +264,7 @@ export async function getPlayerSessionStats(playerId: string, sessionId: string)
     const currentRating = profile?.breakpoint_rating || 500;
 
     const stats = getInitStats(playerId, "Player");
-    stats.breakPoint = getBreakpointLevel(currentRating);
+    stats.breakPoint = parseFloat(getBreakpointLevel(currentRating));
 
     matches.forEach(match => {
         aggregateMatchStats(stats, match, playerId, allGames);
@@ -427,7 +427,7 @@ export async function getLeagueStats(leagueId: string): Promise<PlayerStats[]> {
             const p1Rating = Array.isArray(p1Data) ? p1Data[0]?.fargo_rating : (p1Data as any)?.fargo_rating;
 
             const p1Stats = getInitStats(match.player1_id, p1Name || "Unknown");
-            p1Stats.breakPoint = getBreakpointLevel(p1Rating || 500);
+            p1Stats.breakPoint = parseFloat(getBreakpointLevel(p1Rating || 500));
             statsMap.set(match.player1_id, p1Stats);
         }
         aggregateMatchStats(statsMap.get(match.player1_id)!, match, match.player1_id, allGames);
@@ -439,7 +439,7 @@ export async function getLeagueStats(leagueId: string): Promise<PlayerStats[]> {
             const p2Rating = Array.isArray(p2Data) ? p2Data[0]?.fargo_rating : (p2Data as any)?.fargo_rating;
 
             const p2Stats = getInitStats(match.player2_id, p2Name || "Unknown");
-            p2Stats.breakPoint = getBreakpointLevel(p2Rating || 500);
+            p2Stats.breakPoint = parseFloat(getBreakpointLevel(p2Rating || 500));
             statsMap.set(match.player2_id, p2Stats);
         }
         aggregateMatchStats(statsMap.get(match.player2_id)!, match, match.player2_id, allGames);
@@ -571,7 +571,7 @@ export async function getGlobalLeaderboard(limit: number = 10) {
             const p1Rating = Array.isArray(p1Data) ? p1Data[0]?.breakpoint_rating : (p1Data as any)?.breakpoint_rating;
 
             const p1Stats = getInitStats(match.player1_id, p1Name || "Unknown");
-            p1Stats.breakPoint = getBreakpointLevel(p1Rating || 500);
+            p1Stats.breakPoint = parseFloat(getBreakpointLevel(p1Rating || 500));
             statsMap.set(match.player1_id, p1Stats);
         }
         aggregateMatchStats(statsMap.get(match.player1_id)!, match, match.player1_id, allGames);
@@ -583,7 +583,7 @@ export async function getGlobalLeaderboard(limit: number = 10) {
             const p2Rating = Array.isArray(p2Data) ? p2Data[0]?.breakpoint_rating : (p2Data as any)?.breakpoint_rating;
 
             const p2Stats = getInitStats(match.player2_id, p2Name || "Unknown");
-            p2Stats.breakPoint = getBreakpointLevel(p2Rating || 500);
+            p2Stats.breakPoint = parseFloat(getBreakpointLevel(p2Rating || 500));
             statsMap.set(match.player2_id, p2Stats);
         }
         aggregateMatchStats(statsMap.get(match.player2_id)!, match, match.player2_id, allGames);
