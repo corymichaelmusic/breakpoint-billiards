@@ -6,12 +6,12 @@ module.exports = {
     theme: {
         extend: {
             colors: {
-                primary: "#D4AF37",
-                background: "#050505",
-                surface: "#121212",
-                "surface-hover": "#1e1e1e",
-                border: "#333333",
-                foreground: "#ffffff",
+                primary: "rgb(var(--color-primary) / <alpha-value>)",
+                background: "rgb(var(--color-background) / <alpha-value>)",
+                surface: "rgb(var(--color-surface) / <alpha-value>)",
+                "surface-hover": "rgb(var(--color-surface-hover) / <alpha-value>)",
+                border: "rgb(var(--color-border) / <alpha-value>)",
+                foreground: "rgb(var(--color-foreground) / <alpha-value>)",
             },
         },
     },

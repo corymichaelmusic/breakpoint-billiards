@@ -208,7 +208,7 @@ export default function StatsScreen() {
                     {/* Lifetime Stats (Matches) */}
                     <View className="bg-surface border border-border rounded-xl p-4 mb-6">
                         <View className="flex-row justify-between items-center mb-4 border-b border-border pb-2">
-                            <Text className="text-white text-lg font-bold max-w-[70%]">
+                            <Text className="text-foreground text-lg font-bold max-w-[70%]">
                                 Lifetime Stats for {stats?.fullName || 'Player'}
                             </Text>
                             <TouchableOpacity onPress={() => router.push('/global-leaderboard')}>
@@ -238,7 +238,7 @@ export default function StatsScreen() {
                     {/* 8-Ball Stats (Games) */}
                     <View className="bg-surface border border-border rounded-xl p-4 mb-6">
                         <View className="flex-row justify-between items-center border-b border-border pb-2 mb-4">
-                            <Text className="text-white text-lg font-bold">8-Ball Sets</Text>
+                            <Text className="text-foreground text-lg font-bold">8-Ball Sets</Text>
                             <View className="flex-row items-center gap-2">
                                 <Text className="text-[#D4AF37] text-xs font-bold uppercase">
                                     {(stats?.stats8?.racksWon || 0) + (stats?.stats8?.racksLost || 0)} Racks: {stats?.stats8?.racksWon || 0}-{stats?.stats8?.racksLost || 0}
@@ -255,7 +255,7 @@ export default function StatsScreen() {
                     {/* 9-Ball Stats (Games) */}
                     <View className="bg-surface border border-border rounded-xl p-4 mb-6">
                         <View className="flex-row justify-between items-center border-b border-border pb-2 mb-4">
-                            <Text className="text-white text-lg font-bold">9-Ball Sets</Text>
+                            <Text className="text-foreground text-lg font-bold">9-Ball Sets</Text>
                             <View className="flex-row items-center gap-2">
                                 <Text className="text-[#D4AF37] text-xs font-bold uppercase">
                                     {(stats?.stats9?.racksWon || 0) + (stats?.stats9?.racksLost || 0)} Racks: {stats?.stats9?.racksWon || 0}-{stats?.stats9?.racksLost || 0}
@@ -279,7 +279,7 @@ export default function StatsScreen() {
 function StatBox({ label, value, highlight }: { label: string, value: string | number, highlight?: boolean }) {
     return (
         <View className="w-[30%] items-center mb-4">
-            <Text className={`text-xl font-bold ${highlight ? 'text-primary' : 'text-white'}`}>{value}</Text>
+            <Text className={`text-xl font-bold ${highlight ? 'text-primary' : 'text-foreground'}`}>{value}</Text>
             <Text className="text-gray-400 text-xs uppercase">{label}</Text>
         </View>
     )

@@ -103,7 +103,7 @@ export default function MatchResultsScreen() {
         );
     }
 
-    if (!match) return <View className="flex-1 bg-background"><Text className="text-white text-center mt-10">Match not found.</Text></View>;
+    if (!match) return <View className="flex-1 bg-background"><Text className="text-foreground text-center mt-10">Match not found.</Text></View>;
 
     const isP1User = match.player1_id === userId;
     // Determine visual orientation: User always on Left if possible? 
@@ -131,7 +131,7 @@ export default function MatchResultsScreen() {
                 </TouchableOpacity>
                 <View className="items-center">
                     <Text className="text-gray-400 text-xs font-bold uppercase tracking-widest">Match Results</Text>
-                    <Text className="text-white font-bold text-sm tracking-wider">{match.league?.name}</Text>
+                    <Text className="text-foreground font-bold text-sm tracking-wider">{match.league?.name}</Text>
                 </View>
                 <View className="w-8" />
             </View>
@@ -149,7 +149,7 @@ export default function MatchResultsScreen() {
                                 <FontAwesome5 name="user" size={32} color="#666" />
                             )}
                         </View>
-                        <Text className="text-white font-bold text-center mb-1" numberOfLines={1}>
+                        <Text className="text-foreground font-bold text-center mb-1" numberOfLines={1}>
                             {match.player1.full_name?.split(' ')[0]}
                         </Text>
                         <View className="bg-primary/20 px-3 py-1 rounded-full">
@@ -175,7 +175,7 @@ export default function MatchResultsScreen() {
                                 <FontAwesome5 name="user" size={32} color="#666" />
                             )}
                         </View>
-                        <Text className="text-white font-bold text-center mb-1" numberOfLines={1}>
+                        <Text className="text-foreground font-bold text-center mb-1" numberOfLines={1}>
                             {match.player2.full_name?.split(' ')[0]}
                         </Text>
                         <View className="bg-primary/20 px-3 py-1 rounded-full">
@@ -200,7 +200,7 @@ export default function MatchResultsScreen() {
                             <View className="w-6 h-6 rounded-full bg-black items-center justify-center border border-gray-700 mr-2">
                                 <Text className="text-white text-[10px] font-bold">8</Text>
                             </View>
-                            <Text className="text-white font-bold">8-Ball</Text>
+                            <Text className="text-foreground font-bold">8-Ball</Text>
                         </View>
                         <Text className={`flex-1 text-center font-bold text-lg ${match.winner_id_8ball === match.player1_id ? 'text-green-400' : 'text-gray-400'}`}>
                             {p1Score8}
@@ -216,7 +216,7 @@ export default function MatchResultsScreen() {
                             <View className="w-6 h-6 rounded-full bg-yellow-400 items-center justify-center border border-yellow-600 mr-2">
                                 <Text className="text-black text-[10px] font-bold">9</Text>
                             </View>
-                            <Text className="text-white font-bold">9-Ball</Text>
+                            <Text className="text-foreground font-bold">9-Ball</Text>
                         </View>
                         <Text className={`flex-1 text-center font-bold text-lg ${match.winner_id_9ball === match.player1_id ? 'text-green-400' : 'text-gray-400'}`}>
                             {p1Score9}
@@ -239,21 +239,21 @@ export default function MatchResultsScreen() {
 
                     {/* 8-Ball B&R */}
                     <View className="flex-row p-3 border-b border-white/5 items-center">
-                        <Text className="flex-1 text-white font-bold text-xs">8-Ball Break & Run</Text>
+                        <Text className="flex-1 text-foreground font-bold text-xs">8-Ball Break & Run</Text>
                         <Text className={`flex-1 text-center font-bold ${stats.p1.bnr8 > 0 ? 'text-primary' : 'text-gray-600'}`}>{stats.p1.bnr8}</Text>
                         <Text className={`flex-1 text-center font-bold ${stats.p2.bnr8 > 0 ? 'text-primary' : 'text-gray-600'}`}>{stats.p2.bnr8}</Text>
                     </View>
 
                     {/* 9-Ball B&R */}
                     <View className="flex-row p-3 border-b border-white/5 items-center">
-                        <Text className="flex-1 text-white font-bold text-xs">9-Ball Break & Run</Text>
+                        <Text className="flex-1 text-foreground font-bold text-xs">9-Ball Break & Run</Text>
                         <Text className={`flex-1 text-center font-bold ${stats.p1.bnr9 > 0 ? 'text-primary' : 'text-gray-600'}`}>{stats.p1.bnr9}</Text>
                         <Text className={`flex-1 text-center font-bold ${stats.p2.bnr9 > 0 ? 'text-primary' : 'text-gray-600'}`}>{stats.p2.bnr9}</Text>
                     </View>
 
                     {/* 9-on-Snap */}
                     <View className="flex-row p-3 items-center">
-                        <Text className="flex-1 text-white font-bold text-xs">9-on-the-Snap</Text>
+                        <Text className="flex-1 text-foreground font-bold text-xs">9-on-the-Snap</Text>
                         <Text className={`flex-1 text-center font-bold ${stats.p1.snaps > 0 ? 'text-green-400' : 'text-gray-600'}`}>{stats.p1.snaps}</Text>
                         <Text className={`flex-1 text-center font-bold ${stats.p2.snaps > 0 ? 'text-green-400' : 'text-gray-600'}`}>{stats.p2.snaps}</Text>
                     </View>

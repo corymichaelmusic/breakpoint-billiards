@@ -97,7 +97,7 @@ const InitialLayout = () => {
 
   if (!isLoaded || !isReady) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#050505" }}>
+      <View className="flex-1 justify-center items-center bg-background">
         <ActivityIndicator size="large" color="#D4AF37" />
       </View>
     );
@@ -108,7 +108,6 @@ const InitialLayout = () => {
   return (
     <Stack screenOptions={{
       headerShown: false,
-      contentStyle: { backgroundColor: "#050505" },
       header: () => <Header />
     }}>
       <Stack.Screen name="login" options={{ headerShown: false }} />

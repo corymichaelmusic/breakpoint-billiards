@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, RefreshControl, Alert, Image, Animated, SafeAreaView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect, Stack } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
@@ -11,6 +11,7 @@ import { supabase } from '../../lib/supabase';
 import { applyRealtimeAuth } from '../../lib/realtimeAuth'; // Import singleton
 import * as BBRS from '../../utils/bbrs'; // Import BBRS logic
 import { calculateRace, getBreakpointLevel } from '../../utils/rating'; // Import race calc
+import { useMatchBroadcast } from '../../hooks/useMatchBroadcast';
 
 // Helper for BBRS defaults/normalization
 const getRating = (p: any, type: 'start' | 'current' = 'current') => {
@@ -53,7 +54,7 @@ export default function MatchScreen() {
         gamesRef.current = games;
     }, [games]);
 
-    const fetchMatchData = async () => {
+    const fetchMatchData = useCallback(async () => {
         if (isFetching.current) {
             console.log("Skipping fetch, one is already in progress.");
             return;
@@ -146,7 +147,7 @@ export default function MatchScreen() {
             setRefreshing(false);
             isFetching.current = false;
         }
-    };
+    }, [id, getToken]);
 
     useEffect(() => {
         fetchMatchData();
@@ -181,100 +182,9 @@ export default function MatchScreen() {
     // REALTIME SUBSCRIPTION
     // REALTIME SUBSCRIPTION
     // REALTIME SUBSCRIPTION
-    const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-    const retryCount = useRef(0);
+    // REALTIME SUBSCRIPTION
 
-    useEffect(() => {
-        if (!id) return;
-
-        const topic = `match_room_${id}`;
-
-        // Check if already subscribed to this topic
-        if (channelRef.current?.topic === topic && channelRef.current.state === 'subscribed') {
-            console.log(`[Realtime] Already subscribed to ${topic}`);
-            return;
-        }
-
-        // Cleanup existing channel if ID changed
-        if (channelRef.current) {
-            console.log(`[Realtime] Cleaning up old channel ${channelRef.current.topic}`);
-            supabase.removeChannel(channelRef.current);
-            channelRef.current = null;
-        }
-
-        console.log(`[Realtime] Subscribing to ${topic}`);
-
-        // Use singleton to share WebSocket connection
-        const channel = supabase
-            .channel(topic)
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'matches', filter: `id=eq.${id}` },
-                (payload) => {
-                    console.log("Match Update Received:", payload);
-                    fetchMatchData();
-                }
-            )
-            .on(
-                'postgres_changes',
-                { event: 'INSERT', schema: 'public', table: 'games', filter: `match_id=eq.${id}` },
-                (payload) => {
-                    console.log("Game INSERT Received:", payload);
-                    fetchMatchData();
-                }
-            )
-            .on(
-                'postgres_changes',
-                { event: 'UPDATE', schema: 'public', table: 'games', filter: `match_id=eq.${id}` },
-                (payload) => {
-                    console.log("Game UPDATE Received:", payload);
-                    fetchMatchData();
-                }
-            )
-            // WORKAROUND: Listen for DELETE without filter, check ID locally
-            // This is needed because 'match_id' is missing in DELETE payload if REPLICA IDENTITY is not FULL
-            .on(
-                'postgres_changes',
-                { event: 'DELETE', schema: 'public', table: 'games' },
-                (payload) => {
-                    const deletedId = payload.old.id;
-                    if (gamesRef.current.some(g => g.id === deletedId)) {
-                        console.log("Game DELETE Received (Verified Local ID):", payload);
-                        fetchMatchData();
-                    }
-                }
-            )
-            .subscribe((status) => {
-                console.log(`[Realtime] Subscription Status: ${status}`);
-
-                if (status === 'SUBSCRIBED') {
-                    fetchMatchData();
-                    retryCount.current = 0; // Reset retries on success
-                } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-                    retryCount.current += 1;
-                    console.warn(`[Realtime] Connection issue (${retryCount.current}/3)`);
-
-                    if (retryCount.current >= 3) {
-                        console.log("[Realtime] Circuit Breaker Tripped. Disabling Realtime for this session.");
-                        supabase.removeChannel(channel);
-                        channelRef.current = null;
-                        // Polling (10s) defined above will continue to provide updates.
-                    }
-                }
-            });
-
-        channelRef.current = channel;
-
-        return () => {
-            // Only cleanup if we are unmounting or ID changing
-            // We use the Ref to ensure we clean up the exact channel we created
-            if (channelRef.current) {
-                console.log(`[Realtime] Unsubscribing from ${topic}`);
-                supabase.removeChannel(channelRef.current);
-                channelRef.current = null;
-            }
-        };
-    }, [id]);
+    useMatchBroadcast(id as string, fetchMatchData);
 
     const handleSubmitGame = async (winnerId: string, outcome: string, opponentId: string) => {
         if (submitting || !match) return;
@@ -521,7 +431,7 @@ export default function MatchScreen() {
     if (loading || !match) {
         return (
             <SafeAreaView className="flex-1 bg-background items-center justify-center">
-                <Text className="text-white">Loading...</Text>
+                <Text className="text-foreground">Loading...</Text>
             </SafeAreaView>
         );
     }
@@ -536,8 +446,8 @@ export default function MatchScreen() {
                 {viewMode === 'selection' && (
                     <View className="flex-1 pt-4">
                         <TouchableOpacity onPress={() => router.replace('/(tabs)')} className="mb-4 flex-row items-center">
-                            <Ionicons name="arrow-back" size={24} color="white" />
-                            <Text className="text-white ml-2 font-bold">Back to Dashboard</Text>
+                            <Ionicons name="arrow-back" size={24} color="#888" />
+                            <Text className="text-foreground ml-2 font-bold">Back to Dashboard</Text>
                         </TouchableOpacity>
 
                         <View className="items-center justify-center mt-8 mb-8">
@@ -557,7 +467,7 @@ export default function MatchScreen() {
                                             </View>
                                         )}
                                     </View>
-                                    <Text className="text-white font-bold text-base mt-3 max-w-[100px] text-center" numberOfLines={1}>
+                                    <Text className="text-foreground font-bold text-base mt-3 max-w-[100px] text-center" numberOfLines={1}>
                                         {match.player1.nickname || match.player1.full_name?.split(' ')[0]}
                                     </Text>
                                     <Text className="text-primary font-bold text-sm mt-1">
@@ -578,7 +488,7 @@ export default function MatchScreen() {
                                             </View>
                                         )}
                                     </View>
-                                    <Text className="text-white font-bold text-base mt-3 max-w-[100px] text-center" numberOfLines={1}>
+                                    <Text className="text-foreground font-bold text-base mt-3 max-w-[100px] text-center" numberOfLines={1}>
                                         {match.player2.nickname || match.player2.full_name?.split(' ')[0]}
                                     </Text>
                                     <Text className="text-primary font-bold text-sm mt-1">
@@ -603,7 +513,7 @@ export default function MatchScreen() {
                             className={`w-full p-8 rounded-xl border border-yellow-500 bg-surface mb-6 items-center ${match.status_8ball === 'finalized' ? 'opacity-50' : ''}`}
                         >
                             <Text className="text-yellow-400 text-4xl font-black italic tracking-tighter mb-2">8-BALL</Text>
-                            <Text className="text-white font-bold text-lg mb-2">{match.points_8ball_p1 || 0} - {match.points_8ball_p2 || 0}</Text>
+                            <Text className="text-foreground font-bold text-lg mb-2">{match.points_8ball_p1 || 0} - {match.points_8ball_p2 || 0}</Text>
                             {match.status_8ball === 'finalized' ? (
                                 <View className="bg-green-600 px-3 py-1 rounded-full">
                                     <Text className="text-white text-xs font-bold uppercase">
@@ -623,7 +533,7 @@ export default function MatchScreen() {
                             className={`w-full p-8 rounded-xl border border-primary bg-surface items-center ${match.status_9ball === 'finalized' ? 'opacity-50' : ''}`}
                         >
                             <Text className="text-primary text-4xl font-black italic tracking-tighter mb-2">9-BALL</Text>
-                            <Text className="text-white font-bold text-lg mb-2">{match.points_9ball_p1 || 0} - {match.points_9ball_p2 || 0}</Text>
+                            <Text className="text-foreground font-bold text-lg mb-2">{match.points_9ball_p1 || 0} - {match.points_9ball_p2 || 0}</Text>
                             {match.status_9ball === 'finalized' ? (
                                 <View className="bg-green-600 px-3 py-1 rounded-full">
                                     <Text className="text-white text-xs font-bold uppercase">
@@ -644,8 +554,8 @@ export default function MatchScreen() {
                 {viewMode === 'scoring' && (
                     <View>
                         <TouchableOpacity onPress={() => setViewMode('selection')} className="mb-4 flex-row items-center">
-                            <Ionicons name="arrow-back" size={24} color="white" />
-                            <Text className="text-white ml-2 font-bold">Back to Hub</Text>
+                            <Ionicons name="arrow-back" size={24} color="#888" />
+                            <Text className="text-foreground ml-2 font-bold">Back to Hub</Text>
                         </TouchableOpacity>
 
                         {/* Race Calculation Logic Lifted */}

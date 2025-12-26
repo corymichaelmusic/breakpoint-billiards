@@ -566,7 +566,19 @@ export async function deleteLeague(leagueId: string) {
     return { success: true };
 }
 
-export async function updateLeagueDetails(leagueId: string, data: { name: string, location: string, city: string, state: string, schedule_day: string, session_fee?: number, start_date?: string }) {
+export async function updateLeagueDetails(leagueId: string, data: {
+    name: string,
+    location: string,
+    city: string,
+    state: string,
+    schedule_day: string,
+    session_fee?: number,
+    start_date?: string,
+    bounty_val_8_run?: number,
+    bounty_val_9_run?: number,
+    bounty_val_9_snap?: number,
+    bounty_val_shutout?: number
+}) {
     const supabase = createAdminClient();
     const { auth } = await import("@clerk/nextjs/server");
     const { userId } = await auth();
@@ -607,7 +619,11 @@ export async function updateLeagueDetails(leagueId: string, data: { name: string
             state: data.state,
             schedule_day: data.schedule_day,
             session_fee: data.session_fee,
-            start_date: data.start_date
+            start_date: data.start_date,
+            bounty_val_8_run: data.bounty_val_8_run,
+            bounty_val_9_run: data.bounty_val_9_run,
+            bounty_val_9_snap: data.bounty_val_9_snap,
+            bounty_val_shutout: data.bounty_val_shutout
         })
         .eq("id", leagueId);
 

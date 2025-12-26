@@ -8,17 +8,26 @@ export type PlayerStats = {
     totalPoints: number;
     pointsPerMatch: string;
     winRate: number;
-    breakPoint?: number; // Added Breakpoint Level
+    pointsPerMatch: string;
+    winRate: number;
+    breakPoint?: number;
+    // New: Confidence Metric
+    totalRacksPlayed: number;
+
     // Breakdown Stats
     matchesPlayed_8ball: number;
     matchesWon_8ball: number;
     matchesLost_8ball: number;
     winRate_8ball: number;
+    racksWon_8ball: number;
+    racksPlayed_8ball: number;
 
     matchesPlayed_9ball: number;
     matchesWon_9ball: number;
     matchesLost_9ball: number;
     winRate_9ball: number;
+    racksWon_9ball: number;
+    racksPlayed_9ball: number;
 
     racklessSets_8ball: number;
     racklessSets_9ball: number;
@@ -42,16 +51,21 @@ export function getInitStats(playerId: string, playerName: string): PlayerStats 
         totalPoints: 0,
         pointsPerMatch: "0.00",
         winRate: 0,
+        totalRacksPlayed: 0,
 
         matchesPlayed_8ball: 0,
         matchesWon_8ball: 0,
         matchesLost_8ball: 0,
         winRate_8ball: 0,
+        racksWon_8ball: 0,
+        racksPlayed_8ball: 0,
 
         matchesPlayed_9ball: 0,
         matchesWon_9ball: 0,
         matchesLost_9ball: 0,
         winRate_9ball: 0,
+        racksWon_9ball: 0,
+        racksPlayed_9ball: 0,
 
         racklessSets_8ball: 0,
         racklessSets_9ball: 0,
@@ -65,30 +79,11 @@ export function getInitStats(playerId: string, playerName: string): PlayerStats 
     };
 }
 
-export function getBreakpointLevel(rating: number): number {
-    let level = 1;
-    if (rating < 200) {
-        level = 1.0;
-    } else if (rating < 300) {
-        level = 2 + (rating - 200) / 100;
-    } else if (rating < 400) {
-        level = 3 + (rating - 300) / 100;
-    } else if (rating < 500) {
-        level = 4 + (rating - 400) / 100;
-    } else if (rating < 550) {
-        level = 5 + (rating - 500) / 50;
-    } else if (rating < 600) {
-        level = 6 + (rating - 550) / 50;
-    } else if (rating < 650) {
-        level = 7 + (rating - 600) / 50;
-    } else if (rating < 700) {
-        level = 8 + (rating - 650) / 50;
-    } else if (rating < 800) {
-        level = 9 + (rating - 700) / 100;
-    } else {
-        level = 10 + (rating - 800) / 100;
-    }
-    return Math.round(level * 10) / 10;
+export function getBreakpointLevel(rating: number): string {
+    if (!rating) return "5.0";
+    // Mobile Logic: Move decimal 2 places to left and display to tenths place (Truncated)
+    const val = Math.floor(rating / 10) / 10;
+    return val.toFixed(1);
 }
 
 export function calculateEloChange(playerRating: number, opponentRating: number, isWin: boolean): number {
@@ -112,6 +107,7 @@ export function aggregateMatchStats(stats: PlayerStats, match: any, playerId: st
     const points = isP1 ? p1Points : p2Points;
 
     stats.totalPoints += points;
+    stats.totalRacksPlayed += (p1Points + p2Points);
 
     const matchGames = games.filter(g => g.match_id === match.id);
 
@@ -165,6 +161,9 @@ export function aggregateMatchStats(stats: PlayerStats, match: any, playerId: st
         const myPoints8 = isP1 ? p1_8 : p2_8;
         const oppPoints8 = isP1 ? p2_8 : p1_8;
 
+        stats.racksWon_8ball += myPoints8;
+        stats.racksPlayed_8ball += (myPoints8 + oppPoints8);
+
         let isWin = false;
         let isLoss = false;
 
@@ -193,6 +192,9 @@ export function aggregateMatchStats(stats: PlayerStats, match: any, playerId: st
         const p2_9 = Number(match.points_9ball_p2) || 0;
         const myPoints9 = isP1 ? p1_9 : p2_9;
         const oppPoints9 = isP1 ? p2_9 : p1_9;
+
+        stats.racksWon_9ball += myPoints9;
+        stats.racksPlayed_9ball += (myPoints9 + oppPoints9);
 
         let isWin = false;
         let isLoss = false;

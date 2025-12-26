@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { auth } from '@clerk/nextjs/server';
-import { Polar } from '@polar-sh/sdk';
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+    apiVersion: '2025-12-15.clover' as any,
+});
 
 export async function POST(req: Request) {
+    if (!process.env.STRIPE_SECRET_KEY) {
+        return NextResponse.json({ error: 'Server misconfiguration: Missing Stripe Key' }, { status: 500 });
+    }
     try {
         const { userId } = await auth();
         if (!userId) {
@@ -39,37 +46,46 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Already paid' }, { status: 400 });
         }
 
-        // 3. Initialize Polar
-        const polar = new Polar({
-            accessToken: process.env.POLAR_ACCESS_TOKEN,
-            server: (process.env.POLAR_SERVER ?? 'sandbox') as any, // Default to sandbox if not set
-        });
+        // 3. Create Stripe Session
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://breakpoint.app';
 
-        // 4. Create Checkout
-        // We assume a fixed Product ID for "Match Fee" is configured, or we create a custom checkout if supported.
-        // Ideally, we have a Generic "Match Fee" product in Polar.
-        const productId = process.env.POLAR_MATCH_FEE_PRODUCT_ID;
+        const priceId = process.env.STRIPE_PRICE_ID;
 
-        if (!productId) {
-            console.error("Missing POLAR_MATCH_FEE_PRODUCT_ID env var");
-            return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
-        }
+        const lineItems = priceId
+            ? [{ price: priceId, quantity: 1 }]
+            : [{
+                price_data: {
+                    currency: 'usd',
+                    product_data: {
+                        name: 'League Match Fee',
+                        description: 'Match payment for Breakpoint Billiards',
+                    },
+                    unit_amount: 2000,
+                },
+                quantity: 1,
+            }];
 
-        const result = await polar.checkouts.create({
-            productId: productId,
-            successUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://breakpoint.app'}/payment/success?match_id=${matchId}`,
+        const session = await stripe.checkout.sessions.create({
+            line_items: lineItems,
+            mode: 'payment',
+            success_url: `${appUrl}/payment/success?match_id=${matchId}`,
+            cancel_url: `${appUrl}/match/${matchId}`,
             metadata: {
                 match_id: matchId,
                 player_id: userId,
                 role: isP1 ? 'player1' : 'player2',
                 type: 'match_fee'
             },
-        } as any);
+        });
 
-        return NextResponse.json({ url: result.url });
+        if (!session.url) {
+            throw new Error('Failed to create Stripe session URL');
+        }
 
-    } catch (error) {
+        return NextResponse.json({ url: session.url });
+
+    } catch (error: any) {
         console.error('Checkout creation failed:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
     }
 }

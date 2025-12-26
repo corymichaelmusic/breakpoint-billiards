@@ -12,12 +12,12 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.9.6",
-    "@polar-sh/sdk": "^0.13.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.47.10",
     "next": "^15.2.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "stripe": "^20.1.0",
     "svix": "^1.81.0"
   },
   "devDependencies": {

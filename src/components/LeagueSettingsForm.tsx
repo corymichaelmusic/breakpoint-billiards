@@ -16,6 +16,10 @@ interface LeagueSettingsFormProps {
         type: string;
         session_fee?: number;
         start_date?: string;
+        bounty_val_8_run?: number;
+        bounty_val_9_run?: number;
+        bounty_val_9_snap?: number;
+        bounty_val_shutout?: number;
     };
     isAdmin?: boolean;
 }
@@ -39,9 +43,18 @@ export default function LeagueSettingsForm({ league, isAdmin = false }: LeagueSe
         const session_fee = formData.get("session_fee") ? Number(formData.get("session_fee")) : undefined;
         const start_date = formData.get("start_date") as string | undefined;
 
+        // Bounty
+        const bounty_val_8_run = formData.get("bounty_val_8_run") ? Number(formData.get("bounty_val_8_run")) : undefined;
+        const bounty_val_9_run = formData.get("bounty_val_9_run") ? Number(formData.get("bounty_val_9_run")) : undefined;
+        const bounty_val_9_snap = formData.get("bounty_val_9_snap") ? Number(formData.get("bounty_val_9_snap")) : undefined;
+        const bounty_val_shutout = formData.get("bounty_val_shutout") ? Number(formData.get("bounty_val_shutout")) : undefined;
+
         try {
             console.log("Submitting form for league:", league.id);
-            const res = await updateLeagueDetails(league.id, { name, location, city, state, schedule_day, session_fee, start_date });
+            const res = await updateLeagueDetails(league.id, {
+                name, location, city, state, schedule_day, session_fee, start_date,
+                bounty_val_8_run, bounty_val_9_run, bounty_val_9_snap, bounty_val_shutout
+            });
             console.log("Result:", res);
 
             if (res?.error) {
@@ -240,6 +253,31 @@ export default function LeagueSettingsForm({ league, isAdmin = false }: LeagueSe
                     </div>
                 </div>
             )}
+
+            {/* Bounty Configuration */}
+            <div style={{ marginBottom: "1.5rem", padding: "1.5rem", background: "rgba(255,255,255,0.02)", borderRadius: "var(--radius)", border: "1px solid var(--border)" }}>
+                <div style={{ marginBottom: "1rem", fontSize: "0.9rem", color: "var(--primary)", fontWeight: "bold", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Bounty Rates ($)
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                    <div>
+                        <label className="label">8-Ball Run</label>
+                        <input type="number" step="0.5" name="bounty_val_8_run" defaultValue={league.bounty_val_8_run ?? 5} className="input" />
+                    </div>
+                    <div>
+                        <label className="label">9-Ball Run</label>
+                        <input type="number" step="0.5" name="bounty_val_9_run" defaultValue={league.bounty_val_9_run ?? 3} className="input" />
+                    </div>
+                    <div>
+                        <label className="label">9-Ball Snap</label>
+                        <input type="number" step="0.5" name="bounty_val_9_snap" defaultValue={league.bounty_val_9_snap ?? 1} className="input" />
+                    </div>
+                    <div>
+                        <label className="label">Shutout</label>
+                        <input type="number" step="0.5" name="bounty_val_shutout" defaultValue={league.bounty_val_shutout ?? 1} className="input" />
+                    </div>
+                </div>
+            </div>
 
             <div style={{ display: "flex", gap: "1rem", justifyContent: "space-between", alignItems: "center", marginTop: "2rem", paddingTop: "2rem", borderTop: "1px solid var(--border)" }}>
                 <div>

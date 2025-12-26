@@ -8,7 +8,7 @@ import StatsCard from "../../components/StatsCard";
 import NextMatchCard from "../../components/NextMatchCard";
 import BreakpointGraph from "../../components/BreakpointGraph";
 import { calculateEloChange, getBreakpointLevel } from "../../utils/rating";
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 
 export default function HomeScreen() {
   const { userId, signOut, getToken } = useAuth();
@@ -78,11 +78,21 @@ export default function HomeScreen() {
                 type,
                 status,
                 start_date,
-                parent_league:parent_league_id(name)
+                bounty_val_8_run,
+                bounty_val_9_run,
+                bounty_val_9_snap,
+                bounty_val_shutout,
+                parent_league:parent_league_id(
+                    name,
+                    bounty_val_8_run,
+                    bounty_val_9_run,
+                    bounty_val_9_snap,
+                    bounty_val_shutout
+                )
             )
         `)
         .eq("player_id", userId)
-        .in("leagues.status", ["active", "setup"]) // Allow both active and setup
+        .in("leagues.status", ["active", "setup"])
         .order("joined_at", { ascending: false });
 
       const settingsPromise = supabaseAuthenticated
@@ -96,14 +106,13 @@ export default function HomeScreen() {
       const { data: profileData, error: profileError } = profileResult;
       const { data: memberships, error: membershipError } = membershipResult;
 
-      // Handle Settings (Default to TRUE if missing or error)
+      // Handle Settings
       const settingValue = settingsResult.data?.value;
       const isBountyEnabled = settingValue ? settingValue === 'true' : true;
       setBountyDisplay(isBountyEnabled);
 
-      let userProfile = profileData; // Assign to userProfile for consistency with existing logic
+      let userProfile = profileData;
 
-      // Handle Profile Fetch Error (Network or other)
       if (profileError && profileError.code !== 'PGRST116') {
         console.log("Profile Fetch Error:", profileError);
         Alert.alert("Connection Error", "Failed to load profile. Please checking internet connection.");
@@ -111,7 +120,6 @@ export default function HomeScreen() {
         return;
       }
 
-      // Auto-Create Profile if missing (Data null OR PGRST116)
       if (!userProfile) {
         console.log("Profile not found. Creating...");
         const email = user?.primaryEmailAddress?.emailAddress;
@@ -124,24 +132,12 @@ export default function HomeScreen() {
             process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
             { global: { headers: { Authorization: `Bearer ${attemptToken}` } } }
           );
-          return await client
-            .from('profiles')
-            .upsert({
-              id: userId,
-              email: email,
-              full_name: fullName,
-              avatar_url: avatarUrl,
-              role: 'player'
-            })
-            .select()
-            .single();
+          return await client.from('profiles').upsert({ id: userId, email, full_name: fullName, avatar_url: avatarUrl, role: 'player' }).select().single();
         };
 
         let { data: newProfile, error: createError } = await performProfileCreation(token);
 
-        // RETRY ON JWT EXPIRED (PGRST303)
         if (createError && (createError.code === 'PGRST303' || createError.message?.includes('JWT expired'))) {
-          // ... retry logic ...
           const freshToken = await getToken({ template: 'supabase' });
           if (freshToken) {
             const retry = await performProfileCreation(freshToken);
@@ -152,11 +148,8 @@ export default function HomeScreen() {
 
         if (createError) {
           console.error("Failed to create profile:", createError);
-          // Only alert if we really need it.
-          // Note: If parallel membership fetch worked, maybe we can proceed? 
-          // But dashboard needs name/rating.
           Alert.alert("Connection Error", "Could not create/fetch profile.");
-          setLoading(false); // Stop loading to prevent infinite spinner
+          setLoading(false);
         } else {
           userProfile = newProfile;
         }
@@ -169,42 +162,39 @@ export default function HomeScreen() {
         return;
       }
 
-      // If no memberships found, redirect to onboarding (Join League)
       if (!memberships || memberships.length === 0) {
         setLoading(false);
-        // router.replace('/onboarding/select-league'); // DISABLED FOR DEBUGGING
         console.log("DEBUG: No memberships found for user", userId);
-        return; // Render the empty state below
+        return;
       }
-
-      // Logic to pick "current session":
-      // 1. Look for type='session'
-      // 2. Pick the first one (most recently joined)
 
       const activeMembership = memberships?.find((m: any) => m.leagues.type === 'session') || memberships?.[0];
 
       if (activeMembership) {
-        // Enforce Paid Status Check ('unpaid' vs 'paid')
         if (activeMembership.payment_status === 'unpaid') {
           console.log("User has not paid session fee.");
         }
 
         const session = activeMembership.leagues;
-        // Merge paid status into session object (paid: true if payment_status === 'paid')
         const sessionWithStatus = {
           ...session,
           paid: activeMembership.payment_status === 'paid',
-          payment_status: activeMembership.payment_status // Pass this through for UI check
+          payment_status: activeMembership.payment_status
         };
         setActiveSession(sessionWithStatus);
 
-        // Calculate Bounty (Using stats from activeMembership)
-        // Ensure columns align with what we fetched in membershipPromise
         const bnr8 = activeMembership.total_break_and_runs_8ball || 0;
         const bnr9 = activeMembership.total_break_and_runs_9ball || 0;
         const snaps = activeMembership.total_nine_on_snap || 0;
+        const shutoutsCount = activeMembership.shutouts || 0;
 
-        const totalBounty = (bnr8 * 5) + (bnr9 * 3) + (snaps * 1);
+        const parent = session.parent_league;
+        const val8 = session.bounty_val_8_run ?? parent?.bounty_val_8_run ?? 5;
+        const val9 = session.bounty_val_9_run ?? parent?.bounty_val_9_run ?? 3;
+        const valSnap = session.bounty_val_9_snap ?? parent?.bounty_val_9_snap ?? 1;
+        const valShutout = session.bounty_val_shutout ?? parent?.bounty_val_shutout ?? 1;
+
+        const totalBounty = (bnr8 * val8) + (bnr9 * val9) + (snaps * valSnap) + (shutoutsCount * valShutout);
         setBountyAmount(totalBounty);
 
         // 3. Fetch Matches
@@ -407,8 +397,13 @@ export default function HomeScreen() {
         // Calculate Session-Specific Granular Stats from Matches
         let p8_racksWon = 0;
         let p8_racksLost = 0;
+        let p8_setsWon = 0;
+        let p8_setsLost = 0;
+
         let p9_racksWon = 0;
         let p9_racksLost = 0;
+        let p9_setsWon = 0;
+        let p9_setsLost = 0;
 
         if (matches) {
           matches.forEach(m => {
@@ -416,19 +411,29 @@ export default function HomeScreen() {
             if (m.status_8ball === 'finalized') {
               p8_racksWon += isP1 ? (m.points_8ball_p1 || 0) : (m.points_8ball_p2 || 0);
               p8_racksLost += isP1 ? (m.points_8ball_p2 || 0) : (m.points_8ball_p1 || 0);
+
+              if (m.winner_id_8ball === userId) p8_setsWon++;
+              else if (m.winner_id_8ball) p8_setsLost++;
             }
             if (m.status_9ball === 'finalized') {
               p9_racksWon += isP1 ? (m.points_9ball_p1 || 0) : (m.points_9ball_p2 || 0);
               p9_racksLost += isP1 ? (m.points_9ball_p2 || 0) : (m.points_9ball_p1 || 0);
+
+              if (m.winner_id_9ball === userId) p9_setsWon++;
+              else if (m.winner_id_9ball) p9_setsLost++;
             }
           });
         }
 
         const p8_totalRacks = p8_racksWon + p8_racksLost;
         const p8_winRate = p8_totalRacks > 0 ? Math.round((p8_racksWon / p8_totalRacks) * 100) : 0;
+        const p8_setsPlayed = p8_setsWon + p8_setsLost;
+        const p8_setWinRate = p8_setsPlayed > 0 ? Math.round((p8_setsWon / p8_setsPlayed) * 100) : 0;
 
         const p9_totalRacks = p9_racksWon + p9_racksLost;
         const p9_winRate = p9_totalRacks > 0 ? Math.round((p9_racksWon / p9_totalRacks) * 100) : 0;
+        const p9_setsPlayed = p9_setsWon + p9_setsLost;
+        const p9_setWinRate = p9_setsPlayed > 0 ? Math.round((p9_setsWon / p9_setsPlayed) * 100) : 0;
 
 
         // Update State
@@ -444,7 +449,10 @@ export default function HomeScreen() {
             winZip: activeMembership.total_win_zip_8ball || 0,
             racksWon: p8_racksWon,
             racksLost: p8_racksLost,
-            rackWinRate: p8_winRate
+            rackWinRate: p8_winRate,
+            setsWon: p8_setsWon,
+            setsLost: p8_setsLost,
+            setWinRate: p8_setWinRate
           },
           stats9: {
             br: activeMembership.total_break_and_runs_9ball || 0,
@@ -453,7 +461,10 @@ export default function HomeScreen() {
             snap: activeMembership.total_nine_on_snap || 0,
             racksWon: p9_racksWon,
             racksLost: p9_racksLost,
-            rackWinRate: p9_winRate
+            rackWinRate: p9_winRate,
+            setsWon: p9_setsWon,
+            setsLost: p9_setsLost,
+            setWinRate: p9_setWinRate
           }
         });
 
@@ -503,7 +514,7 @@ export default function HomeScreen() {
 
       {/* Session Name Header */}
       <View className="px-4 pt-4 pb-2 items-center bg-background border-b border-border/50">
-        <Text className="text-white text-2xl font-bold tracking-wider uppercase text-center">
+        <Text className="text-foreground text-2xl font-bold tracking-wider uppercase text-center">
           {activeSession?.name || '...'}
         </Text>
         {activeSession?.parent_league?.name && (
@@ -546,7 +557,23 @@ export default function HomeScreen() {
 
         <View className="flex-row gap-2 mb-4">
           <StatsCard label="Win Rate" value={`${stats.winRate}%`} highlight />
-          <StatsCard label="Session Rank" value={stats.rank} />
+          <StatsCard
+            label="Session Rank"
+            value={
+              ['#1', '#2', '#3'].includes(stats.rank) ? (
+                <View className="flex-row items-center gap-2">
+                  <FontAwesome5
+                    name="crown"
+                    size={16}
+                    color={stats.rank === '#1' ? "#FFD700" : stats.rank === '#2' ? "#C0C0C0" : "#CD7F32"}
+                  />
+                  <Text className="text-2xl font-bold text-foreground">{stats.rank}</Text>
+                </View>
+              ) : (
+                stats.rank
+              )
+            }
+          />
         </View>
         <View className="flex-row gap-2 mb-6">
           <StatsCard label="Set W-L" value={stats.wl} />
@@ -555,13 +582,18 @@ export default function HomeScreen() {
 
         {/* Detailed Session Stats Accordion/Section */}
         <View className="bg-surface border border-border rounded-xl p-4 mb-6">
-          <Text className="text-white text-xl font-bold mb-4 border-b border-border pb-2">Session Breakdown</Text>
+          <Text className="text-foreground text-xl font-bold mb-4 border-b border-border pb-2">Session Breakdown</Text>
 
           {/* 8-Ball */}
           <View className="mb-6">
             <View className="flex-row justify-between items-center mb-2">
-              <Text className="text-[#D4AF37] font-bold text-lg uppercase">8-Ball</Text>
-              <Text className="text-gray-400 text-sm font-bold">
+              <View className="flex-row items-end gap-2">
+                <Text className="text-[#D4AF37] font-bold text-lg uppercase">8-Ball</Text>
+                <Text className="text-gray-400 text-sm font-bold mb-[2px]">
+                  {stats.stats8?.setsWon || 0}-{stats.stats8?.setsLost || 0} ({stats.stats8?.setWinRate || 0}%)
+                </Text>
+              </View>
+              <Text className="text-gray-400 text-xs font-bold">
                 {(stats.stats8?.racksWon || 0) + (stats.stats8?.racksLost || 0)} Racks: {stats.stats8?.racksWon || 0}-{stats.stats8?.racksLost || 0} ({stats.stats8?.rackWinRate || 0}%)
               </Text>
             </View>
@@ -573,8 +605,13 @@ export default function HomeScreen() {
           {/* 9-Ball */}
           <View>
             <View className="flex-row justify-between items-center mb-2">
-              <Text className="text-primary font-bold text-lg uppercase">9-Ball</Text>
-              <Text className="text-gray-400 text-sm font-bold">
+              <View className="flex-row items-end gap-2">
+                <Text className="text-primary font-bold text-lg uppercase">9-Ball</Text>
+                <Text className="text-gray-400 text-sm font-bold mb-[2px]">
+                  {stats.stats9?.setsWon || 0}-{stats.stats9?.setsLost || 0} ({stats.stats9?.setWinRate || 0}%)
+                </Text>
+              </View>
+              <Text className="text-gray-400 text-xs font-bold">
                 {(stats.stats9?.racksWon || 0) + (stats.stats9?.racksLost || 0)} Racks: {stats.stats9?.racksWon || 0}-{stats.stats9?.racksLost || 0} ({stats.stats9?.rackWinRate || 0}%)
               </Text>
             </View>
@@ -680,7 +717,7 @@ function StatRow({ label, value }: { label: string, value: string | number }) {
   return (
     <View className="flex-row justify-between items-center py-3 border-b border-border/50 last:border-0">
       <Text className="text-gray-400 font-medium text-sm">{label}</Text>
-      <Text className="text-white font-bold text-lg">{value}</Text>
+      <Text className="text-foreground font-bold text-lg">{value}</Text>
     </View>
   )
 }

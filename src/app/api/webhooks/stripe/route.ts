@@ -1,0 +1,100 @@
+import { NextResponse } from 'next/server';
+import { createClient } from '@/utils/supabase/server';
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+    apiVersion: '2025-12-15.clover' as any,
+});
+
+const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+
+export async function POST(req: Request) {
+    if (!endpointSecret) {
+        console.error('STRIPE_WEBHOOK_SECRET is not set');
+        return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
+    }
+
+    const payload = await req.text();
+    const sig = req.headers.get('stripe-signature');
+
+    if (!sig) {
+        return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
+    }
+
+    let event: Stripe.Event;
+
+    try {
+        event = stripe.webhooks.constructEvent(payload, sig, endpointSecret);
+    } catch (err: any) {
+        console.error(`Webhook signature verification failed: ${err.message}`);
+        return NextResponse.json({ error: 'Webhook signature verification failed' }, { status: 400 });
+    }
+
+    try {
+        if (event.type === 'checkout.session.completed') {
+            const session = event.data.object as Stripe.Checkout.Session;
+            const metadata = session.metadata;
+
+            if (metadata) {
+                const supabase = await createClient();
+
+                if (metadata.type === 'match_fee' && metadata.match_id && metadata.role) {
+                    console.log(`Processing Match Fee: Match ${metadata.match_id}, Role ${metadata.role}`);
+
+                    const updateData: any = {};
+                    if (metadata.role === 'player1') {
+                        updateData.payment_status_p1 = 'paid_online';
+                    } else if (metadata.role === 'player2') {
+                        updateData.payment_status_p2 = 'paid_online';
+                    }
+
+                    const { error } = await supabase
+                        .from('matches')
+                        .update(updateData)
+                        .eq('id', metadata.match_id);
+
+                    if (error) {
+                        console.error('Failed to update match payment status:', error);
+                        return NextResponse.json({ error: 'Database update failed' }, { status: 500 });
+                    }
+                    console.log('Match payment status updated successfully.');
+
+                } else if (metadata.type === 'session_creation' && metadata.league_id) {
+                    console.log(`Processing Session Creation Fee: League ${metadata.league_id}`);
+
+                    const { error } = await supabase
+                        .from('leagues')
+                        .update({ creation_fee_status: 'paid' })
+                        .eq('id', metadata.league_id);
+
+                    if (error) {
+                        console.error('Failed to update session creation status:', error);
+                        return NextResponse.json({ error: 'Database update failed' }, { status: 500 });
+                    }
+                    console.log('Session creation status updated to paid.');
+
+                } else if (metadata.type === 'player_session_fee' && metadata.session_id && metadata.player_id) {
+                    console.log(`Processing Player Session Fee: Player ${metadata.player_id} in Session ${metadata.session_id}`);
+
+                    const { error } = await supabase
+                        .from('league_players')
+                        .update({ payment_status: 'paid_online' })
+                        .eq('league_id', metadata.session_id)
+                        .eq('player_id', metadata.player_id);
+
+                    if (error) {
+                        console.error('Failed to update player session fee:', error);
+                        return NextResponse.json({ error: 'Database update failed' }, { status: 500 });
+                    }
+                    console.log('Player session fee update successful.');
+                }
+            }
+        }
+
+        return NextResponse.json({ received: true });
+
+    } catch (err) {
+        console.error('Webhook processing failed:', err);
+        return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 });
+    }
+}

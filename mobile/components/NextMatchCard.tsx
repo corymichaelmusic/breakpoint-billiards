@@ -111,8 +111,15 @@ export default function NextMatchCard({
         };
     }, [matchId, userId, getToken, isLocked]);
 
+    // Payment Status Logic
+    const myId = userId;
+    const myPaymentStatus = myId === player1Id ? paymentStatusP1 : paymentStatusP2;
+    const oppPaymentStatus = myId === player1Id ? paymentStatusP2 : paymentStatusP1;
+    const isPaid = (s: string | undefined) => ['paid', 'paid_cash', 'paid_online', 'waived'].includes(s || 'unpaid');
+
     const handleRequestUnlock = async () => {
         if (!matchId || !userId) return; // Guard clause
+
         setIsRequesting(true);
         try {
             const token = await getToken({ template: 'supabase' });
@@ -152,32 +159,36 @@ export default function NextMatchCard({
         if (!matchId || !userId) return;
         setIsRequesting(true); // Reuse loading state or add new one
         try {
-            const token = await getToken({ template: 'supabase' }); // Get Clerk Token for Auth header if API needs it? 
-            // Our Next.js API uses Clerk `auth()` helper which reads cookies or headers.
-            // For Mobile -> Next.js API, we usually need to pass the token as Bearer.
-            // However, the `create-match-checkout` uses `auth()` from `@clerk/nextjs/server`.
-            // This expects standard Clerk auth headers.
+            const token = await getToken();
 
-            // NOTE: Mobile fetch needs to explicitly attach Authorization header for Clerk to see it.
+            const apiUrl = process.env.EXPO_PUBLIC_APP_URL || 'https://breakpoint.app';
+            const targetUrl = `${apiUrl}/api/create-match-checkout`;
+            console.log("PAYMENT DEBUG: Requesting", targetUrl);
 
-            // To be safe, we will pass it.
-            const response = await fetch(`${process.env.EXPO_PUBLIC_APP_URL || 'https://breakpoint.app'}/api/create-match-checkout`, {
+            const response = await fetch(`${apiUrl}/api/create-checkout`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ matchId })
+                body: JSON.stringify({ type: 'match_fee', matchId })
             });
 
-            const data = await response.json();
+            console.log("PAYMENT DEBUG: Status", response.status);
+            const rawText = await response.text();
+            console.log("PAYMENT DEBUG: Raw Response (First 100 chars):", rawText.substring(0, 100));
 
-            if (data.url) {
-                // Open Polar Checkout in Browser
-                const { Linking } = require("react-native");
-                Linking.openURL(data.url);
-            } else {
-                Alert.alert("Error", data.error || "Failed to create payment link.");
+            try {
+                const data = JSON.parse(rawText);
+                if (data.url) {
+                    const { Linking } = require("react-native");
+                    Linking.openURL(data.url);
+                } else {
+                    Alert.alert("Error", data.error || "Failed to create payment link.");
+                }
+            } catch (jsonError) {
+                console.error("PAYMENT DEBUG: JSON Parse Failed", jsonError);
+                Alert.alert("Payment Error", `Server returned invalid response: ${response.status}`);
             }
 
         } catch (e) {
@@ -190,13 +201,6 @@ export default function NextMatchCard({
 
     const handlePlayMatch = () => {
         if (!userId) return;
-
-        // Identify statuses
-        const myId = userId;
-        const myPaymentStatus = myId === player1Id ? paymentStatusP1 : paymentStatusP2;
-        const oppPaymentStatus = myId === player1Id ? paymentStatusP2 : paymentStatusP1;
-
-        const isPaid = (s: string | undefined) => ['paid', 'paid_cash', 'paid_online', 'waived'].includes(s || 'unpaid');
 
         if (!isPaid(myPaymentStatus)) {
             Alert.alert(
@@ -233,10 +237,24 @@ export default function NextMatchCard({
                 */}
                 {weekNumber && <Text className="text-gray-400 text-[10px] uppercase">Week {weekNumber}</Text>}
             </View>
-            <Text className="text-white text-xl font-bold mb-1">vs {opponentName}</Text>
+            <Text className="text-foreground text-xl font-bold mb-1">vs {opponentName}</Text>
             {leagueName && <Text className="text-gray-300 text-sm">{leagueName}</Text>}
             {sessionName && <Text className="text-gray-500 text-xs mb-1">{sessionName}</Text>}
             <Text className="text-gray-400 text-xs mb-4">{date}</Text>
+
+            {/* Payment Status Badges */}
+            <View className="flex-row gap-2 mb-4">
+                <View className={`px-2 py-1 rounded border ${isPaid(myPaymentStatus) ? 'bg-green-900/20 border-green-500/50' : 'bg-red-900/20 border-red-500/50'}`}>
+                    <Text className={`${isPaid(myPaymentStatus) ? 'text-green-400' : 'text-red-400'} text-[10px] font-bold uppercase`}>
+                        You: {isPaid(myPaymentStatus) ? 'Paid' : 'Unpaid'}
+                    </Text>
+                </View>
+                <View className={`px-2 py-1 rounded border ${isPaid(oppPaymentStatus) ? 'bg-green-900/20 border-green-500/50' : 'bg-red-900/20 border-red-500/50'}`}>
+                    <Text className={`${isPaid(oppPaymentStatus) ? 'text-green-400' : 'text-red-400'} text-[10px] font-bold uppercase`}>
+                        Opponent: {isPaid(oppPaymentStatus) ? 'Paid' : 'Unpaid'}
+                    </Text>
+                </View>
+            </View>
 
             {scores && (status === 'finalized' || status === 'completed') && (
                 <View className="flex-row gap-4 mb-4">

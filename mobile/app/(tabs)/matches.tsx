@@ -94,7 +94,7 @@ export default function MatchesScreen() {
         <SafeAreaView className="flex-1 bg-background">
             <View className="px-4 py-4 bg-background border-b border-white/5 items-center">
                 <Text className="text-gray-400 font-bold text-xs uppercase tracking-widest mb-1">Session Schedule</Text>
-                <Text className="text-white text-2xl font-bold tracking-wider uppercase text-center">
+                <Text className="text-foreground text-2xl font-bold tracking-wider uppercase text-center">
                     {activeSession?.name || 'Schedule'}
                 </Text>
                 <Text className="text-primary font-bold tracking-widest uppercase text-sm mt-1">

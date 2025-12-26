@@ -132,34 +132,59 @@ export async function getPlayerLifetimeStats(playerId: string) {
     const supabase = createAdminClient();
 
     // 1. Fetch All Finalized Matches for Player
+    // 1. Fetch All Matches for Player (Relaxed Filter)
+    // 1. Fetch All Matches for Player (Relaxed Filter)
     const { data: matches } = await supabase
         .from("matches")
-        .select("id, player1_id, player2_id, winner_id, current_points_p1, current_points_p2, points_8ball_p1, points_8ball_p2, points_9ball_p1, points_9ball_p2, status_8ball, status_9ball, winner_id_8ball, winner_id_9ball, is_forfeit")
-        .or(`player1_id.eq.${playerId},player2_id.eq.${playerId}`)
-        .or("status.eq.finalized,winner_id.not.is.null");
+        .select(`
+            id, 
+            status, 
+            winner_id, 
+            player1_id, 
+            player2_id,
+            points_8ball_p1, points_8ball_p2, 
+            points_9ball_p1, points_9ball_p2,
+            winner_id_8ball, winner_id_9ball,
+            status_8ball, status_9ball,
+            is_forfeit,
+            submitted_by
+        `)
+        .or(`player1_id.eq.${playerId},player2_id.eq.${playerId}`);
+
+    console.log(`[LifetimeStats] Found ${matches?.length} matches for ${playerId}`);
 
     if (!matches || matches.length === 0) {
         return {
             matchesPlayed: 0,
             matchesWon: 0,
             matchesLost: 0,
+            matchesLost: 0,
             totalPoints: 0,
             pointsPerMatch: "0.00",
             winRate: 0,
+            totalRacksPlayed: 0,
             matchesPlayed_8ball: 0,
             matchesWon_8ball: 0,
             matchesLost_8ball: 0,
             winRate_8ball: 0,
+            racksWon_8ball: 0,
+            racksPlayed_8ball: 0,
+
             matchesPlayed_9ball: 0,
             matchesWon_9ball: 0,
             matchesLost_9ball: 0,
             winRate_9ball: 0,
+            racksWon_9ball: 0,
+            racksPlayed_9ball: 0,
+            racklessSets_8ball: 0,
+            racklessSets_9ball: 0,
             breakAndRuns_8ball: 0,
             rackAndRuns_8ball: 0,
             breakAndRuns_9ball: 0,
             rackAndRuns_9ball: 0,
             winZips_9ball: 0,
             nineOnSnaps_9ball: 0,
+            breakPoint: 0 // Default for no matches
         };
     }
 
@@ -197,12 +222,27 @@ export async function getPlayerSessionStats(playerId: string, sessionId: string)
     const supabase = createAdminClient();
 
     // 1. Fetch Finalized Matches for Player in Session
+    // Fetch all matches for the player that are not just scheduled
     const { data: matches } = await supabase
         .from("matches")
-        .select("id, player1_id, player2_id, winner_id, current_points_p1, current_points_p2, points_8ball_p1, points_8ball_p2, points_9ball_p1, points_9ball_p2, status_8ball, status_9ball, winner_id_8ball, winner_id_9ball, is_forfeit")
+        .select(`
+            id, 
+            status, 
+            winner_id, 
+            player1_id, 
+            player2_id,
+            points_8ball_p1, points_8ball_p2, 
+            points_9ball_p1, points_9ball_p2,
+            winner_id_8ball, winner_id_9ball,
+            status_8ball, status_9ball,
+            is_forfeit,
+            submitted_by
+        `)
         .eq("league_id", sessionId)
         .or(`player1_id.eq.${playerId},player2_id.eq.${playerId}`)
-        .or("status.eq.finalized,winner_id.not.is.null");
+        .neq('status', 'scheduled'); // Get everything that isn't just scheduled
+
+    console.log(`[Stats] Found ${matches?.length} matches for ${playerId} (ignoring status filter)`);
 
     if (!matches || matches.length === 0) {
         return getInitStats(playerId, "Player");
@@ -572,4 +612,22 @@ export async function getGlobalLeaderboard(limit: number = 10) {
 
     if (limit > 0) return statsArray.slice(0, limit);
     return statsArray;
+}
+
+export async function getPlayerActiveLeagues(playerId: string) {
+    const supabase = createAdminClient();
+
+    const { data: memberships } = await supabase
+        .from("league_players")
+        .select("league_id, leagues(id, name, status, type, parent_league_id)")
+        .eq("player_id", playerId);
+
+    if (!memberships) return [];
+
+    // Filter to finding unique parent leagues or active sessions
+    // Ideally we show the User-Facing League Name.
+    // If it's a session, maybe show "Session Name (League Name)"?
+    // For now, just listed all attached leagues.
+
+    return memberships.map(m => m.leagues).filter(l => l !== null);
 }

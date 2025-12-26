@@ -145,7 +145,7 @@ export default function LeaderboardScreen() {
             <View className="p-4 bg-background border-b border-border items-center z-50">
 
                 <Text className="text-gray-400 font-bold text-xs uppercase tracking-widest mb-1">Session Leaderboard</Text>
-                <Text className="text-white text-2xl font-bold tracking-wider uppercase text-center">{sessionName || 'Session'}</Text>
+                <Text className="text-foreground text-2xl font-bold tracking-wider uppercase text-center">{sessionName || 'Session'}</Text>
                 <Text className="text-primary font-bold tracking-widest uppercase text-sm mt-1">{leagueName || 'Leaderboard'}</Text>
             </View>
 
@@ -192,8 +192,8 @@ export default function LeaderboardScreen() {
                                 style={{ height: ROW_HEIGHT }}
                                 className={`flex-row items-center px-2 border-b border-border ${item.id === userId ? 'bg-surface-hover' : ''}`}
                             >
-                                <Text className={`w-10 text-center font-bold text-sm ${item.rank === 1 ? 'text-primary' : 'text-white'}`}>{item.rank}</Text>
-                                <Text className="w-36 ml-2 text-white font-medium text-sm" numberOfLines={1}>{item.name}</Text>
+                                <Text className={`w-10 text-center font-bold text-sm ${item.rank === 1 ? 'text-primary' : 'text-foreground'}`}>{item.rank}</Text>
+                                <Text className="w-36 ml-2 text-foreground font-medium text-sm" numberOfLines={1}>{item.name}</Text>
                             </TouchableOpacity>
                         ))}
                     </View>
@@ -217,7 +217,7 @@ export default function LeaderboardScreen() {
                                 >
                                     <Text className="w-12 text-center text-gray-400 font-bold text-sm">{item.played}</Text>
                                     <Text className="w-14 text-center text-gray-300 font-bold text-sm">{item.winRate}%</Text>
-                                    <Text className="w-16 text-center text-white font-bold text-sm">{item.wins}-{item.played - item.wins}</Text>
+                                    <Text className="w-16 text-center text-foreground font-bold text-sm">{item.wins}-{item.played - item.wins}</Text>
                                     <Text className="w-12 text-center text-primary font-bold text-sm">{item.shutouts}</Text>
                                     <Text className="w-10 text-center text-primary font-bold text-sm">{item.breakPoint}</Text>
                                 </TouchableOpacity>
