@@ -73,8 +73,8 @@ export default async function PlayMatchPage({ params }: { params: Promise<{ id: 
                     leagueId={match.league_id}
                     backLink={`/dashboard?sessionId=${match.league_id}&view=player`}
                     backText="Return to Dashboard"
-                    p1BreakpointRating={p1Rating}
-                    p2BreakpointRating={p2Rating}
+                    p1BreakpointRating={parseFloat(p1Rating)}
+                    p2BreakpointRating={parseFloat(p2Rating)}
                     isLocked={lockStatus.locked}
                     lockReason={lockStatus.reason}
                 />
