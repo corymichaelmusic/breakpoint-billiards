@@ -204,7 +204,7 @@ export async function getPlayerLifetimeStats(playerId: string) {
     const currentRating = profile?.breakpoint_rating || 500;
 
     const stats = getInitStats(playerId, "Player");
-    stats.breakPoint = getBreakpointLevel(currentRating);
+    stats.breakPoint = parseFloat(getBreakpointLevel(currentRating));
 
     matches.forEach(match => {
         aggregateMatchStats(stats, match, playerId, allGames);
