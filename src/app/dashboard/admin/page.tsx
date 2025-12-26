@@ -106,7 +106,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                     {applications && applications.length > 0 ? (
                         <div style={{ display: "grid", gap: "1rem" }}>
                             {applications.map((app) => (
-                                <div style={{
+                                <div key={app.id} style={{
                                     display: "flex",
                                     justifyContent: "space-between",
                                     alignItems: "flex-start",
