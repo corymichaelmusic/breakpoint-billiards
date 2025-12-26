@@ -100,7 +100,7 @@ export async function getSessionStats(sessionId: string): Promise<PlayerStats[]>
 
         // Assign Calculated Breakpoint
         const finalRating = ratings.get(stat.playerId) || 500;
-        stat.breakPoint = getBreakpointLevel(finalRating);
+        stat.breakPoint = parseFloat(getBreakpointLevel(finalRating));
 
         return stat;
     });
