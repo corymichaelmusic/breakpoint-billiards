@@ -2,9 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-    apiVersion: '2025-12-15.clover' as any,
-});
+
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
@@ -13,6 +11,10 @@ export async function POST(req: Request) {
         console.error('STRIPE_WEBHOOK_SECRET is not set');
         return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
     }
+
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+        apiVersion: '2024-12-18.acacia' as any,
+    });
 
     const payload = await req.text();
     const sig = req.headers.get('stripe-signature');
