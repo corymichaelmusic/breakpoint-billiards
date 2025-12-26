@@ -12,39 +12,6 @@ interface PlayerStatsGraphProps {
 }
 
 export default function PlayerStatsGraph({ data }: PlayerStatsGraphProps) {
-    if (!data || data.length < 2) {
-        return (
-            <div className="card" style={{ padding: "2rem", textAlign: "center", color: "#888" }}>
-                Not enough data to show progress graph yet. Play more matches!
-            </div>
-        );
-    }
-
-    // Graph dimensions
-    const width = 600;
-    const height = 300;
-    const padding = 40;
-
-    // Scales
-    const maxRating = 10;
-    const minRating = 1;
-
-    const xScale = (index: number) => {
-        return padding + (index / (data.length - 1)) * (width - padding * 2);
-    };
-
-    const yScale = (value: number) => {
-        // Map 1-10 to height-0
-        return height - padding - ((value - minRating) / (maxRating - minRating)) * (height - padding * 2);
-    };
-
-    // Generate path
-    const pathD = data.map((point, i) => {
-        const x = xScale(i);
-        const y = yScale(point.rating);
-        return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-    }).join(' ');
-
     const [isMounted, setIsMounted] = React.useState(false);
 
     React.useEffect(() => {
@@ -55,6 +22,14 @@ export default function PlayerStatsGraph({ data }: PlayerStatsGraphProps) {
         return (
             <div className="card" style={{ padding: "1.5rem", marginBottom: "2rem", height: "300px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <span style={{ color: "#888" }}>Loading graph...</span>
+            </div>
+        );
+    }
+
+    if (!data || data.length < 2) {
+        return (
+            <div className="card" style={{ padding: "2rem", textAlign: "center", color: "#888" }}>
+                Not enough data to show progress graph yet. Play more matches!
             </div>
         );
     }
