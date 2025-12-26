@@ -8,8 +8,7 @@ export type PlayerStats = {
     totalPoints: number;
     pointsPerMatch: string;
     winRate: number;
-    pointsPerMatch: string;
-    winRate: number;
+
     breakPoint?: number;
     // New: Confidence Metric
     totalRacksPlayed: number;
