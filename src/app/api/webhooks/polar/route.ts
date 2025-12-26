@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { Webhooks } from '@polar-sh/sdk';
 
 export async function POST(req: Request) {
     const webhookSecret = process.env.POLAR_WEBHOOK_SECRET;
