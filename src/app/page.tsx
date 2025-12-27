@@ -35,7 +35,7 @@ export default async function Home() {
           {/* Logo Hero */}
           <div className="relative w-64 h-64 md:w-80 md:h-80 mx-auto filter drop-shadow-[0_0_60px_rgba(234,179,8,0.25)] hover:scale-105 transition-transform duration-700">
             <Image
-              src="/logo-triangle.png"
+              src="/logo-main.png"
               alt="Breakpoint Billiards"
               fill
               className="object-contain"
