@@ -38,7 +38,7 @@ export default async function Navbar() {
                 <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 1 }}>
                     <div className={styles.logoContainer}>
                         <Image
-                            src="/logo-header.png"
+                            src="/logo-header-v2.png"
                             alt="BREAKPOINT BILLIARDS"
                             fill
                             style={{ objectFit: 'contain', objectPosition: 'left' }}
