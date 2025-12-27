@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 :root {
   /* Premium Gold & Black Palette */
   --background: #050505;

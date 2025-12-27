@@ -44,30 +44,9 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         redirect("/dashboard/operator");
     }
 
-    // RESTRICTED PLAYER VIEW
-    if (userProfile.role === 'player') {
-        return (
-            <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-                <Navbar />
-                <div className="container" style={{ marginTop: "4rem", textAlign: "center", maxWidth: "600px" }}>
-                    <div className="card" style={{ padding: "3rem", border: "1px solid var(--primary)" }}>
-                        <h1 style={{ fontSize: "2rem", marginBottom: "1rem", color: "var(--primary)" }}>Mobile App Required</h1>
-                        <p style={{ color: "#888", fontSize: "1.1rem", marginBottom: "2rem" }}>
-                            The web dashboard is exclusively for League Operators and Administrators.
-                        </p>
-                        <p style={{ color: "#ccc", marginBottom: "2rem" }}>
-                            Please download the <strong>Breakpoint Billiards</strong> mobile app to manage your profile, view stats, and play matches.
-                        </p>
-                        <div style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
-                            <Link href="/" className="btn" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-                                Back to Home
-                            </Link>
-                        </div>
-                    </div>
-                </div>
-            </main>
-        );
-    }
+    // RESTRICTED PLAYER VIEW - HANDLED BY LAYOUT
+    // (Dead code removed)
+
 
     // 1. Check for League Organization Membership (to handle Pending state)
     const { data: orgMembership } = await supabase

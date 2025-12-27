@@ -69,64 +69,42 @@ export default function MatchScreen() {
                 { global: { headers: authHeader } }
             );
 
-            // Fetch Match + Players
-            const { data: matchData, error: matchError } = await supabaseAuthenticated
-                .from('matches')
-                .select(`
-                    *,
-                    player1:player1_id (id, full_name, nickname, avatar_url, breakpoint_rating, fargo_rating),
-                    player2:player2_id (id, full_name, nickname, avatar_url, breakpoint_rating, fargo_rating),
-                    league:league_id (
-                        name,
-                        parent_league:parent_league_id (name)
-                    )
-                `)
-                .eq('id', id)
-                .single();
+            // Optimized Single RPC Fetch
+            const { data: payload, error: rpcError } = await supabaseAuthenticated
+                .rpc('get_match_payload', { p_match_id: id });
 
-            if (matchError) throw matchError;
+            if (rpcError) throw rpcError;
+            if (!payload || !payload.match) throw new Error("Match not found");
 
-            // Validation Guard
-            if (!matchData?.player1 || !matchData?.player2) {
-                console.error("Match data missing players", matchData);
-                throw new Error("Match data is incomplete (missing players). Check your connection or match ID.");
+            const { match: matchRaw, league_players: lps, games: gamesData, league: leagueRaw } = payload;
+
+            const matchData = { ...matchRaw };
+
+            // Attach League Data
+            // Note: RPC currently returns basic league row. If parent_league name is needed, we might need to adjust.
+            // For now, we attach what we have.
+            matchData.league = leagueRaw;
+
+            // Find League Players
+            const lp1 = lps.find((lp: any) => lp.player_id === matchData.player1_id);
+            const lp2 = lps.find((lp: any) => lp.player_id === matchData.player2_id);
+
+            // Enrich Player 1
+            if (matchData.player1) {
+                matchData.player1.racks = lp1?.breakpoint_racks_played || 0;
+                matchData.player1.rating = matchData.player1.fargo_rating || matchData.player1.breakpoint_rating || BBRS.BBRS_INITIAL_RATING;
             }
 
-            // Fetch BBRS Ratings separately to avoid join issues
-            // (Wait until we have matchData to query ratings)
-            const playerIds = [matchData.player1.id, matchData.player2.id];
-            const { data: ratingData, error: ratingError } = await supabaseAuthenticated
-                .from('league_players')
-                .select('player_id, breakpoint_rating, breakpoint_racks_played')
-                .eq('league_id', matchData.league_id)
-                .in('player_id', playerIds);
-
-            // Attach Ratings to Player Objects
-            const lp1 = ratingData?.find((lp: any) => lp.player_id === matchData.player1.id);
-            const lp2 = ratingData?.find((lp: any) => lp.player_id === matchData.player2.id);
-
-            // Stats from League Players (Racks Played etc)
-            // Use local stats for racks if available, otherwise 0
-            matchData.player1.racks = lp1?.breakpoint_racks_played || 0;
-            matchData.player2.racks = lp2?.breakpoint_racks_played || 0;
-
-            // Ensure rating is present from profile join
-            // PRIORITY: Fargo Rating (User Request) > Breakpoint Rating > Default
-            matchData.player1.rating = matchData.player1.fargo_rating || matchData.player1.breakpoint_rating || BBRS.BBRS_INITIAL_RATING;
-            matchData.player2.rating = matchData.player2.fargo_rating || matchData.player2.breakpoint_rating || BBRS.BBRS_INITIAL_RATING;
+            // Enrich Player 2
+            if (matchData.player2) {
+                matchData.player2.racks = lp2?.breakpoint_racks_played || 0;
+                matchData.player2.rating = matchData.player2.fargo_rating || matchData.player2.breakpoint_rating || BBRS.BBRS_INITIAL_RATING;
+            }
 
             setMatch(matchData);
-
-            // Fetch Games
-            const { data: gamesData, error: gamesError } = await supabaseAuthenticated
-                .from('games')
-                .select('*')
-                .eq('match_id', id)
-                .order('game_number', { ascending: true });
-
-            if (gamesError) throw gamesError;
             setGames(gamesData || []);
             setLastSynced(new Date().toLocaleTimeString());
+
 
         } catch (error: any) {
             // Suppress network errors and expired tokens (transient)

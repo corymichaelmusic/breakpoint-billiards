@@ -1,103 +1,190 @@
 import Link from "next/link";
-import Navbar from "@/components/Navbar";
-import { auth } from "@clerk/nextjs/server";
 import Image from "next/image";
+import { auth } from "@clerk/nextjs/server";
+import Navbar from "@/components/Navbar";
 
-export default async function Home({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+export default async function Home() {
   const { userId } = await auth();
 
   return (
-    <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <Navbar />
+    <main className="min-h-screen flex flex-col bg-background text-foreground overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0a0a0a] to-black z-0 pointer-events-none" />
+
+      {/* Navigation Overlay */}
+      <nav className="relative z-10 w-full p-6 flex justify-between items-center container mx-auto">
+        <div className="w-12 h-12 relative opacity-80 hover:opacity-100 transition-opacity">
+          <Image src="/logo-gold.png" alt="Breakpoint Logo" fill className="object-contain" />
+        </div>
+        <div>
+          {userId ? (
+            <Link href="/dashboard" className="px-6 py-2 rounded-full border border-yellow-600/50 text-yellow-500 hover:bg-yellow-600/10 transition-all text-sm font-medium tracking-wide uppercase">
+              Go to Dashboard
+            </Link>
+          ) : (
+            <Link href="/sign-in" className="px-6 py-2 rounded-full border border-white/10 text-slate-300 hover:bg-white/5 hover:text-white hover:border-white/30 transition-all text-sm font-medium tracking-wide uppercase">
+              Operator Sign In
+            </Link>
+          )}
+        </div>
+      </nav>
 
       {/* Hero Section */}
-      <section style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        textAlign: 'center',
-        padding: '4rem 1rem',
-        background: 'radial-gradient(circle at center, #222 0%, #000 70%)'
-      }}>
-        <div className="container">
-          <div style={{ marginBottom: '4rem', position: 'relative', width: '100%', maxWidth: '800px', height: '400px', margin: '0 auto 4rem' }}>
+      <section className="relative z-10 flex flex-col items-center justify-start text-center px-4 pt-40 pb-40">
+        <div className="animate-fade-in-up flex flex-col items-center justify-center gap-12 w-full max-w-6xl mx-auto">
+
+          {/* Logo Hero */}
+          <div className="relative w-64 h-64 md:w-80 md:h-80 mx-auto filter drop-shadow-[0_0_60px_rgba(234,179,8,0.25)] hover:scale-105 transition-transform duration-700">
             <Image
               src="/logo-gold.png"
-              alt="Breakpoint Billiards Logo"
+              alt="Breakpoint Billiards"
               fill
-              style={{ objectFit: 'contain' }}
+              className="object-contain"
               priority
             />
           </div>
 
-          <p style={{
-            fontSize: '1.25rem',
-            color: '#888',
-            maxWidth: '800px',
-            margin: '0 auto 3rem',
-            fontFamily: 'var(--font-cinzel), serif',
-            lineHeight: '1.8'
-          }}>
-            A premium individual billiard league experience.<br />Become your best.
-          </p>
-
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-            <Link href={userId ? "/dashboard" : "/sign-up"} className="btn btn-primary" style={{ padding: '1rem 2rem', fontSize: '1.1rem' }}>
-              {userId ? "Go to Dashboard" : "Join the League"}
-            </Link>
-            {!userId && (
-              <Link href="/sign-in" className="btn" style={{
-                border: '1px solid var(--border)',
-                padding: '1rem 2rem',
-                fontSize: '1.1rem',
-                color: 'var(--foreground)'
-              }}>
-                Sign In
-              </Link>
-            )}
+          {/* Subtext Group */}
+          <div className="flex flex-col gap-3">
+            <p className="text-xl md:text-2xl text-[#F5D061] font-bold tracking-widest uppercase font-cinzel drop-shadow-md">
+              The premier individual billiard league experience
+            </p>
+            <div className="h-px w-32 bg-gradient-to-r from-transparent via-yellow-600/50 to-transparent mx-auto my-2" />
+            <p className="text-xl md:text-2xl text-yellow-50 font-medium tracking-wider uppercase text-shadow-sm">
+              No Sandbagging. Pure Competition. Real Money.
+            </p>
           </div>
 
-          {(await searchParams)?.applicationSubmitted === 'true' && (
-            <div style={{
-              marginTop: '2rem',
-              padding: '1rem',
-              background: 'rgba(16, 185, 129, 0.1)',
-              border: '1px solid rgba(16, 185, 129, 0.2)',
-              borderRadius: '0.5rem',
-              color: '#10B981',
-              maxWidth: '600px',
-              animation: 'fadeIn 0.5s ease-in'
-            }}>
-              <strong>Application Submitted!</strong><br />
-              Thank you for your interest. An administrator will review your application and contact you shortly.
+          {/* Badges Container */}
+          <div className="flex flex-wrap justify-center gap-6">
+            {/* Proving Grounds Badge */}
+            <div className="group relative inline-flex items-center gap-3 px-8 py-4 bg-black/40 border border-yellow-600/30 rounded-full backdrop-blur-md shadow-[0_0_20px_rgba(234,179,8,0.1)] hover:border-yellow-500/60 hover:shadow-[0_0_30px_rgba(234,179,8,0.2)] transition-all">
+              <span className="w-2.5 h-2.5 rounded-full bg-yellow-500 animate-pulse shadow-[0_0_10px_#EAB308]" />
+              <span className="text-xs md:text-sm font-bold tracking-[0.2em] text-yellow-500 uppercase">Proving Grounds for Serious Players</span>
             </div>
-          )}
 
-          <div style={{ marginTop: '2rem' }}>
-            <Link href="/become-operator" style={{
-              fontSize: '0.9rem',
-              color: '#666',
-              textDecoration: 'underline',
-              cursor: 'pointer'
-            }}>
-              Become a League Operator
-            </Link>
+            {/* Learning Grounds Badge */}
+            <div className="group relative inline-flex items-center gap-3 px-8 py-4 bg-black/40 border border-blue-600/30 rounded-full backdrop-blur-md shadow-[0_0_20px_rgba(59,130,246,0.1)] hover:border-blue-500/60 hover:shadow-[0_0_30px_rgba(59,130,246,0.2)] transition-all">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse shadow-[0_0_10px_#3B82F6]" />
+              <span className="text-xs md:text-sm font-bold tracking-[0.2em] text-blue-500 uppercase">Learning Grounds for Improving Players</span>
+            </div>
+          </div>
+
+          {/* Headline */}
+          <h1 className="text-6xl md:text-8xl font-black tracking-tight text-[#D4AF37] font-cinzel drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] leading-none bg-clip-text text-transparent bg-gradient-to-b from-[#F5D061] to-[#AD8A1F] mt-32">
+            ELEVATE YOUR GAME
+          </h1>
+        </div>
+      </section>
+
+      {/* Explicit Spacer to prevent layout collision */}
+      <div className="h-32 w-full" />
+
+      {/* Features Grid */}
+      <section className="relative z-10 pt-12 pb-24 bg-black/40 backdrop-blur-sm border-t border-white/5">
+        <div className="container mx-auto px-6">
+          <div className="grid md:grid-cols-3 gap-12 md:gap-20 text-center max-w-7xl mx-auto">
+
+            {/* Feature 1 */}
+            <div className="group p-10 rounded-3xl bg-white/[0.03] border border-white/5 hover:border-yellow-600/30 hover:bg-white/[0.05] transition-all duration-500 hover:-translate-y-2">
+              <div className="w-20 h-20 mx-auto mb-8 bg-gradient-to-br from-slate-900 to-black rounded-2xl flex items-center justify-center border border-white/10 group-hover:border-yellow-500/50 group-hover:shadow-[0_0_40px_rgba(234,179,8,0.15)] transition-all">
+                <svg className="w-10 h-10 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-4 font-cinzel">Dynamic Ratings</h3>
+              <p className="text-slate-400 leading-relaxed text-sm md:text-base">
+                Our proprietary <strong>Breakpoint Billiards Rating System (BBRS)</strong> focuses on your wins and loses, giving players an accurate rating and ensuring fair handicap races every time.
+              </p>
+            </div>
+
+            {/* Feature 2 */}
+            <div className="group p-10 rounded-3xl bg-white/[0.03] border border-white/5 hover:border-emerald-600/30 hover:bg-white/[0.05] transition-all duration-500 hover:-translate-y-2">
+              <div className="w-20 h-20 mx-auto mb-8 bg-gradient-to-br from-slate-900 to-black rounded-2xl flex items-center justify-center border border-white/10 group-hover:border-emerald-500/50 group-hover:shadow-[0_0_40px_rgba(16,185,129,0.15)] transition-all">
+                <svg className="w-10 h-10 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-4 font-cinzel">Money Leagues</h3>
+              <p className="text-slate-400 leading-relaxed text-sm md:text-base">
+                Compete for real cash prizes. All session fees and payouts are handled securely via Stripe, so you can focus on running racks.
+              </p>
+            </div>
+
+            {/* Feature 3 */}
+            <div className="group p-10 rounded-3xl bg-white/[0.03] border border-white/5 hover:border-purple-600/30 hover:bg-white/[0.05] transition-all duration-500 hover:-translate-y-2">
+              <div className="w-20 h-20 mx-auto mb-8 bg-gradient-to-br from-slate-900 to-black rounded-2xl flex items-center justify-center border border-white/10 group-hover:border-purple-500/50 group-hover:shadow-[0_0_40px_rgba(168,85,247,0.15)] transition-all">
+                <svg className="w-10 h-10 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-4 font-cinzel">Live Bounties</h3>
+              <p className="text-slate-400 leading-relaxed text-sm md:text-base">
+                Earn extra cash instantly for <strong>Break & Runs</strong>, <strong>9-on-the-Snap</strong>, and <strong>Shutouts</strong>. Track your bounty throughout the session and watch it grow.
+              </p>
+            </div>
+
           </div>
         </div>
       </section>
 
+      {/* Spacer for consistent rhythm */}
+      <div className="h-32 w-full" />
+
+      {/* Download CTA */}
+      <section className="relative z-10 pt-0 pb-32 text-center bg-gradient-to-t from-yellow-900/10 to-transparent">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-yellow-900/5 to-transparent pointer-events-none" />
+
+        {/* Content Wrapper with Flex Gap to prevent collapse */}
+        <div className="flex flex-col items-center gap-16 w-full px-4">
+          <h2 className="text-3xl md:text-5xl font-bold text-white font-cinzel leading-tight text-center">
+            Ready to Break?
+          </h2>
+
+          {/* CTA Text Group */}
+          <div className="flex flex-col items-center gap-6">
+            <p className="text-xl md:text-2xl font-cinzel text-slate-300">
+              <Link href="/become-operator" className="text-yellow-500 hover:text-yellow-400 transition-colors border-b border-yellow-500/30 hover:border-yellow-500">
+                Become an Operator
+              </Link>
+            </p>
+
+            <p className="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto text-center">
+              Download the Breakpoint Billiards app to join a league near you.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-8">
+            {/* iOS Store Button */}
+            <div className="relative w-48 h-16 cursor-pointer hover:scale-105 transition-transform duration-300">
+              <Image
+                src="/app-store-badge.png"
+                alt="Download on the App Store"
+                fill
+                className="object-contain"
+              />
+            </div>
+
+            {/* Android Store Button */}
+            <div className="relative w-48 h-16 cursor-pointer hover:scale-105 transition-transform duration-300">
+              <Image
+                src="/google-play-badge.png"
+                alt="Get it on Google Play"
+                fill
+                className="object-contain"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Spacer before footer */}
+      <div className="h-40 w-full" />
+
       {/* Footer */}
-      <footer style={{
-        padding: '2rem',
-        borderTop: '1px solid var(--border)',
-        textAlign: 'center',
-        color: '#666',
-        fontSize: '0.9rem',
-        marginTop: 'auto'
-      }}>
-        <p>&copy; {new Date().getFullYear()} Breakpoint Billiards. All rights reserved.</p>
+      <footer className="relative z-10 py-10 border-t border-white/5 bg-black text-center">
+        <p className="text-slate-600 text-sm">
+          &copy; {new Date().getFullYear()} Breakpoint Billiards. All rights reserved.
+        </p>
       </footer>
     </main>
   );
