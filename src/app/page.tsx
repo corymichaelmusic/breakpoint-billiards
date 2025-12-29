@@ -13,7 +13,7 @@ export default async function Home() {
       {/* Navigation Overlay */}
       <nav className="relative z-10 w-full p-6 flex justify-between items-center container mx-auto">
         <div className="w-12 h-12 relative opacity-80 hover:opacity-100 transition-opacity">
-          <Image src="/logo-gold.png" alt="Breakpoint Logo" fill className="object-contain" />
+          <Image src="/logo-nav-final.png" alt="Breakpoint Logo" fill className="object-contain" />
         </div>
         <div>
           {userId ? (
