@@ -2,7 +2,6 @@ import { createAdminClient } from "@/utils/supabase/admin";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Navbar from "@/components/Navbar";
-import styles from "./page.module.css";
 
 export default async function CreateLeaguePage() {
     const { userId } = await auth();
@@ -24,32 +23,32 @@ export default async function CreateLeaguePage() {
 
         if (error) {
             console.error("Error creating league:", error);
-            // Handle error (in a real app, use useFormState)
+            // In a real app, handle error
         } else {
             redirect("/dashboard/operator");
         }
     }
 
     return (
-        <main>
+        <main className="min-h-screen bg-background">
             <Navbar />
-            <div className="container" style={{ marginTop: "2rem", maxWidth: "600px" }}>
-                <h1>Create New League</h1>
-                <div className="card" style={{ marginTop: "1rem" }}>
-                    <form action={createLeague} className={styles.form}>
-                        <div className={styles.formGroup}>
-                            <label htmlFor="name">League Name</label>
+            <div className="container max-w-lg mt-20">
+                <div className="card-glass p-8">
+                    <h1 className="text-2xl font-bold text-primary mb-6">Create New League</h1>
+                    <form action={createLeague} className="space-y-6">
+                        <div className="space-y-2">
+                            <label htmlFor="name" className="text-sm font-bold text-gray-400 uppercase tracking-wide">League Name</label>
                             <input
                                 type="text"
                                 id="name"
                                 name="name"
                                 required
                                 placeholder="e.g. Monday Night 8-Ball"
-                                className={styles.input}
+                                className="input w-full bg-black/50 border-gray-700 focus:border-primary text-white"
                             />
                         </div>
-                        <div className={styles.actions}>
-                            <button type="submit" className="btn btn-primary">Create League</button>
+                        <div className="flex justify-end">
+                            <button type="submit" className="btn btn-primary w-full md:w-auto px-8">Create League</button>
                         </div>
                     </form>
                 </div>

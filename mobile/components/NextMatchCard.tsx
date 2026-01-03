@@ -171,7 +171,7 @@ export default function NextMatchCard({
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ type: 'match_fee', matchId })
+                body: JSON.stringify({ type: 'match_fee', matchId, source: 'mobile' })
             });
 
             console.log("PAYMENT DEBUG: Status", response.status);

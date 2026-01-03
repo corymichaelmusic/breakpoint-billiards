@@ -1,2 +1,2 @@
 
-select * from pg_policies where tablename = 'games';
+SELECT * FROM pg_policies WHERE tablename = 'profiles';

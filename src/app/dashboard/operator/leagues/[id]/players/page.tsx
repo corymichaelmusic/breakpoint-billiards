@@ -34,17 +34,13 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
     const allLeagueIds = [id, ...sessionIds];
 
     // Fetch players from Organization AND all sessions
-    // We need to join league_players with profiles
     const { data: players } = await adminClient
         .from("league_players")
         .select("*, profiles(*), leagues(name)")
         .in("league_id", allLeagueIds)
-        .in("league_id", allLeagueIds)
         .order("joined_at", { ascending: false });
 
-    console.log(`[LeaguePlayersPage] Fetched ${players?.length} records. Revalidating...`);
-
-    // Deduplicate players and aggregate session info
+    // Deduplicate players
     const uniquePlayers = new Map<string, any>();
 
     players?.forEach(p => {
@@ -58,13 +54,10 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
 
         const player = uniquePlayers.get(p.player_id);
 
-        // If this record is for the parent league, set main status
         if (p.league_id === id) {
             player.leagueStatus = p.status;
-            player.payment_status = p.payment_status; // Use league payment status as primary or show both?
-            // Let's keep the league payment status as the main one for now
+            player.payment_status = p.payment_status;
         } else {
-            // It's a session
             player.sessions.push({
                 name: p.leagues?.name,
                 status: p.status,
@@ -76,98 +69,76 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
     const playerList = Array.from(uniquePlayers.values());
 
     return (
-        <main>
+        <main className="min-h-screen bg-background">
             <Navbar />
-            <div className="container" style={{ marginTop: "2rem" }}>
-                <Link href="/dashboard/operator" style={{ marginBottom: "1rem", display: "inline-block", opacity: 0.7 }}>
-                    &larr; Back to Dashboard
-                </Link>
-                <h1 style={{ marginBottom: "2rem" }}>Player Database ({playerList.length})</h1>
+            <div className="container py-8 max-w-6xl">
+                <div className="flex justify-between items-center mb-6">
+                    <div>
+                        <Link href={`/dashboard/operator/leagues/${id}`} className="text-sm text-gray-500 hover:text-white transition-colors">&larr; Back to League</Link>
+                        <h1 className="text-3xl font-bold font-sans text-primary mt-2">Player Database</h1>
+                        <p className="text-gray-400">Total Players: {playerList.length}</p>
+                    </div>
+                </div>
 
-                <div className="card">
+                <div className="card-glass p-6">
                     {playerList.length > 0 ? (
-                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                            <thead>
-                                <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-                                    <th style={{ padding: "0.5rem" }}>Name</th>
-                                    <th style={{ padding: "0.5rem" }}>Email</th>
-                                    <th style={{ padding: "0.5rem" }}>Phone</th>
-                                    <th style={{ padding: "0.5rem" }}>Fargo</th>
-                                    <th style={{ padding: "0.5rem" }}>League Status</th>
-                                    <th style={{ padding: "0.5rem" }}>Active Sessions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {playerList.map((p) => (
-                                    <tr key={p.player_id} style={{ borderBottom: "1px solid var(--border)" }}>
-                                        <td style={{ padding: "0.5rem" }}>
-                                            <Link href={`/dashboard/operator/leagues/${id}/players/${p.player_id}`} style={{ fontWeight: "bold", color: "var(--primary)" }}>
-                                                {p.profiles?.full_name || "Unknown"}
-                                            </Link>
-                                        </td>
-                                        <td style={{ padding: "0.5rem" }}>{p.profiles?.email}</td>
-                                        <td style={{ padding: "0.5rem" }}>{p.profiles?.phone || "N/A"}</td>
-                                        <td style={{ padding: "0.5rem" }}>
-                                            <FargoEditor playerId={p.player_id} currentFargo={p.profiles?.fargo_rating} />
-                                        </td>
-                                        <td style={{ padding: "0.5rem" }}>
-                                            <span style={{
-                                                padding: "0.25rem 0.5rem",
-                                                borderRadius: "1rem",
-                                                fontSize: "0.8rem",
-                                                background: p.leagueStatus === 'active' ? 'var(--success)' : 'var(--surface)',
-                                                color: p.leagueStatus === 'active' ? '#000' : 'inherit'
-                                            }}>
-                                                {p.leagueStatus}
-                                            </span>
-                                        </td>
-                                        <td style={{ padding: "0.5rem" }}>
-                                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                                {p.sessions.map((s: any, idx: number) => {
-                                                    const isPaid = ['paid', 'paid_cash', 'paid_online'].includes(s.payment);
-                                                    const isWaived = s.payment === 'waived';
-                                                    const isUnpaid = s.payment === 'unpaid';
-
-                                                    let bg = "var(--surface)";
-                                                    let color = "inherit";
-                                                    let border = "1px solid var(--border)";
-
-                                                    if (isPaid) {
-                                                        bg = "rgba(34, 197, 94, 0.2)";
-                                                        color = "var(--success)";
-                                                        border = "1px solid var(--success)";
-                                                    } else if (isUnpaid) {
-                                                        bg = "rgba(239, 68, 68, 0.2)";
-                                                        color = "var(--error)";
-                                                        border = "1px solid var(--error)";
-                                                    } else if (isWaived) {
-                                                        bg = "transparent";
-                                                        color = "#888";
-                                                        border = "1px solid #666";
-                                                    }
-
-                                                    return (
-                                                        <span key={idx} style={{
-                                                            padding: "0.25rem 0.5rem",
-                                                            borderRadius: "0.5rem",
-                                                            fontSize: "0.75rem",
-                                                            border: border,
-                                                            background: bg,
-                                                            color: color
-                                                        }}>
-                                                            {s.name}
-                                                        </span>
-                                                    );
-                                                })}
-                                                {p.sessions.length === 0 && <span style={{ opacity: 0.5, fontSize: "0.8rem" }}>None</span>}
-                                            </div>
-                                        </td>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="border-b border-border text-gray-500 text-xs uppercase">
+                                        <th className="p-3 font-semibold">Name</th>
+                                        <th className="p-3 font-semibold">Contact</th>
+                                        <th className="p-3 font-semibold">Fargo</th>
+                                        <th className="p-3 font-semibold">Org Status</th>
+                                        <th className="p-3 font-semibold">Active Sessions</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="divide-y divide-border">
+                                    {playerList.map((p) => (
+                                        <tr key={p.player_id} className="hover:bg-white/5 transition-colors">
+                                            <td className="p-3 font-medium">
+                                                <Link href={`/dashboard/operator/leagues/${id}/players/${p.player_id}`} className="text-white hover:text-primary transition-colors font-bold">
+                                                    {p.profiles?.full_name || "Unknown"}
+                                                </Link>
+                                            </td>
+                                            <td className="p-3 text-sm text-gray-400">
+                                                <div>{p.profiles?.email}</div>
+                                                <div className="text-xs opacity-70">{p.profiles?.phone || "No Phone"}</div>
+                                            </td>
+                                            <td className="p-3">
+                                                <FargoEditor playerId={p.player_id} currentFargo={p.profiles?.fargo_rating} />
+                                            </td>
+                                            <td className="p-3">
+                                                <span className={`text-xs px-2 py-1 rounded font-bold uppercase tracking-wide border
+                                                    ${p.leagueStatus === 'active' ? 'bg-success/20 text-success border-success/30' : 'bg-surface text-gray-400 border-border'}`}>
+                                                    {p.leagueStatus}
+                                                </span>
+                                            </td>
+                                            <td className="p-3">
+                                                <div className="flex flex-wrap gap-2">
+                                                    {p.sessions.map((s: any, idx: number) => {
+                                                        const isPaid = ['paid', 'paid_cash', 'paid_online'].includes(s.payment);
+                                                        const isUnpaid = s.payment === 'unpaid';
+
+                                                        return (
+                                                            <span key={idx} className={`text-[10px] px-2 py-0.5 rounded border font-semibold
+                                                                ${isPaid ? 'bg-success/10 text-success border-success/30' :
+                                                                    isUnpaid ? 'bg-error/10 text-error border-error/50' :
+                                                                        'bg-surface text-gray-400 border-gray-600'}`}>
+                                                                {s.name}
+                                                            </span>
+                                                        );
+                                                    })}
+                                                    {p.sessions.length === 0 && <span className="text-gray-600 text-xs italic">None</span>}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     ) : (
-                        <p style={{ color: "#888", fontStyle: "italic" }}>No players found in database.</p>
+                        <div className="text-center py-12 text-gray-500 italic">No players found in database.</div>
                     )}
                 </div>
             </div>

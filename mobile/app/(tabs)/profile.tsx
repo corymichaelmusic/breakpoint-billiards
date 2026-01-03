@@ -7,6 +7,8 @@ import { createClient } from "@supabase/supabase-js";
 import QRCode from 'react-native-qrcode-svg';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
+import * as FileSystem from 'expo-file-system/legacy';
+import { decode } from 'base64-arraybuffer';
 
 const { width } = Dimensions.get('window');
 
@@ -125,29 +127,29 @@ export default function ProfileScreen() {
                 { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
             );
 
-            // 2. Upload via Backend Proxy (Local IP)
-            // Using found Local IP: 192.168.1.43
-            const API_URL = 'http://192.168.1.43:3000/api/upload-avatar';
+            // 2. Upload via Backend Proxy
+            // 2. Upload via Backend Proxy
+            // Force Production URL to avoid local IP timeouts
+            const API_URL = 'https://breakpoint-billiards.vercel.app/api/upload-avatar';
 
-            const formData = new FormData();
-            formData.append('userId', userId);
+            console.log("Attempting upload to Production:", API_URL);
 
-            // @ts-ignore
-            formData.append('file', {
-                uri: manipResult.uri,
-                name: 'avatar.jpg',
-                type: 'image/jpeg'
+            // 3. Native File Upload
+            const uploadResponse = await FileSystem.uploadAsync(API_URL, manipResult.uri, {
+                fieldName: 'file',
+                httpMethod: 'POST',
+                // FileSystemUploadType.MULTIPART = 1
+                uploadType: 1,
+                parameters: {
+                    userId: userId
+                }
             });
 
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                body: formData,
-                headers: { 'Accept': 'application/json' },
-            });
+            console.log("Upload Status:", uploadResponse.status);
 
-            const result = await response.json();
+            const result = JSON.parse(uploadResponse.body);
 
-            if (!response.ok) {
+            if (uploadResponse.status !== 200) {
                 throw new Error(result.error || 'Upload failed');
             }
 
@@ -163,7 +165,7 @@ export default function ProfileScreen() {
 
         } catch (e: any) {
             console.error("Upload Error:", e);
-            Alert.alert("Upload Failed", "Backend Error: " + e.message);
+            Alert.alert("Upload Failed", "Error: " + e.message);
         } finally {
             setUploading(false);
         }
@@ -189,6 +191,10 @@ export default function ProfileScreen() {
 
             setProfile((prev: any) => ({ ...prev, nickname: tempNickname || null }));
             setEditingNickname(false);
+
+            // Notify Header to update immediately
+            DeviceEventEmitter.emit('refreshProfile');
+
             Alert.alert("Success", "Nickname updated.");
         } catch (e: any) {
             Alert.alert("Error", e.message);

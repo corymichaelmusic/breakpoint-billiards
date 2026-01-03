@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Breakpoint Billiards",
+    "slug": "breakpoint-billiards",
     "scheme": "breakpoint-billiards",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -15,7 +15,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.breakpoint.billiards"
+      "bundleIdentifier": "com.corymichael.breakpointbilliards",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -31,6 +34,12 @@
     },
     "plugins": [
       "expo-router"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "3966e8df-bb98-4bf1-8f2e-ea5310944899"
+      }
+    }
   }
 }

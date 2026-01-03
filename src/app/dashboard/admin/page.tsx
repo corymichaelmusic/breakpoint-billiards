@@ -3,17 +3,14 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
-import { approveOperator, rejectOperator, createLeagueForOperator, updateSessionFeeStatus, approveApplication, rejectApplication, deleteApplication } from "@/app/actions/admin-actions";
+import { approveOperator, rejectOperator, createLeagueForOperator, updateSessionFeeStatus, approveApplication, rejectApplication, deleteApplication, deleteLeague, archiveLeague } from "@/app/actions/admin-actions";
 import { createAdminClient } from "@/utils/supabase/admin";
 import PlayerActions from "@/components/PlayerActions";
 import RoleSelector from "@/components/RoleSelector";
 import FinancialSettingsForm from "@/components/FinancialSettingsForm";
-
-import { deactivatePlayer, reactivatePlayer, deletePlayer } from "@/app/actions/admin-actions";
 import DeleteApplicationButton from "@/components/DeleteApplicationButton";
 
 export default async function AdminDashboard({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
-    // ... (signature)
     const { userId } = await auth();
     if (!userId) redirect("/sign-in");
 
@@ -24,7 +21,15 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     const supabase = await createClient();
 
     // Verify Admin Role (Double check)
-    // ...
+    const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userId)
+        .single();
+
+    if (profile?.role !== 'admin') {
+        redirect("/dashboard/operator");
+    }
 
     // Fetch Financial Settings
     const { data: settings } = await supabase
@@ -61,7 +66,8 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     const { data: leagues } = await supabase
         .from("leagues")
         .select("*, profiles(full_name, email)")
-        .eq("type", "league");
+        .eq("type", "league")
+        .in("status", ["active", "setup"]);
 
     // Fetch users based on filter
     let query = supabase
@@ -79,85 +85,74 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
 
 
     return (
-        <main>
+        <main className="min-h-screen flex flex-col bg-background text-foreground">
             <Navbar />
-            <div className="container" style={{ marginTop: "2rem" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
-                    <h1>Admin Dashboard</h1>
-                    <Link href="/dashboard?view=player" className="btn" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-                        Go to App Dashboard
-                    </Link>
+            <div className="container py-12 pb-24">
+                <div className="flex justify-between items-center mb-12">
+                    <div>
+                        <h1 className="text-3xl font-bold font-sans text-primary">Admin Dashboard</h1>
+                        <p className="text-sm text-gray-500 mt-1">System Overview & Management</p>
+                    </div>
                 </div>
 
                 {/* Operator Applications */}
-                <div className="card" style={{ marginBottom: "2rem", border: "1px solid var(--primary)" }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: "1rem" }}>
-                        <h2 style={{ color: "var(--primary)", marginBottom: 0 }}>
+                <div className="card-glass mb-16 border-primary/30">
+                    <div className="flex justify-between items-center mb-8 pb-4">
+                        <h2 className="text-xl font-bold text-primary flex items-center gap-2">
                             {showAllApps ? "All Operator Applications" : "Pending Operator Applications"}
+                            {!showAllApps && applications && applications.length > 0 && (
+                                <span className="bg-primary text-black text-xs px-2 py-0.5 rounded-full">{applications.length}</span>
+                            )}
                         </h2>
                         <Link
                             href={showAllApps ? "/dashboard/admin" : "/dashboard/admin?app_view=all"}
-                            className="btn"
-                            style={{ fontSize: '0.8rem', background: 'var(--surface)', border: '1px solid var(--border)' }}
+                            className="btn bg-surface hover:bg-surface-hover border border-border text-xs px-3 py-1"
                         >
                             {showAllApps ? "View Pending Only" : "View Application Archive"}
                         </Link>
                     </div>
+
                     {applications && applications.length > 0 ? (
-                        <div style={{ display: "grid", gap: "1rem" }}>
+                        <div className="grid gap-8">
                             {applications.map((app) => (
-                                <div key={app.id} style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "flex-start",
-                                    padding: "1rem",
-                                    background: "var(--background)",
-                                    borderRadius: "0.5rem",
-                                    flexWrap: "wrap",
-                                    gap: "1rem"
-                                }}>
-                                    <div style={{ flex: "1 1 300px" }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                            <div style={{ fontWeight: "bold", fontSize: '1.1rem' }}>{app.first_name} {app.last_name}</div>
-                                            <span style={{
-                                                fontSize: '0.7rem',
-                                                padding: '0.2rem 0.5rem',
-                                                borderRadius: '0.5rem',
-                                                background: app.status === 'approved' ? 'var(--success)' : app.status === 'rejected' ? 'var(--error)' : 'var(--warning)',
-                                                color: app.status === 'pending' ? '#000' : '#fff',
-                                                fontWeight: 'bold'
-                                            }}>
-                                                {app.status.toUpperCase()}
+                                <div key={app.id} className="bg-surface/50 p-6 rounded border border-transparent flex flex-col md:flex-row justify-between gap-8">
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-3 flex-wrap mb-4">
+                                            <div className="font-bold text-lg text-white">{app.first_name} {app.last_name}</div>
+                                            <span className={`text-xs px-2 py-1 rounded font-bold uppercase tracking-wide
+                                                ${app.status === 'approved' ? 'bg-success/20 text-success' :
+                                                    app.status === 'rejected' ? 'bg-error/20 text-error' :
+                                                        'bg-warning/20 text-warning'}`}>
+                                                {app.status}
                                             </span>
                                         </div>
-                                        <div style={{ fontSize: "0.9rem", color: "#888", marginBottom: '0.5rem' }}>
-                                            {app.email} • {app.phone}
+                                        <div className="text-sm text-gray-400 mb-4">
+                                            <span className="text-gray-300">{app.email}</span> • {app.phone}
                                         </div>
-                                        <div style={{ fontSize: "0.9rem" }}>
-                                            <strong>Location:</strong> {app.location} <br />
-                                            <strong>Target:</strong> {app.desired_league_location}
+                                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mb-4">
+                                            <div><span className="text-gray-500">Location:</span> {app.location}</div>
+                                            <div><span className="text-gray-500">Target Area:</span> {app.desired_league_location}</div>
                                         </div>
                                         {app.notes && (
-                                            <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#ccc', fontStyle: 'italic' }}>
+                                            <div className="mt-4 text-sm text-gray-400 italic bg-black/20 p-4 rounded">
                                                 "{app.notes}"
                                             </div>
                                         )}
                                     </div>
-                                    <div style={{ display: "flex", flexDirection: 'column', gap: "0.5rem", flex: "1 1 150px" }}>
-
+                                    <div className="flex flex-col gap-4 min-w-[140px]">
                                         {app.status === 'pending' && (
                                             <>
                                                 <form action={async () => {
                                                     'use server';
                                                     await approveApplication(app.id);
                                                 }}>
-                                                    <button type="submit" className="btn" style={{ background: "var(--success)", color: "#000", width: '100%' }}>Mark Approved</button>
+                                                    <button type="submit" className="btn w-full bg-success hover:bg-success/90 text-black font-bold text-sm py-3">Approve</button>
                                                 </form>
                                                 <form action={async () => {
                                                     'use server';
                                                     await rejectApplication(app.id);
                                                 }}>
-                                                    <button type="submit" className="btn" style={{ background: "var(--error)", color: "#fff", width: '100%' }}>Reject</button>
+                                                    <button type="submit" className="btn w-full bg-error/10 hover:bg-error border border-error text-error hover:text-white text-sm py-3">Reject</button>
                                                 </form>
                                             </>
                                         )}
@@ -167,23 +162,18 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                             ))}
                         </div>
                     ) : (
-                        <p style={{ color: "#888", fontStyle: "italic" }}>No applications found.</p>
+                        <div className="text-center py-12 text-gray-500 italic">No applications found.</div>
                     )}
                 </div>
 
+                <div className="h-5"></div>
+
                 {/* League Management */}
-                <div className="card" style={{ marginBottom: "2rem" }}>
-                    <h2 style={{ marginBottom: "1rem" }}>League Management</h2>
-                    <p style={{ marginBottom: "1rem", color: "#888" }}>Assign League Organizations to Approved Operators.</p>
+                <div className="card-glass mb-16">
+                    <h2 className="text-xl font-bold text-white mb-6 border-b border-transparent pb-4">League Management</h2>
+                    <p className="mb-6 text-gray-400 text-sm">Create Organization for Approved Operator</p>
 
-                    {/* ... (Existing League Management Code omitted from replacement for brevity, wait, I must preserve it if I replace the whole block) ... */}
-                    {/* Actually, I am replacing a huge chunk. I should be careful not to delete League Management logic. */}
-                    {/* I will use the tool to replace only relevant parts or ensure I copy everything back. */}
-                    {/* The prompt asks for START LINE 11 and END LINE 257 (nearly whole file). */}
-                    {/* I MUST include the League Management code I am overwriting. */}
-
-                    <div style={{ padding: "1.5rem", background: "var(--surface)", borderRadius: "0.5rem", border: "1px solid var(--border)" }}>
-                        <h3 style={{ marginTop: 0, marginBottom: "1rem" }}>Create New League Organization</h3>
+                    <div className="bg-surface/50 p-10 rounded border border-transparent">
                         <form action={async (formData) => {
                             'use server';
                             const operatorId = formData.get("operatorId") as string;
@@ -193,19 +183,19 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                             const state = formData.get("state") as string;
                             const schedule = formData.get("schedule") as string;
 
-                            if (!operatorId) return; // Should handle error better in real app
+                            if (!operatorId) return;
 
                             await createLeagueForOperator(operatorId, name, location, city, state, schedule);
-                        }} style={{ display: "grid", gap: "1rem" }}>
+                        }}>
 
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                                    <label style={{ fontSize: "0.9rem", fontWeight: "bold" }}>League Name</label>
-                                    <input name="name" placeholder="e.g. Tarrant County Billiards" required style={{ padding: "0.5rem", borderRadius: "0.25rem", border: "1px solid #ccc" }} />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-16 mb-16">
+                                <div className="space-y-4">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">League Name</label>
+                                    <input name="name" placeholder="e.g. Tarrant County Billiards" required className="input bg-black/50 border-transparent focus:border-primary h-12" />
                                 </div>
-                                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                                    <label style={{ fontSize: "0.9rem", fontWeight: "bold" }}>Operator</label>
-                                    <select name="operatorId" required style={{ padding: "0.5rem", borderRadius: "0.25rem", border: "1px solid #ccc" }}>
+                                <div className="space-y-4">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Operator</label>
+                                    <select name="operatorId" required className="input bg-black/50 border-transparent focus:border-primary text-sm py-3">
                                         <option value="">Select an Operator...</option>
                                         {approvedOperators?.map(op => (
                                             <option key={op.id} value={op.id}>
@@ -216,18 +206,18 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                                 </div>
                             </div>
 
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem" }}>
-                                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                                    <label style={{ fontSize: "0.9rem", fontWeight: "bold" }}>Venue / Location</label>
-                                    <input name="location" placeholder="e.g. Rusty's Billiards" required style={{ padding: "0.5rem", borderRadius: "0.25rem", border: "1px solid #ccc" }} />
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-16 mb-16">
+                                <div className="space-y-4">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Venue</label>
+                                    <input name="location" placeholder="e.g. Rusty's Billiards" required className="input bg-black/50 border-transparent focus:border-primary h-12" />
                                 </div>
-                                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                                    <label style={{ fontSize: "0.9rem", fontWeight: "bold" }}>City</label>
-                                    <input name="city" placeholder="e.g. Fort Worth" required style={{ padding: "0.5rem", borderRadius: "0.25rem", border: "1px solid #ccc" }} />
+                                <div className="space-y-4">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">City</label>
+                                    <input name="city" placeholder="e.g. Fort Worth" required className="input bg-black/50 border-transparent focus:border-primary h-12" />
                                 </div>
-                                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                                    <label style={{ fontSize: "0.9rem", fontWeight: "bold" }}>State</label>
-                                    <select name="state" required style={{ padding: "0.5rem", borderRadius: "0.25rem", border: "1px solid #ccc" }}>
+                                <div className="space-y-4">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">State</label>
+                                    <select name="state" required className="input bg-black/50 border-transparent focus:border-primary text-sm py-3">
                                         <option value="">State</option>
                                         {['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'].map(s => (
                                             <option key={s} value={s}>{s}</option>
@@ -236,10 +226,10 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                                 </div>
                             </div>
 
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "1rem", alignItems: "end" }}>
-                                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                                    <label style={{ fontSize: "0.9rem", fontWeight: "bold" }}>Schedule Day (Primary)</label>
-                                    <select name="schedule" required style={{ padding: "0.5rem", borderRadius: "0.25rem", border: "1px solid #ccc" }}>
+                            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-16 items-end">
+                                <div className="space-y-4">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Primary Schedule Day</label>
+                                    <select name="schedule" required className="input bg-black/50 border-transparent focus:border-primary text-sm py-3">
                                         <option value="Monday">Monday</option>
                                         <option value="Tuesday">Tuesday</option>
                                         <option value="Wednesday">Wednesday</option>
@@ -249,109 +239,127 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                                         <option value="Sunday">Sunday</option>
                                     </select>
                                 </div>
-                                <button type="submit" className="btn btn-primary" style={{ height: "38px" }}>Create League</button>
+                                <button type="submit" className="btn btn-primary h-12 px-10 text-lg">Create League</button>
                             </div>
                         </form>
                     </div>
 
-                    <h3 style={{ marginTop: "2rem", marginBottom: "1rem" }}>Active Organizations & Sessions</h3>
-                    <div style={{ display: "grid", gap: "1rem" }}>
-                        {leagues?.map((l) => (
-                            <div key={l.id} style={{ padding: "1rem", border: "1px solid var(--border)", borderRadius: "0.5rem" }}>
-                                <div style={{ fontWeight: "bold", marginBottom: "0.5rem" }}>
-                                    {l.name} <span style={{ fontWeight: "normal", color: "#888" }}>- {l.profiles?.full_name} ({l.location})</span>
-                                </div>
+                    <div className="h-24 w-full">{/* Spacer */}</div>
 
-                                {/* Fetch and display sessions for this league */}
+                    <h3 className="text-xl font-bold text-gray-300 mb-8">Active Organizations</h3>
+                    <div className="grid gap-6">
+                        {leagues?.map((l) => (
+                            <div key={l.id} className="p-6 border border-transparent rounded bg-surface/30">
+                                <div className="flex justify-between items-center mb-4">
+                                    <div className="font-bold text-white text-lg">
+                                        {l.name} <span className="font-normal text-gray-500">- {l.profiles?.full_name} ({l.location})</span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="text-xs text-primary uppercase font-bold tracking-wider mr-2">{l.schedule_day}s</div>
+                                        <form action={async () => {
+                                            'use server';
+                                            await archiveLeague(l.id);
+                                        }}>
+                                            <button className="btn h-8 text-[10px] uppercase tracking-widest px-3 border !border-yellow-500/50 !text-yellow-500 hover:!bg-yellow-500/10 hover:!text-yellow-400 hover:!border-yellow-400 transition-colors">Archive</button>
+                                        </form>
+                                        <form action={async () => {
+                                            'use server';
+                                            await deleteLeague(l.id);
+                                        }}>
+                                            <button className="btn h-8 text-[10px] uppercase tracking-widest px-3 border !border-red-500/50 !text-red-500 hover:!bg-red-500/10 hover:!text-red-400 hover:!border-red-400 transition-colors">Delete</button>
+                                        </form>
+                                    </div>
+                                </div>
                                 <SuspenseSessions leagueId={l.id} />
                             </div>
                         ))}
                     </div>
                 </div>
 
+                <div className="h-5"></div>
+
                 {/* Financial Settings */}
-                <div className="card" style={{ marginBottom: "2rem", border: "1px solid var(--primary)" }}>
-                    <h2 style={{ color: "var(--primary)", marginBottom: "1rem" }}>Financial Settings</h2>
+                <div className="card-glass mb-16 border-primary/30">
+                    <h2 className="text-xl font-bold text-primary mb-6 border-b border-transparent pb-4">Financial Settings</h2>
                     <FinancialSettingsForm sessionFee={sessionFee} creationFee={creationFee} leaderboardLimit={leaderboardLimit} />
                 </div>
 
+                <div className="h-5"></div>
+
                 {/* Player Database */}
-                <div className="card" style={{ marginTop: "2rem" }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                        <h2 style={{ marginBottom: 0 }}>Player Database</h2>
-                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                            <div style={{ marginRight: "1rem", display: "flex", gap: "0.25rem", fontSize: "0.9rem" }}>
-                                <span style={{ marginRight: "0.5rem", color: "#888" }}>Role:</span>
-                                <Link href={`/dashboard/admin?player_status=${playerView}&role_filter=player`} style={{ fontWeight: roleFilter === 'player' ? 'bold' : 'normal', textDecoration: 'underline' }}>Player</Link>
-                                <span>|</span>
-                                <Link href={`/dashboard/admin?player_status=${playerView}&role_filter=operator`} style={{ fontWeight: roleFilter === 'operator' ? 'bold' : 'normal', textDecoration: 'underline' }}>Operator</Link>
-                                <span>|</span>
-                                <Link href={`/dashboard/admin?player_status=${playerView}&role_filter=admin`} style={{ fontWeight: roleFilter === 'admin' ? 'bold' : 'normal', textDecoration: 'underline' }}>Admin</Link>
-                                <span>|</span>
-                                <Link href={`/dashboard/admin?player_status=${playerView}&role_filter=all`} style={{ fontWeight: roleFilter === 'all' ? 'bold' : 'normal', textDecoration: 'underline' }}>All</Link>
+                <div className="card-glass">
+                    <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-6">
+                        <h2 className="text-xl font-bold text-white m-0">Player Database</h2>
+                        <div className="flex flex-wrap gap-2 items-center text-sm">
+                            <span className="text-gray-500 mr-2">Filter:</span>
+                            <div className="flex bg-surface rounded p-1 border border-transparent">
+                                {['player', 'operator', 'admin', 'all'].map((role) => (
+                                    <Link
+                                        key={role}
+                                        href={`/dashboard/admin?player_status=${playerView}&role_filter=${role}`}
+                                        className={`px-3 py-1 rounded text-xs uppercase font-bold transition-colors ${roleFilter === role ? 'bg-primary text-black' : 'text-gray-400 hover:text-white'}`}
+                                    >
+                                        {role}
+                                    </Link>
+                                ))}
                             </div>
-                            <Link
-                                href={`/dashboard/admin?player_status=active&role_filter=${roleFilter}`}
-                                className="btn"
-                                style={{
-                                    background: playerView === 'active' ? 'var(--primary)' : 'transparent',
-                                    color: playerView === 'active' ? 'var(--primary-foreground)' : 'var(--foreground)',
-                                    border: '1px solid var(--border)'
-                                }}
-                            >
-                                Active
-                            </Link>
-                            <Link
-                                href={`/dashboard/admin?player_status=deactivated&role_filter=${roleFilter}`}
-                                className="btn"
-                                style={{
-                                    background: playerView === 'deactivated' ? 'var(--primary)' : 'transparent',
-                                    color: playerView === 'deactivated' ? 'var(--primary-foreground)' : 'var(--foreground)',
-                                    border: '1px solid var(--border)'
-                                }}
-                            >
-                                Deactivated
-                            </Link>
+                            <div className="w-px h-6 bg-white/5 mx-2"></div>
+                            <div className="flex bg-surface rounded p-1 border border-transparent">
+                                <Link
+                                    href={`/dashboard/admin?player_status=active&role_filter=${roleFilter}`}
+                                    className={`px-3 py-1 rounded text-xs uppercase font-bold transition-colors ${playerView === 'active' ? 'bg-success text-black' : 'text-gray-400 hover:text-white'}`}
+                                >
+                                    Active
+                                </Link>
+                                <Link
+                                    href={`/dashboard/admin?player_status=deactivated&role_filter=${roleFilter}`}
+                                    className={`px-3 py-1 rounded text-xs uppercase font-bold transition-colors ${playerView === 'deactivated' ? 'bg-error text-white' : 'text-gray-400 hover:text-white'}`}
+                                >
+                                    Deactivated
+                                </Link>
+                            </div>
                         </div>
                     </div>
 
-                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                        <thead>
-                            <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-                                <th style={{ padding: "0.5rem" }}>Name</th>
-                                <th style={{ padding: "0.5rem" }}>Email</th>
-                                <th style={{ padding: "0.5rem" }}>Role</th>
-                                <th style={{ padding: "0.5rem" }}>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {displayedPlayers?.map((player) => (
-                                <tr key={player.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                                    <td style={{ padding: "0.5rem" }}>{player.full_name}</td>
-                                    <td style={{ padding: "0.5rem" }}>{player.email}</td>
-                                    <td style={{ padding: "0.5rem" }}>
-                                        <RoleSelector userId={player.id} currentRole={player.role} />
-                                    </td>
-                                    <td style={{ padding: "0.5rem", display: 'flex', gap: '0.5rem' }}>
-                                        <Link href={`/dashboard/admin/players/${player.id}`} className="btn" style={{ fontSize: "0.8rem", padding: "0.25rem 0.5rem", border: "1px solid var(--border)" }}>
-                                            View
-                                        </Link>
-                                        <PlayerActions playerId={player.id} isActive={player.is_active !== false} />
-                                    </td>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="border-b border-transparent text-gray-500 text-sm uppercase">
+                                    <th className="p-3 font-semibold">Name</th>
+                                    <th className="p-3 font-semibold">Email</th>
+                                    <th className="p-3 font-semibold">Role</th>
+                                    <th className="p-3 font-semibold">Actions</th>
                                 </tr>
-                            ))}
-                            {displayedPlayers?.length === 0 && (
-                                <tr>
-                                    <td colSpan={4} style={{ padding: "1rem", textAlign: "center", color: "#888" }}>
-                                        No {playerView} players found.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {displayedPlayers?.map((player) => (
+                                    <tr key={player.id} className="hover:bg-white/5 transition-colors">
+                                        <td className="p-3 font-medium text-white">{player.full_name}</td>
+                                        <td className="p-3 text-gray-400">{player.email}</td>
+                                        <td className="p-3">
+                                            <RoleSelector userId={player.id} currentRole={player.role} />
+                                        </td>
+                                        <td className="p-3 flex gap-2">
+                                            <Link href={`/dashboard/admin/players/${player.id}`} className="btn text-xs px-2 py-1 bg-surface border border-transparent hover:border-white">
+                                                View
+                                            </Link>
+                                            <PlayerActions playerId={player.id} isActive={player.is_active !== false} />
+                                        </td>
+                                    </tr>
+                                ))}
+                                {displayedPlayers?.length === 0 && (
+                                    <tr>
+                                        <td colSpan={4} className="p-8 text-center text-gray-500 italic">
+                                            No {playerView} players found matching criteria.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-        </main>
+        </main >
     );
 }
 
@@ -364,43 +372,38 @@ async function SuspenseSessions({ leagueId }: { leagueId: string }) {
         .order("created_at", { ascending: false });
 
     if (!sessions || sessions.length === 0) {
-        return <div style={{ fontSize: "0.9rem", color: "#888", marginLeft: "1rem" }}>No sessions yet.</div>;
+        return <div className="text-sm text-gray-600 ml-4 italic">No sessions yet.</div>;
     }
 
     return (
-        <div style={{ marginLeft: "1rem", borderLeft: "2px solid var(--border)", paddingLeft: "1rem" }}>
+        <div className="ml-4 border-l border-transparent pl-4 mt-2 space-y-2">
             {sessions.map(s => (
-                <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-                    <div>
-                        <span style={{ fontWeight: 500 }}>{s.name}</span>
-                        <span style={{ fontSize: "0.8rem", marginLeft: "0.5rem", color: s.status === 'active' ? 'var(--success)' : '#888' }}>
-                            {s.status.toUpperCase()}
+                <div key={s.id} className="flex justify-between items-center text-sm">
+                    <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-300">{s.name}</span>
+                        <span className={`text-[10px] px-1.5 rounded uppercase font-bold
+                            ${s.status === 'active' ? 'bg-success/20 text-success' : 'bg-gray-800 text-gray-500'}`}>
+                            {s.status}
                         </span>
-                        <span style={{
-                            fontSize: "0.8rem",
-                            marginLeft: "0.5rem",
-                            padding: "0.1rem 0.4rem",
-                            borderRadius: "0.5rem",
-                            background: s.creation_fee_status === 'unpaid' ? 'var(--error)' : 'var(--success)',
-                            color: s.creation_fee_status === 'unpaid' ? '#fff' : '#000'
-                        }}>
+                        <span className={`text-[10px] px-1.5 rounded uppercase font-bold
+                            ${s.creation_fee_status === 'unpaid' ? 'bg-error text-white' : 'bg-success/20 text-success'}`}>
                             Fee: {s.creation_fee_status}
                         </span>
                     </div>
-                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <div className="flex gap-2">
                         {s.creation_fee_status === 'unpaid' && (
                             <>
                                 <form action={async () => {
                                     'use server';
                                     await updateSessionFeeStatus(s.id, 'paid');
                                 }}>
-                                    <button className="btn" style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem", background: "var(--success)", color: "#000" }}>Mark Paid</button>
+                                    <button className="text-xs bg-success text-black px-2 py-0.5 rounded hover:opacity-80">Mark Paid</button>
                                 </form>
                                 <form action={async () => {
                                     'use server';
                                     await updateSessionFeeStatus(s.id, 'waived');
                                 }}>
-                                    <button className="btn" style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem", background: "var(--surface)", border: "1px solid var(--border)" }}>Waive</button>
+                                    <button className="text-xs bg-surface border border-border text-gray-400 px-2 py-0.5 rounded hover:text-white">Waive</button>
                                 </form>
                             </>
                         )}

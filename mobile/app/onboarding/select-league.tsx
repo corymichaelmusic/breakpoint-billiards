@@ -152,7 +152,14 @@ export default function SelectLeagueScreen() {
 
     return (
         <SafeAreaView className="flex-1 bg-background">
-            <View className="px-4 py-8 items-center bg-background border-b border-border/50">
+            <View className="px-4 py-8 items-center bg-background border-b border-border/50 relative">
+                <TouchableOpacity
+                    onPress={() => router.back()}
+                    className="absolute left-4 top-8 p-2 z-10"
+                >
+                    <FontAwesome5 name="chevron-left" size={20} color="#D4AF37" />
+                </TouchableOpacity>
+
                 <Image
                     source={require('../../assets/branding.png')}
                     style={{ width: 180, height: 40, marginBottom: 16 }}

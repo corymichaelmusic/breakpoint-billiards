@@ -21,7 +21,7 @@ export default async function LeagueSettingsPage({ params }: { params: Promise<{
         .single();
 
     if (!league) {
-        return <div>League not found</div>;
+        return <div className="text-white p-8">League not found</div>;
     }
 
     const { data: profile } = await supabase
@@ -33,15 +33,15 @@ export default async function LeagueSettingsPage({ params }: { params: Promise<{
     const isAdmin = profile?.role === 'admin';
 
     return (
-        <main>
+        <main className="min-h-screen bg-background">
             <Navbar />
-            <div className="container" style={{ marginTop: "2rem", maxWidth: "600px" }}>
-                <Link href={`/dashboard/operator/leagues/${id}`} style={{ fontSize: "0.9rem", opacity: 0.7, display: 'block', marginBottom: '1rem' }}>
+            <div className="container max-w-2xl mt-20">
+                <Link href={`/dashboard/operator/leagues/${id}`} className="text-sm text-gray-500 hover:text-white transition-colors mb-4 block">
                     &larr; Back to League
                 </Link>
 
-                <div className="card" style={{ padding: "2rem" }}>
-                    <h1 style={{ marginBottom: "2rem" }}>Edit League Details</h1>
+                <div className="card-glass p-8">
+                    <h1 className="text-2xl font-bold font-sans text-primary mb-6">Edit League Details</h1>
                     <LeagueSettingsForm league={league} isAdmin={isAdmin} />
                 </div>
             </div>

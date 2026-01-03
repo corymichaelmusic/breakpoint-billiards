@@ -4,12 +4,12 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import { redirect } from "next/navigation";
 import UnlockRequestAction from "@/components/UnlockRequestAction";
+import { createAdminClient } from "@/utils/supabase/admin";
 
 export default async function OperatorDashboard() {
     const { userId } = await auth();
     if (!userId) redirect("/sign-in");
 
-    const { createAdminClient } = await import("@/utils/supabase/admin");
     const supabase = createAdminClient();
 
     // Check Operator Status
@@ -19,20 +19,17 @@ export default async function OperatorDashboard() {
         .eq("id", userId)
         .single();
 
-    console.log("Operator Dashboard - User:", userId);
-    console.log("Operator Status:", profile?.operator_status);
-
     if (profile?.operator_status === 'pending') {
         return (
-            <main>
+            <main className="min-h-screen flex flex-col">
                 <Navbar />
-                <div className="container" style={{ marginTop: "4rem", textAlign: "center", maxWidth: "600px" }}>
-                    <div className="card" style={{ padding: "3rem" }}>
-                        <h1 style={{ fontSize: "2rem", marginBottom: "1rem", color: "var(--primary)" }}>Application Pending</h1>
-                        <p style={{ color: "#888", fontSize: "1.1rem" }}>
+                <div className="container max-w-xl mt-20 text-center">
+                    <div className="card-glass p-12">
+                        <h1 className="text-3xl text-primary mb-4 font-serif">Application Pending</h1>
+                        <p className="text-lg text-gray-400">
                             Your application to become a League Operator is under review.
                         </p>
-                        <p style={{ color: "#666", marginTop: "1rem", fontSize: "0.9rem" }}>
+                        <p className="text-sm text-gray-500 mt-4">
                             An administrator will review your request shortly.
                         </p>
                     </div>
@@ -43,12 +40,12 @@ export default async function OperatorDashboard() {
 
     if (profile?.operator_status === 'rejected') {
         return (
-            <main>
+            <main className="min-h-screen flex flex-col">
                 <Navbar />
-                <div className="container" style={{ marginTop: "4rem", textAlign: "center", maxWidth: "600px" }}>
-                    <div className="card" style={{ padding: "3rem", border: "1px solid var(--error)" }}>
-                        <h1 style={{ fontSize: "2rem", marginBottom: "1rem", color: "var(--error)" }}>Application Rejected</h1>
-                        <p style={{ color: "#888", fontSize: "1.1rem" }}>
+                <div className="container max-w-xl mt-20 text-center">
+                    <div className="card-glass p-12 border-error/50">
+                        <h1 className="text-3xl text-error mb-4 font-serif">Application Rejected</h1>
+                        <p className="text-lg text-gray-400">
                             Your application to become a League Operator was not approved.
                         </p>
                     </div>
@@ -65,13 +62,10 @@ export default async function OperatorDashboard() {
         .eq("type", "league")
         .order("created_at", { ascending: true });
 
-    console.log("League Orgs Fetch:", leagueOrgs?.length, "Error:", orgError);
-
     // Fetch All Sessions for these leagues to check for pending requests
     const leagueIds = leagueOrgs?.map(l => l.id) || [];
 
     // Fetch pending requests for these leagues AND their sessions
-    // We need to find all sessions that belong to these leagues first
     const { data: allSessions } = await supabase
         .from("leagues")
         .select("id, parent_league_id")
@@ -122,38 +116,47 @@ export default async function OperatorDashboard() {
         .eq("status", "pending_operator");
 
     return (
-        <main>
+        <main className="min-h-screen flex flex-col bg-background">
             <Navbar />
-            <div className="container" style={{ marginTop: "2rem" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
-                    <h1>Your Leagues</h1>
+            <div className="container py-12 pb-24">
+
+                <div className="flex justify-between items-center mb-12">
+                    <div>
+                        <h1 className="text-3xl font-bold font-sans text-primary">Operator Dashboard</h1>
+                        <p className="text-sm text-gray-500 mt-1">Manage your leagues and player requests</p>
+                    </div>
                 </div>
 
                 {/* Unlock Requests Section */}
                 {/* @ts-ignore */}
                 {unlockRequests && unlockRequests.length > 0 && (
-                    <div style={{ marginBottom: "3rem" }}>
-                        <h2 style={{ fontSize: "1.5rem", marginBottom: "1rem", color: "var(--primary)" }}>Unlock Requests</h2>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                    <div className="mb-16">
+                        <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                            Unlock Requests
+                            <span className="bg-primary text-black text-xs px-2 py-0.5 rounded-full font-bold">
+                                {unlockRequests.length}
+                            </span>
+                        </h2>
+                        <div className="grid gap-6">
                             {unlockRequests.map((req) => (
-                                <div key={req.id} className="card" style={{ padding: "1.5rem", borderLeft: "4px solid var(--warning)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                    <div>
-                                        <div style={{ fontSize: "0.8rem", color: "var(--primary)", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                <div key={req.id} className="card-glass p-10 border-l-4 border-l-yellow-500 flex flex-col md:flex-row justify-between items-center gap-6">
+                                    <div className="flex-1">
+                                        <div className="text-xs text-primary font-bold uppercase tracking-wider mb-2">
                                             {/* @ts-ignore */}
                                             {req.match?.league?.parent_league?.name || 'Unknown League'}
                                         </div>
-                                        <div style={{ fontSize: "0.9rem", color: "#fff", marginBottom: "0.25rem", fontWeight: "bold" }}>
+                                        <div className="text-lg font-bold text-white mb-2">
                                             {/* @ts-ignore */}
-                                            {req.match?.league?.name || 'Unknown Session'} • Week {req.match?.week_number}
+                                            {req.match?.league?.name} • Week {req.match?.week_number}
                                         </div>
-                                        <div style={{ fontWeight: "bold", marginBottom: "0.25rem", marginTop: "0.5rem" }}>
+                                        <div className="font-semibold text-gray-300 mb-4">
                                             {/* @ts-ignore */}
                                             {req.match?.player1?.full_name} vs {req.match?.player2?.full_name}
                                         </div>
-                                        <div style={{ fontSize: "0.9rem", color: "#666" }}>
-                                            Requested by: {req.requester?.full_name}
+                                        <div className="text-sm text-gray-400">
+                                            Requested by: <span className="text-white">{req.requester?.full_name}</span>
                                         </div>
-                                        <div style={{ fontSize: "0.9rem", color: "#888", fontStyle: "italic", marginTop: "0.5rem" }}>
+                                        <div className="text-sm text-gray-500 italic mt-2 bg-surface/50 p-4 rounded max-w-md">
                                             "{req.reason}"
                                         </div>
                                     </div>
@@ -166,60 +169,78 @@ export default async function OperatorDashboard() {
                     </div>
                 )}
 
+                {/* League Grid */}
+                <h2 className="text-xl font-bold text-white mb-8 border-b border-transparent pb-4">Your Leagues</h2>
+
                 {leagueOrgs && leagueOrgs.length > 0 ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4rem" }}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {leagueOrgs.map(leagueOrg => {
                             const pendingCount = pendingCounts[leagueOrg.id] || 0;
 
                             return (
-                                <div key={leagueOrg.id}>
-                                    <Link href={`/dashboard/operator/leagues/${leagueOrg.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                                        <div className="card hover-effect" style={{ marginBottom: "2rem", border: "1px solid var(--primary)", cursor: 'pointer' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <div>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: "0.5rem" }}>
-                                                        <h2 style={{ color: "var(--primary)", margin: 0 }}>{leagueOrg.name}</h2>
-                                                        {pendingCount > 0 && (
-                                                            <span style={{
-                                                                background: "var(--error)",
-                                                                color: "#fff",
-                                                                fontSize: "0.75rem",
-                                                                fontWeight: "bold",
-                                                                padding: "0.25rem 0.75rem",
-                                                                borderRadius: "1rem"
-                                                            }}>
-                                                                {pendingCount} Pending Request{pendingCount !== 1 ? 's' : ''}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <p style={{ color: "#888" }}>{leagueOrg.location || "No Location Set"} • {leagueOrg.schedule_day ? `${leagueOrg.schedule_day}s` : "No Schedule Day"}</p>
+                                <Link key={leagueOrg.id} href={`/dashboard/operator/leagues/${leagueOrg.id}`}>
+                                    <div className="card-glass hover-effect h-full flex flex-col justify-between p-10 cursor-pointer group">
+                                        <div>
+                                            <div className="flex justify-between items-start mb-6">
+                                                <div className="w-14 h-14 rounded-full bg-surface-hover flex items-center justify-center text-primary font-sans text-2xl border border-transparent group-hover:border-primary transition-colors">
+                                                    {leagueOrg.name.charAt(0)}
                                                 </div>
-                                                <div style={{ color: "var(--primary)" }}>
-                                                    View Sessions &rarr;
+                                                {pendingCount > 0 && (
+                                                    <span className="bg-error text-white text-xs font-bold px-3 py-1 rounded-full animate-pulse">
+                                                        {pendingCount} Pending
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            <h3 className="text-2xl font-bold text-white mb-4 group-hover:text-primary transition-colors">
+                                                {leagueOrg.name}
+                                            </h3>
+
+                                            <div className="space-y-2 text-sm text-gray-400">
+                                                <div className="flex items-center gap-3">
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                                    {leagueOrg.location || "No Location"}
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                                    {leagueOrg.schedule_day ? `${leagueOrg.schedule_day}s` : "No Schedule"}
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                    {leagueOrg.city}, {leagueOrg.state}
                                                 </div>
                                             </div>
                                         </div>
-                                    </Link>
-                                </div>
+
+                                        <div className="mt-8 flex justify-end">
+                                            <span className="text-sm font-semibold text-primary group-hover:underline">
+                                                Manage League &rarr;
+                                            </span>
+                                        </div>
+                                    </div>
+                                </Link>
                             )
                         })}
+
+                        {/* New League Card */}
+                        <Link href="/dashboard/operator/leagues/new">
+                            <div className="card-glass border-dashed border-2 border-transparent bg-surface/30 h-full flex flex-col items-center justify-center p-10 cursor-pointer hover:border-primary hover:bg-surface/50 transition-all group">
+                                <div className="w-20 h-20 rounded-full bg-surface border border-transparent flex items-center justify-center text-gray-500 mb-6 group-hover:text-primary group-hover:border-primary transition-colors">
+                                    <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-300 group-hover:text-white">Create New League</h3>
+                                <p className="text-sm text-gray-500 text-center mt-2">Launch a new organization</p>
+                            </div>
+                        </Link>
                     </div>
                 ) : (
-                    <div className="card" style={{ textAlign: "center", padding: "4rem 2rem" }}>
-                        <div style={{
-                            width: '64px',
-                            height: '64px',
-                            background: 'var(--surface-hover)',
-                            borderRadius: '50%',
-                            margin: '0 auto 1.5rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '2rem'
-                        }}>+</div>
-                        <h3 style={{ marginBottom: "0.5rem" }}>No Leagues Found</h3>
-                        <p style={{ marginBottom: "2rem", color: '#888' }}>Get started by creating your first league.</p>
-                        <Link href="/dashboard/operator/leagues/new" className="btn btn-primary">
+                    <div className="card-glass p-16 text-center">
+                        <div className="w-24 h-24 bg-surface-hover rounded-full flex items-center justify-center mx-auto mb-8 text-4xl border border-transparent">
+                            🎱
+                        </div>
+                        <h3 className="text-3xl font-bold mb-4">No Leagues Found</h3>
+                        <p className="text-gray-400 mb-10 max-w-lg mx-auto">Get started by creating your first Breakpoint Billiards league organization.</p>
+                        <Link href="/dashboard/operator/leagues/new" className="btn btn-primary px-10 py-4 text-xl">
                             Create League
                         </Link>
                     </div>

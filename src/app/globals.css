@@ -25,7 +25,7 @@
   --success: #22c55e;
   --error: #ef4444;
 
-  --radius: 0.25rem;
+  --radius: 0.75rem;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
@@ -52,7 +52,19 @@ body {
   font-family: var(--font-sans), sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  line-height: 1.5;
+  line-height: 1.8;
+  /* Increased line height for readability */
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  letter-spacing: 0.05em;
+  /* Premium spacing */
+  margin-bottom: 1rem;
 }
 
 a {
@@ -84,9 +96,9 @@ object {
 
 /* Utilities */
 .container {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 0 1rem;
+  padding: 0 2rem;
 }
 
 @media (max-width: 640px) {
@@ -171,78 +183,110 @@ object {
 /* Inputs */
 .input {
   width: 100%;
-  padding: 0.75rem 1rem;
+  padding: 1rem 1.5rem;
+  /* Spacious inputs */
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
+  /* No visible border initially */
   border-radius: var(--radius);
   color: var(--foreground);
   font-size: 1rem;
   transition: all 0.2s ease;
+  line-height: 1.5;
 }
 
 .input:focus {
   outline: none;
   border-color: var(--primary);
+  /* Only show border on focus */
+  background: var(--surface-hover);
   box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
 }
 
 .label {
   display: block;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+  /* More space between label and input */
   font-weight: 500;
   color: #aaa;
   font-size: 0.9rem;
+  letter-spacing: 0.05em;
 }
 
 /* Cards */
 .card {
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1.5rem;
+  border: none;
+  border-radius: 1rem;
+  padding: 3rem;
+  /* Spacious */
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.card.hover-effect:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  border-color: var(--primary);
+/* Glassmorphism Card */
+.card-glass {
+  background: rgba(18, 18, 18, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  border-radius: 1.5rem;
+  padding: 3rem;
+  /* Spacious */
 }
 
 /* Tables */
 .table-container {
   overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border: none;
+  background: transparent;
 }
 
 .table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0 1rem;
+  /* More space between rows */
   text-align: left;
 }
 
 .table th {
-  background: var(--surface-hover);
-  padding: 1rem;
-  font-weight: 600;
+  background: transparent;
+  padding: 1rem 2rem;
+  /* Wider headers */
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
   color: var(--primary);
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
+  border-bottom: none;
+  opacity: 0.8;
 }
 
 .table td {
-  padding: 1rem;
-  border-bottom: 1px solid var(--border);
-  color: #ddd;
+  padding: 2rem;
+  /* Tall rows */
+  border-bottom: none;
+  background: rgba(255, 255, 255, 0.03);
+  color: #eee;
+  line-height: 1.8;
+  /* Relaxed table text */
 }
 
-.table tr:last-child td {
-  border-bottom: none;
+.table tr td:first-child {
+  border-top-left-radius: 1rem;
+  border-bottom-left-radius: 1rem;
+}
+
+.table tr td:last-child {
+  border-top-right-radius: 1rem;
+  border-bottom-right-radius: 1rem;
 }
 
 .table tr:hover td {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.08);
+  transform: scale(1.01);
+  transition: all 0.2s ease;
 }
 
 /* Animations */

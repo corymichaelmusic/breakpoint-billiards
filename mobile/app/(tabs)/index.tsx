@@ -1,7 +1,7 @@
 import { View, Text, SafeAreaView, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Alert } from "react-native";
 import { Link, useFocusEffect, useRouter } from "expo-router";
 import { useAuth, useUser } from "@clerk/clerk-expo";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "../../lib/supabase";
 import { createClient } from "@supabase/supabase-js";
 import StatsCard from "../../components/StatsCard";
@@ -26,7 +26,20 @@ export default function HomeScreen() {
   const [bountyDisplay, setBountyDisplay] = useState(false);
   const [bountyAmount, setBountyAmount] = useState(0);
 
-  const fetchData = useCallback(async () => {
+  const lastFetchTime = useRef<number>(0); // Throttle tracking
+  const CACHE_DURATION = 60000; // 1 minute cache
+
+  const fetchData = useCallback(async (force = false) => {
+    // Throttle check: Don't fetch if within cache window unless forced
+    const now = Date.now();
+    if (!force && lastFetchTime.current > 0 && (now - lastFetchTime.current) < CACHE_DURATION && profile) {
+      console.log("Using cached dashboard data");
+      setLoading(false);
+      return;
+    }
+
+    lastFetchTime.current = now; // Update timestamp immediately to prevent double-firing
+
     try {
       if (!userId) return;
 
@@ -487,13 +500,13 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchData();
+      fetchData(false);
     }, [fetchData])
   );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchData();
+    fetchData(true);
   }, [fetchData]);
 
   // Derived state for lock
@@ -515,7 +528,7 @@ export default function HomeScreen() {
       {/* Session Name Header */}
       <View className="px-4 pt-4 pb-2 items-center bg-background border-b border-border/50">
         <Text className="text-foreground text-2xl font-bold tracking-wider uppercase text-center">
-          {activeSession?.name || '...'}
+          {activeSession?.name || 'Welcome'}
         </Text>
         {activeSession?.parent_league?.name && (
           <Text className="text-primary font-bold tracking-widest uppercase text-sm mt-1">
@@ -542,170 +555,200 @@ export default function HomeScreen() {
       >
 
 
-        {/* PAYMENT NOTIFICATION */}
-        {activeSession && activeSession.payment_status === 'unpaid' && (
-          <View className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-6 flex-row items-center justify-between">
-            <View className="flex-1 mr-4">
-              <Text className="text-red-100 font-bold text-base mb-1">Session Fee Unpaid</Text>
-              <Text className="text-red-200 text-xs">All players must pay session fee in order for session to start.</Text>
+        {/* EMPTY STATE: NO SESSION */}
+        {!activeSession ? (
+          <View className="items-center justify-center py-10 mt-10">
+            <View className="bg-surface/50 p-8 rounded-full mb-6 border border-border/30">
+              <FontAwesome5 name="users" size={40} color="#D4AF37" />
             </View>
-            <TouchableOpacity onPress={() => Alert.alert("Pay Fee", "Please see your League Operator to pay.")} className="bg-red-500 px-4 py-2 rounded-full">
-              <Text className="text-white font-bold text-xs">PAY NOW</Text>
+            <Text className="text-white text-2xl font-bold mb-3 tracking-wide">No Active Session</Text>
+            <Text className="text-gray-400 text-center mb-8 px-8 leading-6 text-base">
+              You haven't joined a league session yet.{"\n"}Join a session to start tracking your stats and matches.
+            </Text>
+            <TouchableOpacity
+              onPress={() => router.push('/onboarding/select-league')}
+              className="bg-primary px-8 py-4 rounded-full shadow-lg shadow-black/50"
+              activeOpacity={0.8}
+            >
+              <Text className="text-black font-bold uppercase tracking-wider text-sm">Find a Session</Text>
             </TouchableOpacity>
           </View>
-        )}
-
-        <View className="flex-row gap-2 mb-4">
-          <StatsCard label="Win Rate" value={`${stats.winRate}%`} highlight />
-          <StatsCard
-            label="Session Rank"
-            value={
-              ['#1', '#2', '#3'].includes(stats.rank) ? (
-                <View className="flex-row items-center gap-2">
-                  <FontAwesome5
-                    name="crown"
-                    size={16}
-                    color={stats.rank === '#1' ? "#FFD700" : stats.rank === '#2' ? "#C0C0C0" : "#CD7F32"}
-                  />
-                  <Text className="text-2xl font-bold text-foreground">{stats.rank}</Text>
-                </View>
-              ) : (
-                stats.rank
-              )
-            }
-          />
-        </View>
-        <View className="flex-row gap-2 mb-6">
-          <StatsCard label="Set W-L" value={stats.wl} />
-          <StatsCard label="Shutouts" value={stats.shutouts} />
-        </View>
-
-        {/* Detailed Session Stats Accordion/Section */}
-        <View className="bg-surface border border-border rounded-xl p-4 mb-6">
-          <Text className="text-foreground text-xl font-bold mb-4 border-b border-border pb-2">Session Breakdown</Text>
-
-          {/* 8-Ball */}
-          <View className="mb-6">
-            <View className="flex-row justify-between items-center mb-2">
-              <View className="flex-row items-end gap-2">
-                <Text className="text-[#D4AF37] font-bold text-lg uppercase">8-Ball</Text>
-                <Text className="text-gray-400 text-sm font-bold mb-[2px]">
-                  {stats.stats8?.setsWon || 0}-{stats.stats8?.setsLost || 0} ({stats.stats8?.setWinRate || 0}%)
-                </Text>
-              </View>
-              <Text className="text-gray-400 text-xs font-bold">
-                {(stats.stats8?.racksWon || 0) + (stats.stats8?.racksLost || 0)} Racks: {stats.stats8?.racksWon || 0}-{stats.stats8?.racksLost || 0} ({stats.stats8?.rackWinRate || 0}%)
-              </Text>
-            </View>
-            <StatRow label="Break & Run" value={stats.stats8?.br || 0} />
-            <StatRow label="Rack & Run" value={stats.stats8?.rr || 0} />
-            <StatRow label="Win-Zip" value={stats.stats8?.winZip || 0} />
-          </View>
-
-          {/* 9-Ball */}
-          <View>
-            <View className="flex-row justify-between items-center mb-2">
-              <View className="flex-row items-end gap-2">
-                <Text className="text-primary font-bold text-lg uppercase">9-Ball</Text>
-                <Text className="text-gray-400 text-sm font-bold mb-[2px]">
-                  {stats.stats9?.setsWon || 0}-{stats.stats9?.setsLost || 0} ({stats.stats9?.setWinRate || 0}%)
-                </Text>
-              </View>
-              <Text className="text-gray-400 text-xs font-bold">
-                {(stats.stats9?.racksWon || 0) + (stats.stats9?.racksLost || 0)} Racks: {stats.stats9?.racksWon || 0}-{stats.stats9?.racksLost || 0} ({stats.stats9?.rackWinRate || 0}%)
-              </Text>
-            </View>
-            <StatRow label="Break & Run" value={stats.stats9?.br || 0} />
-            <StatRow label="Rack & Run" value={stats.stats9?.rr || 0} />
-            <StatRow label="9 on Snap" value={stats.stats9?.snap || 0} />
-            <StatRow label="Win-Zip" value={stats.stats9?.winZip || 0} />
-          </View>
-        </View>
-
-        {/* Breakpoint Graph */}
-        <BreakpointGraph data={ratingHistory} />
-
-        {/* Match Schedule Section - Hidden if Session is in Setup */}
-        {activeSession?.status === 'active' || activeSession?.status === 'completed' ? (
+        ) : (
           <>
-            {nextMatch ? (
-              (() => {
-                const now = new Date();
-                const scheduledDate = new Date(nextMatch.scheduled_date);
-                const windowStart = new Date(scheduledDate);
-                windowStart.setHours(8, 0, 0, 0);
-                const windowEnd = new Date(windowStart);
-                windowEnd.setDate(windowEnd.getDate() + 1);
-
-                const isTimeOpen = now >= windowStart && now < windowEnd;
-
-                // Effective Status Calculation
-                const isBothSetsFinalized = nextMatch.status_8ball === 'finalized' && nextMatch.status_9ball === 'finalized';
-                const totalPoints = (nextMatch.points_8ball_p1 || 0) + (nextMatch.points_8ball_p2 || 0) + (nextMatch.points_9ball_p1 || 0) + (nextMatch.points_9ball_p2 || 0);
-                const isStarted = totalPoints > 0;
-
-                let effectiveStatus = nextMatch.status;
-                if (nextMatch.status === 'finalized' || isBothSetsFinalized) {
-                  effectiveStatus = 'finalized';
-                } else if (isStarted) {
-                  effectiveStatus = 'in_progress';
-                }
-
-                // Lock only if NOT finalized/completed
-                const isMatchLocked = !nextMatch.is_manually_unlocked && !isTimeOpen && effectiveStatus !== 'finalized' && effectiveStatus !== 'in_progress';
-
-                // Scores for display
-                const isP1 = nextMatch.player1_id === userId;
-                const scores = {
-                  p1_8: nextMatch.points_8ball_p1 || 0,
-                  p2_8: nextMatch.points_8ball_p2 || 0,
-                  p1_9: nextMatch.points_9ball_p1 || 0,
-                  p2_9: nextMatch.points_9ball_p2 || 0,
-                  isPlayer1: isP1
-                };
-
-                return (
-                  <NextMatchCard
-                    opponentName={nextMatch.player1_id === userId ? nextMatch.player2?.full_name : nextMatch.player1?.full_name || 'Unknown'}
-                    date={`Week ${nextMatch.week_number} • ${nextMatch.scheduled_date ? new Date(nextMatch.scheduled_date).toLocaleDateString() : 'TBD'}`}
-                    isLocked={isMatchLocked}
-                    matchId={nextMatch.id}
-                    leagueName={activeSession.parent_league?.name}
-                    sessionName={activeSession.name}
-                    weekNumber={nextMatch.week_number}
-                    status={effectiveStatus} // Pass effective status overrides DB status
-                    player1Id={nextMatch.player1_id}
-                    player2Id={nextMatch.player2_id}
-                    paymentStatusP1={nextMatch.payment_status_p1}
-                    paymentStatusP2={nextMatch.payment_status_p2}
-                    label={`Week ${nextMatch.week_number}`}
-                    scores={scores}
-                  />
-                );
-              })()
-            ) : (
-              <View className="bg-surface p-6 rounded-lg border border-border items-center justify-center mb-6">
-                <Text className="text-gray-500 text-center italic mt-4">No scheduled matches found.</Text>
+            {/* PAYMENT NOTIFICATION */}
+            {activeSession.payment_status === 'unpaid' && (
+              <View className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-6 flex-row items-center justify-between">
+                <View className="flex-1 mr-4">
+                  <Text className="text-red-100 font-bold text-base mb-1">Session Fee Unpaid</Text>
+                  <Text className="text-red-200 text-xs">All players must pay session fee in order for session to start.</Text>
+                </View>
+                <TouchableOpacity onPress={() => Alert.alert("Pay Fee", "Please see your League Operator to pay.")} className="bg-red-500 px-4 py-2 rounded-full">
+                  <Text className="text-white font-bold text-xs">PAY NOW</Text>
+                </TouchableOpacity>
               </View>
             )}
 
-            <View className="mb-8 items-center">
-              <Link href="/(tabs)/matches" asChild>
-                <TouchableOpacity className="bg-secondary px-6 py-3 rounded-full border border-border w-full items-center">
-                  <Text className="text-white font-bold uppercase text-xs tracking-widest">Session Schedule</Text>
-                </TouchableOpacity>
-              </Link>
+            <View className="flex-row gap-2 mb-4">
+              <StatsCard label="Win Rate" value={`${stats.winRate}%`} highlight />
+              <StatsCard
+                label="Session Rank"
+                value={
+                  ['#1', '#2', '#3'].includes(stats.rank) ? (
+                    <View className="flex-row items-center gap-2">
+                      <FontAwesome5
+                        name="crown"
+                        size={16}
+                        color={stats.rank === '#1' ? "#FFD700" : stats.rank === '#2' ? "#C0C0C0" : "#CD7F32"}
+                      />
+                      <Text className="text-2xl font-bold text-foreground">{stats.rank}</Text>
+                    </View>
+                  ) : (
+                    stats.rank
+                  )
+                }
+              />
             </View>
+            <View className="flex-row gap-2 mb-6">
+              <StatsCard label="Set W-L" value={stats.wl} />
+              <StatsCard label="Shutouts" value={stats.shutouts} />
+            </View>
+
+            {/* Detailed Session Stats Accordion/Section */}
+            <View className="bg-surface border border-border rounded-xl p-4 mb-6">
+              <Text className="text-foreground text-xl font-bold mb-4 border-b border-border pb-2">Session Breakdown</Text>
+
+              {/* 8-Ball */}
+              <View className="mb-6">
+                <View className="flex-row justify-between items-center mb-2">
+                  <View className="flex-row items-end gap-2">
+                    <Text className="text-[#D4AF37] font-bold text-lg uppercase">8-Ball</Text>
+                    <Text className="text-gray-400 text-sm font-bold mb-[2px]">
+                      {stats.stats8?.setsWon || 0}-{stats.stats8?.setsLost || 0} ({stats.stats8?.setWinRate || 0}%)
+                    </Text>
+                  </View>
+                  <Text className="text-gray-400 text-xs font-bold">
+                    {(stats.stats8?.racksWon || 0) + (stats.stats8?.racksLost || 0)} Racks: {stats.stats8?.racksWon || 0}-{stats.stats8?.racksLost || 0} ({stats.stats8?.rackWinRate || 0}%)
+                  </Text>
+                </View>
+                <StatRow label="Break & Run" value={stats.stats8?.br || 0} />
+                <StatRow label="Rack & Run" value={stats.stats8?.rr || 0} />
+                <StatRow label="Win-Zip" value={stats.stats8?.winZip || 0} />
+              </View>
+
+              {/* 9-Ball */}
+              <View>
+                <View className="flex-row justify-between items-center mb-2">
+                  <View className="flex-row items-end gap-2">
+                    <Text className="text-primary font-bold text-lg uppercase">9-Ball</Text>
+                    <Text className="text-gray-400 text-sm font-bold mb-[2px]">
+                      {stats.stats9?.setsWon || 0}-{stats.stats9?.setsLost || 0} ({stats.stats9?.setWinRate || 0}%)
+                    </Text>
+                  </View>
+                  <Text className="text-gray-400 text-xs font-bold">
+                    {(stats.stats9?.racksWon || 0) + (stats.stats9?.racksLost || 0)} Racks: {stats.stats9?.racksWon || 0}-{stats.stats9?.racksLost || 0} ({stats.stats9?.rackWinRate || 0}%)
+                  </Text>
+                </View>
+                <StatRow label="Break & Run" value={stats.stats9?.br || 0} />
+                <StatRow label="Rack & Run" value={stats.stats9?.rr || 0} />
+                <StatRow label="9 on Snap" value={stats.stats9?.snap || 0} />
+                <StatRow label="Win-Zip" value={stats.stats9?.winZip || 0} />
+              </View>
+            </View>
+
+            {/* Breakpoint Graph */}
+            <BreakpointGraph data={ratingHistory} />
+
+            {/* Match Schedule Section - Hidden if Session is in Setup */}
+            {activeSession?.status === 'active' || activeSession?.status === 'completed' ? (
+              <>
+                {nextMatch ? (
+                  (() => {
+                    const now = new Date();
+                    const scheduledDate = new Date(nextMatch.scheduled_date);
+                    const windowStart = new Date(scheduledDate);
+                    windowStart.setHours(8, 0, 0, 0);
+                    const windowEnd = new Date(windowStart);
+                    windowEnd.setDate(windowEnd.getDate() + 1);
+
+                    const isTimeOpen = now >= windowStart && now < windowEnd;
+
+                    // Effective Status Calculation
+                    const isBothSetsFinalized = nextMatch.status_8ball === 'finalized' && nextMatch.status_9ball === 'finalized';
+                    const totalPoints = (nextMatch.points_8ball_p1 || 0) + (nextMatch.points_8ball_p2 || 0) + (nextMatch.points_9ball_p1 || 0) + (nextMatch.points_9ball_p2 || 0);
+                    const isStarted = totalPoints > 0;
+
+                    let effectiveStatus = nextMatch.status;
+                    if (nextMatch.status === 'finalized' || isBothSetsFinalized) {
+                      effectiveStatus = 'finalized';
+                    } else if (isStarted) {
+                      effectiveStatus = 'in_progress';
+                    }
+
+                    // Lock only if NOT finalized/completed
+                    const isMatchLocked = !nextMatch.is_manually_unlocked && !isTimeOpen && effectiveStatus !== 'finalized' && effectiveStatus !== 'in_progress';
+
+                    // Scores for display
+                    const isP1 = nextMatch.player1_id === userId;
+                    const scores = {
+                      p1_8: nextMatch.points_8ball_p1 || 0,
+                      p2_8: nextMatch.points_8ball_p2 || 0,
+                      p1_9: nextMatch.points_9ball_p1 || 0,
+                      p2_9: nextMatch.points_9ball_p2 || 0,
+                      isPlayer1: isP1
+                    };
+
+                    return (
+                      <NextMatchCard
+                        opponentName={nextMatch.player1_id === userId ? nextMatch.player2?.full_name : nextMatch.player1?.full_name || 'Unknown'}
+                        date={`Week ${nextMatch.week_number} • ${nextMatch.scheduled_date ? new Date(nextMatch.scheduled_date).toLocaleDateString() : 'TBD'}`}
+                        isLocked={isMatchLocked}
+                        matchId={nextMatch.id}
+                        leagueName={activeSession.parent_league?.name}
+                        sessionName={activeSession.name}
+                        weekNumber={nextMatch.week_number}
+                        status={effectiveStatus} // Pass effective status overrides DB status
+                        player1Id={nextMatch.player1_id}
+                        player2Id={nextMatch.player2_id}
+                        paymentStatusP1={nextMatch.payment_status_p1}
+                        paymentStatusP2={nextMatch.payment_status_p2}
+                        label={`Week ${nextMatch.week_number}`}
+                        scores={scores}
+                      />
+                    );
+                  })()
+                ) : (
+                  <View className="bg-surface p-6 rounded-lg border border-border items-center justify-center mb-6">
+                    <Text className="text-gray-500 text-center italic mt-4">No scheduled matches found.</Text>
+                  </View>
+                )}
+
+                <View className="mb-8 items-center gap-4">
+                  <Link href="/(tabs)/matches" asChild>
+                    <TouchableOpacity className="bg-secondary px-6 py-3 rounded-full border border-border w-full items-center">
+                      <Text className="text-white font-bold uppercase text-xs tracking-widest">Session Schedule</Text>
+                    </TouchableOpacity>
+                  </Link>
+
+                  <TouchableOpacity
+                    onPress={() => router.push('/onboarding/select-league')}
+                    className="bg-surface/50 px-6 py-3 rounded-full border border-primary/30 w-full items-center flex-row justify-center active:bg-primary/10"
+                  >
+                    <FontAwesome5 name="plus" size={10} color="#D4AF37" style={{ marginRight: 8 }} />
+                    <Text className="text-primary font-bold uppercase text-xs tracking-widest">Join New Session</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <View className="items-center justify-center p-8 bg-surface rounded-xl border border-border mt-4 mb-8">
+                <Ionicons name="time-outline" size={48} color="#D4AF37" style={{ marginBottom: 16 }} />
+                <Text className="text-primary text-center text-xl font-bold mb-2">Session Starting Soon</Text>
+                <Text className="text-gray-400 text-center">
+                  The operator is finalizing the session.
+                  {activeSession?.payment_status === 'unpaid' ? " Please pay your fee above." : " Matches will appear here once the session starts."}
+                </Text>
+              </View>
+            )}
           </>
-        ) : (
-          <View className="items-center justify-center p-8 bg-surface rounded-xl border border-border mt-4 mb-8">
-            <Ionicons name="time-outline" size={48} color="#D4AF37" style={{ marginBottom: 16 }} />
-            <Text className="text-primary text-center text-xl font-bold mb-2">Session Starting Soon</Text>
-            <Text className="text-gray-400 text-center">
-              The operator is finalizing the session.
-              {activeSession?.payment_status === 'unpaid' ? " Please pay your fee above." : " Matches will appear here once the session starts."}
-            </Text>
-          </View>
         )}
 
       </ScrollView>

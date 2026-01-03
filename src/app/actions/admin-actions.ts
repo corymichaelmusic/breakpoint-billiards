@@ -221,3 +221,38 @@ export async function deleteApplication(applicationId: string) {
     revalidatePath("/dashboard/admin");
     return { success: true };
 }
+
+export async function deleteLeague(leagueId: string) {
+    const supabase = createAdminClient();
+
+    const { error } = await supabase
+        .from("leagues")
+        .delete()
+        .eq("id", leagueId);
+
+    if (error) {
+        console.error("Error deleting league:", error);
+        return { error: "Failed to delete league." };
+    }
+
+    revalidatePath("/dashboard/admin");
+    return { success: true };
+}
+
+export async function archiveLeague(leagueId: string) {
+    const supabase = createAdminClient();
+
+    // Using 'inactive' as the archive status since we couldn't run the migration for 'archived'
+    const { error } = await supabase
+        .from("leagues")
+        .update({ status: 'inactive' })
+        .eq("id", leagueId);
+
+    if (error) {
+        console.error("Error archiving league:", error);
+        return { error: "Failed to archive league." };
+    }
+
+    revalidatePath("/dashboard/admin");
+    return { success: true };
+}

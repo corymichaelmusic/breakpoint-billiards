@@ -17,6 +17,7 @@ export default function Header() {
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [rating, setRating] = useState<{ level: string, confidence: number } | null>(null);
     const [loading, setLoading] = useState(true);
+    const [retried, setRetried] = useState(false);
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -34,8 +35,19 @@ export default function Header() {
                     .eq('id', userId)
                     .single();
 
+                console.log("Header Profile Data:", data);
+
                 if (data) {
-                    const displayName = data.nickname || (data.full_name ? data.full_name.split(' ')[0] : 'Player');
+                    const displayName = data.nickname || (data.full_name ? data.full_name.split(' ')[0] : 'User') || 'User';
+
+                    // Simple Retry Logic: If we got "User" or "Player", maybe the DB wasn't ready. Try again once.
+                    if ((displayName === 'User' || displayName === 'Player') && !retried) {
+                        console.log("Header: Name is generic, retrying in 1s...");
+                        setRetried(true);
+                        setTimeout(fetchProfile, 1000);
+                        return;
+                    }
+
                     // Check breakpoint_rating first, then fall back to fargo_rating, then 500
                     // Fetch Confidence (Total Racks Played)
                     const { data: leagueStats } = await supabase
@@ -53,9 +65,13 @@ export default function Header() {
                     setNickname(displayName);
                     setAvatarUrl(data.avatar_url);
                     setRating({ level: formattedRating, confidence });
+                } else {
+                    console.log("Header: No profile data found for", userId);
+                    setNickname("User");
                 }
             } catch (error) {
                 console.error("Error fetching header profile:", error);
+                setNickname("User");
             } finally {
                 setLoading(false);
             }

@@ -20,14 +20,29 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json();
-        const { type } = body;
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://breakpoint.app';
+        const { type, source } = body;
+
+        // Use custom scheme for mobile, https for web
+        const appUrlBase = (source === 'mobile')
+            ? 'breakpoint-billiards://'
+            : (process.env.NEXT_PUBLIC_APP_URL || 'https://breakpoint.app');
+
         const supabase = await createClient();
 
         let lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
         let metadata: any = { type, player_id: userId };
-        let successUrl = `${appUrl}/payment/success`;
-        let cancelUrl = `${appUrl}/dashboard`;
+
+        // Construct URLs based on base
+        // Note: For mobile scheme, we don't need leading slash if base ends with //
+        // But for https, we do.
+        // Actually, NEXT_PUBLIC_APP_URL usually doesn't have trailing slash.
+        // scheme:// has 2 slashes.
+        // Let's normalize.
+
+        const baseUrl = appUrlBase.endsWith('/') ? appUrlBase.slice(0, -1) : appUrlBase;
+
+        let successUrl = `${baseUrl}/payment/success`;
+        let cancelUrl = `${baseUrl}/dashboard`;
 
         if (type === 'match_fee') {
             const { matchId } = body;
@@ -52,8 +67,8 @@ export async function POST(req: Request) {
 
             metadata.match_id = matchId;
             metadata.role = isP1 ? 'player1' : 'player2';
-            successUrl = `${appUrl}/payment/success?match_id=${matchId}`;
-            cancelUrl = `${appUrl}/match/${matchId}`;
+            successUrl = `${baseUrl}/payment/success?match_id=${matchId}`;
+            cancelUrl = `${baseUrl}/match/${matchId}`;
 
             lineItems.push({
                 price_data: {
@@ -84,8 +99,8 @@ export async function POST(req: Request) {
 
             const amount = (session.creation_fee || 250) * 100; // Default 250 if null, convert to cents
             metadata.league_id = leagueId;
-            successUrl = `${appUrl}/dashboard/operator/leagues/${leagueId}`;
-            cancelUrl = `${appUrl}/dashboard/operator/leagues/${leagueId}`;
+            successUrl = `${baseUrl}/dashboard/operator/leagues/${leagueId}`;
+            cancelUrl = `${baseUrl}/dashboard/operator/leagues/${leagueId}`;
 
             lineItems.push({
                 price_data: {
@@ -124,8 +139,8 @@ export async function POST(req: Request) {
 
             const amount = (session.session_fee || 25) * 100; // Default 25
             metadata.session_id = sessionId;
-            successUrl = `${appUrl}/dashboard`; // Redirect to player dashboard
-            cancelUrl = `${appUrl}/dashboard`;
+            successUrl = `${baseUrl}/dashboard`; // Redirect to player dashboard
+            cancelUrl = `${baseUrl}/dashboard`;
 
             lineItems.push({
                 price_data: {
