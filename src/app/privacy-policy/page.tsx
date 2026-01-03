@@ -59,8 +59,8 @@ export default function PrivacyPolicy() {
                         <h2 className="text-2xl font-bold text-white mt-10 mb-4">4. Data Retention and Deletion</h2>
                         <p className="mb-6">
                             We retain your personal data for as long as your account is active.
-                            <strong>You have the right to request deletion of your account and data at any time.</strong> 
-              You can delete your account directly within the Mobile App settings (Profile > Delete Account), or by contacting us at privacy@breakpointbilliards.com.
+                            <strong>You have the right to request deletion of your account and data at any time.</strong>
+                            You can delete your account directly within the Mobile App settings (Profile &rarr; Delete Account), or by contacting us at privacy@breakpointbilliards.com.
                             Upon deletion request, your personal identifiers (name, email, photo) will be permanently removed from our systems within 30 days.
                         </p>
 
