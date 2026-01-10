@@ -1,4 +1,5 @@
-import { View, Text, SafeAreaView, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity } from "react-native";
+import { View, Text, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { useAuth } from "@clerk/clerk-expo";
@@ -49,8 +50,8 @@ export default function StatsScreen() {
             if (leagueError) console.error("Error fetching league stats:", leagueError);
 
             // Set-based Stats for Breakdowns
-            let stats8 = { played: 0, wins: 0, winRate: 0, br: 0, rr: 0, winZip: 0, racksWon: 0, racksLost: 0, rackWinRate: 0 };
-            let stats9 = { played: 0, wins: 0, winRate: 0, br: 0, snap: 0, winZip: 0, rr: 0, racksWon: 0, racksLost: 0, rackWinRate: 0 };
+            let stats8 = { played: 0, wins: 0, winRate: 0, br: 0, rr: 0, racksWon: 0, racksLost: 0, rackWinRate: 0 };
+            let stats9 = { played: 0, wins: 0, winRate: 0, br: 0, snap: 0, rr: 0, racksWon: 0, racksLost: 0, rackWinRate: 0 };
             let lifetime = {
                 played: 0,
                 wins: 0,
@@ -73,8 +74,7 @@ export default function StatsScreen() {
             let db_br9 = 0;
             let db_rr8 = 0;
             let db_rr9 = 0;
-            let db_wz8 = 0;
-            let db_wz9 = 0;
+
             let db_snap = 0;
 
             // Aggregation Vars for Lifetime
@@ -93,8 +93,7 @@ export default function StatsScreen() {
                     db_br9 += ls.total_break_and_runs_9ball || 0;
                     db_rr8 += ls.total_rack_and_runs_8ball || 0;
                     db_rr9 += ls.total_rack_and_runs_9ball || 0;
-                    db_wz8 += ls.total_win_zip_8ball || 0;
-                    db_wz9 += ls.total_win_zip_9ball || 0;
+
 
                     db_snap += ls.total_nine_on_snap || 0;
                 });
@@ -103,11 +102,9 @@ export default function StatsScreen() {
             // Populate the UI objects with accurate split counts
             stats8.br = db_br8;
             stats8.rr = db_rr8;
-            stats8.winZip = db_wz8;
 
             stats9.br = db_br9;
             stats9.rr = db_rr9;
-            stats9.winZip = db_wz9;
             stats9.snap = db_snap;
 
             // Assign lifetime aggregated values
@@ -197,7 +194,7 @@ export default function StatsScreen() {
     if (loading) return <View className="flex-1 bg-background items-center justify-center"><ActivityIndicator color="#D4AF37" /></View>;
 
     return (
-        <SafeAreaView className="flex-1 bg-background">
+        <SafeAreaView className="flex-1 bg-background" edges={['bottom', 'left', 'right']}>
 
             <ScrollView
                 className="flex-1"
@@ -212,7 +209,7 @@ export default function StatsScreen() {
                                 Lifetime Stats for {stats?.fullName || 'Player'}
                             </Text>
                             <TouchableOpacity onPress={() => router.push('/global-leaderboard')}>
-                                <Text className="text-primary font-bold text-base">
+                                <Text className="text-primary font-bold text-base" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
                                     Rank: {stats?.lifetime?.rank || '-'}
                                 </Text>
                             </TouchableOpacity>
@@ -231,19 +228,19 @@ export default function StatsScreen() {
                             onPress={() => router.push('/match-history')}
                             className="mt-4 bg-primary/10 border border-primary p-3 rounded-lg items-center"
                         >
-                            <Text className="text-primary font-bold uppercase text-xs tracking-widest">View Match History</Text>
+                            <Text className="text-primary font-bold uppercase text-xs tracking-widest" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>View Match History  </Text>
                         </TouchableOpacity>
                     </View>
 
                     {/* 8-Ball Stats (Games) */}
                     <View className="bg-surface border border-border rounded-xl p-4 mb-6">
                         <View className="flex-row justify-between items-center border-b border-border pb-2 mb-4">
-                            <Text className="text-foreground text-lg font-bold">8-Ball Sets</Text>
-                            <View className="flex-row items-center gap-2">
-                                <Text className="text-[#D4AF37] text-xs font-bold uppercase">
-                                    {(stats?.stats8?.racksWon || 0) + (stats?.stats8?.racksLost || 0)} Racks: {stats?.stats8?.racksWon || 0}-{stats?.stats8?.racksLost || 0}
+                            <Text className="text-foreground text-base font-bold shrink" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>8-Ball Sets</Text>
+                            <View className="flex-row items-center gap-1 shrink">
+                                <Text className="text-[#D4AF37] text-[10px] font-bold uppercase" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>
+                                    {stats?.stats8?.racksWon + stats?.stats8?.racksLost} Racks: {stats?.stats8?.racksWon}-{stats?.stats8?.racksLost}
                                 </Text>
-                                <Text className="text-[#D4AF37] text-xs font-bold uppercase">({stats?.stats8?.rackWinRate || 0}%)</Text>
+                                <Text className="text-[#D4AF37] text-[10px] font-bold uppercase" style={{ includeFontPadding: false }}>({stats?.stats8?.rackWinRate}%)  </Text>
                             </View>
                         </View>
                         <StatRow label="Win %" value={`${stats?.stats8?.winRate || 0}%`} />
@@ -255,18 +252,18 @@ export default function StatsScreen() {
                     {/* 9-Ball Stats (Games) */}
                     <View className="bg-surface border border-border rounded-xl p-4 mb-6">
                         <View className="flex-row justify-between items-center border-b border-border pb-2 mb-4">
-                            <Text className="text-foreground text-lg font-bold">9-Ball Sets</Text>
-                            <View className="flex-row items-center gap-2">
-                                <Text className="text-[#D4AF37] text-xs font-bold uppercase">
-                                    {(stats?.stats9?.racksWon || 0) + (stats?.stats9?.racksLost || 0)} Racks: {stats?.stats9?.racksWon || 0}-{stats?.stats9?.racksLost || 0}
+                            <Text className="text-foreground text-base font-bold shrink" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>9-Ball Sets</Text>
+                            <View className="flex-row items-center gap-1 shrink">
+                                <Text className="text-[#D4AF37] text-[10px] font-bold uppercase" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>
+                                    {stats?.stats9?.racksWon + stats?.stats9?.racksLost} Racks: {stats?.stats9?.racksWon}-{stats?.stats9?.racksLost}
                                 </Text>
-                                <Text className="text-[#D4AF37] text-xs font-bold uppercase">({stats?.stats9?.rackWinRate || 0}%)</Text>
+                                <Text className="text-[#D4AF37] text-[10px] font-bold uppercase" style={{ includeFontPadding: false }}>({stats?.stats9?.rackWinRate}%)  </Text>
                             </View>
                         </View>
                         <StatRow label="Win %" value={`${stats?.stats9?.winRate || 0}%`} />
                         <StatRow label="W-L" value={`${stats?.stats9?.wins || 0}-${(stats?.stats9?.played || 0) - (stats?.stats9?.wins || 0)}`} />
                         <StatRow label="Break & Run" value={stats?.stats9?.br || 0} />
-                        <StatRow label="Win-Zip" value={stats?.stats9?.winZip || 0} />
+
                         <StatRow label="9 on the Snap" value={stats?.stats9?.snap || 0} />
                     </View>
 
@@ -279,8 +276,8 @@ export default function StatsScreen() {
 function StatBox({ label, value, highlight }: { label: string, value: string | number, highlight?: boolean }) {
     return (
         <View className="w-[30%] items-center mb-4">
-            <Text className={`text-xl font-bold ${highlight ? 'text-primary' : 'text-foreground'}`}>{value}</Text>
-            <Text className="text-gray-400 text-xs uppercase">{label}</Text>
+            <Text className={`text-xl font-bold ${highlight ? 'text-primary' : 'text-foreground'}`} numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>{value}   </Text>
+            <Text className="text-gray-400 text-xs uppercase text-center" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>{label}  </Text>
         </View>
     )
 }
@@ -288,8 +285,10 @@ function StatBox({ label, value, highlight }: { label: string, value: string | n
 function StatRow({ label, value }: { label: string, value: string | number }) {
     return (
         <View className="flex-row justify-between items-center py-3 border-b border-border last:border-0">
-            <Text className="text-gray-300 font-medium">{label}</Text>
-            <Text className="text-primary font-bold text-lg">{value}</Text>
+            <Text className="text-gray-300 font-medium flex-1 mr-2" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>{label}  </Text>
+            <View className="min-w-[100px] shrink-0 items-end pr-1">
+                <Text className="text-primary font-bold text-lg text-right" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit> {value}   </Text>
+            </View>
         </View>
     )
 }

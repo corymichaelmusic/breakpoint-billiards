@@ -36,31 +36,7 @@ export default function SessionLeaderboard({ sessionId, sessionName, initialStat
     const [stats, setStats] = useState<PlayerStats[]>(initialStats);
     const [isExpanded, setIsExpanded] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [viewMode, setViewMode] = useState<'session' | 'global'>('session');
     const router = useRouter();
-
-    const handleModeSwitch = async (mode: 'session' | 'global') => {
-        if (mode === viewMode) return;
-        setViewMode(mode);
-
-        if (mode === 'session') {
-            setStats(initialStats);
-            setIsExpanded(false);
-            return;
-        }
-
-        setLoading(true);
-        try {
-            const { getGlobalLeaderboard } = await import("@/app/actions/stats-actions");
-            const globalStats = await getGlobalLeaderboard(limit);
-            setStats(globalStats);
-            setIsExpanded(false); // Reset expansion for global view
-        } catch (error) {
-            console.error("Failed to fetch global leaderboard", error);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handleToggle = async () => {
         if (isExpanded) {
@@ -94,64 +70,25 @@ export default function SessionLeaderboard({ sessionId, sessionName, initialStat
     }
 
     return (
-        <div className="card" style={{ padding: "0", maxWidth: "100%", overflow: "hidden" }}>
-            <div style={{ padding: "1.5rem", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="card" style={{ padding: "0", maxWidth: "100%", overflow: "hidden", color: "white" }}>
+            <div style={{ padding: "1rem", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                    <h3 style={{ margin: 0, fontSize: "1.25rem" }}>
-                        {viewMode === 'session' ? `${sessionName} Leaderboard` : "Global Leaderboard"}
+                    <h3 style={{ margin: 0, fontSize: "1.1rem" }}>
+                        Session Leaderboard
                     </h3>
-                    <p style={{ color: "#888", fontSize: "0.9rem", marginTop: "0.25rem" }}>
+                    <p style={{ color: "#888", fontSize: "0.8rem", marginTop: "0.25rem" }}>
                         Top players by Win %
                     </p>
                 </div>
-                <div style={{ display: "flex", gap: "0.5rem", background: "var(--background)", padding: "0.25rem", borderRadius: "var(--radius)", border: "1px solid var(--border)" }}>
-                    <button
-                        onClick={() => handleModeSwitch('session')}
-                        style={{
-                            padding: "0.25rem 0.75rem",
-                            borderRadius: "var(--radius)",
-                            border: "none",
-                            background: viewMode === 'session' ? "var(--primary)" : "transparent",
-                            color: viewMode === 'session' ? "#000" : "#888",
-                            fontWeight: "bold",
-                            cursor: "pointer",
-                            fontSize: "0.8rem"
-                        }}
-                    >
-                        Session
-                    </button>
-                    <button
-                        onClick={() => handleModeSwitch('global')}
-                        style={{
-                            padding: "0.25rem 0.75rem",
-                            borderRadius: "var(--radius)",
-                            border: "none",
-                            background: viewMode === 'global' ? "var(--primary)" : "transparent",
-                            color: viewMode === 'global' ? "#000" : "#888",
-                            fontWeight: "bold",
-                            cursor: "pointer",
-                            fontSize: "0.8rem"
-                        }}
-                    >
-                        Global
-                    </button>
-                </div>
             </div>
 
-            <div style={{ overflowX: "auto", maxWidth: "100%" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+            <div style={{ maxWidth: "100%" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.75rem", tableLayout: "fixed" }}>
                     <thead>
-                        <tr style={{ background: "var(--surface)", textAlign: "left" }}>
-                            <th style={{ padding: "1rem", width: "60px", textAlign: "center", position: "sticky", left: 0, zIndex: 20, background: "var(--surface)" }}>Rank</th>
-                            <th style={{ padding: "1rem", position: "sticky", left: "60px", zIndex: 20, background: "var(--surface)", borderRight: "1px solid var(--border)" }}>Player</th>
-                            <th style={{ padding: "1rem", textAlign: "center" }}>Win %</th>
-                            <th style={{ padding: "1rem", textAlign: "center" }}>W - L</th>
-                            <th style={{ padding: "1rem", textAlign: "center" }}>PPM</th>
-                            <th style={{ padding: "1rem", textAlign: "center" }}>BreakPoint</th>
-                            <th style={{ padding: "1rem", textAlign: "center", borderLeft: "1px solid var(--border)" }}>8-Ball B&R</th>
-                            <th style={{ padding: "1rem", textAlign: "center" }}>8-Ball R&R</th>
-                            <th style={{ padding: "1rem", textAlign: "center", borderLeft: "1px solid var(--border)" }}>9-Ball B&R</th>
-                            <th style={{ padding: "1rem", textAlign: "center" }}>9-Ball Snap</th>
+                        <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+                            <th style={{ padding: "0.5rem", width: "15%", textAlign: "center" }}>Rank</th>
+                            <th style={{ padding: "0.5rem", width: "60%", textAlign: "left" }}>Player</th>
+                            <th style={{ padding: "0.5rem", width: "25%", textAlign: "right" }}>Win %</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -170,35 +107,14 @@ export default function SessionLeaderboard({ sessionId, sessionName, initialStat
                                     }
                                 }}
                             >
-                                <td style={{ padding: "1rem", textAlign: "center", fontWeight: "bold", color: player.rank === 1 ? "var(--primary)" : "inherit", position: "sticky", left: 0, zIndex: 10, background: "var(--surface)" }}>
+                                <td style={{ padding: "0.5rem", textAlign: "center", fontWeight: "bold", color: player.rank === 1 ? "#D4AF37" : "inherit" }}>
                                     {player.rank}
                                 </td>
-                                <td style={{ padding: "1rem", fontWeight: "600", position: "sticky", left: "60px", zIndex: 10, background: "var(--surface)", borderRight: "1px solid var(--border)" }}>
+                                <td style={{ padding: "0.5rem", fontWeight: "600", textAlign: "left", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                     {player.playerName}
                                 </td>
-                                <td style={{ padding: "1rem", textAlign: "center", fontWeight: "bold" }}>
+                                <td style={{ padding: "0.5rem", textAlign: "right", fontWeight: "bold" }}>
                                     {player.winRate}%
-                                </td>
-                                <td style={{ padding: "1rem", textAlign: "center", color: "#888" }}>
-                                    {player.matchesWon} - {player.matchesLost}
-                                </td>
-                                <td style={{ padding: "1rem", textAlign: "center", color: "#888" }}>
-                                    {player.pointsPerMatch}
-                                </td>
-                                <td style={{ padding: "1rem", textAlign: "center", fontWeight: "bold", color: "var(--primary)" }}>
-                                    {player.breakPoint || '-'}
-                                </td>
-                                <td style={{ padding: "1rem", textAlign: "center", borderLeft: "1px solid var(--border)" }}>
-                                    {player.breakAndRuns_8ball || '-'}
-                                </td>
-                                <td style={{ padding: "1rem", textAlign: "center" }}>
-                                    {player.rackAndRuns_8ball || '-'}
-                                </td>
-                                <td style={{ padding: "1rem", textAlign: "center", borderLeft: "1px solid var(--border)" }}>
-                                    {player.breakAndRuns_9ball || '-'}
-                                </td>
-                                <td style={{ padding: "1rem", textAlign: "center" }}>
-                                    {player.nineOnSnaps_9ball || '-'}
                                 </td>
                             </tr>
                         ))}
@@ -207,12 +123,12 @@ export default function SessionLeaderboard({ sessionId, sessionName, initialStat
             </div>
 
             {(totalPlayers > initialStats.length) && (
-                <div style={{ padding: "1rem", textAlign: "center", borderTop: "1px solid var(--border)" }}>
+                <div style={{ padding: "0.75rem", textAlign: "center", borderTop: "1px solid var(--border)" }}>
                     <button
                         onClick={handleToggle}
                         className="btn btn-secondary"
                         disabled={loading}
-                        style={{ width: "100%" }}
+                        style={{ width: "100%", fontSize: "0.8rem", padding: "0.5rem" }}
                     >
                         {loading ? "Loading..." : (isExpanded ? "Show Top 5" : "View All Players")}
                     </button>

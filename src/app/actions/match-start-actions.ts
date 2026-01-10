@@ -6,21 +6,37 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function startMatch(matchId: string, leagueId: string, raceType: 'short' | 'long', gameType: '8ball' | '9ball') {
-    const supabase = createAdminClient();
+    const { createClient } = await import("@/utils/supabase/server");
+    const supabase = await createClient();
+    const { auth } = await import("@clerk/nextjs/server");
+    const { userId } = await auth();
 
-    // 1. Fetch match and profiles to calculate race
+    if (!userId) return { error: "Unauthorized" };
+
+    // 1. Fetch match and profiles to calculate race AND verify ownership
     const { data: match } = await supabase
         .from("matches")
         .select(`
       *,
       player1:player1_id(fargo_rating),
-      player2:player2_id(fargo_rating)
+      player2:player2_id(fargo_rating),
+      leagues(operator_id)
     `)
         .eq("id", matchId)
         .single();
 
     if (!match) return { error: "Match not found" };
     if (match.is_forfeit) return { error: "Match is forfeited" };
+
+    // Verify Ownership
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
+    const isAdmin = profile?.role === 'admin';
+    const leagueData = Array.isArray(match.leagues) ? match.leagues[0] : match.leagues;
+    const isOperator = leagueData?.operator_id === userId;
+
+    if (!isOperator && !isAdmin) {
+        return { error: "Unauthorized. Only the Operator can start a match with race verification." };
+    }
 
     // 2. Calculate Race
     const races = calculateRace(match.player1.fargo_rating, match.player2.fargo_rating);

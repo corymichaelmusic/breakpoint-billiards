@@ -163,8 +163,13 @@ export default function MatchScoringContainer({ match, games, races, leagueId, r
     return (
         <div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
-                <div style={{ fontWeight: 'bold', fontFamily: 'monospace', fontSize: '1.1rem' }}>
-                    Match Time: {formatTime(elapsedTime)}
+                <div style={{ fontWeight: 'bold', fontFamily: 'monospace', fontSize: '1.1rem', color: '#888' }}>
+                    {match.started_at
+                        ? new Date(match.started_at).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+                        : match.scheduled_date
+                            ? new Date(match.scheduled_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                            : 'Date TBD'
+                    }
                 </div>
             </div>
 
@@ -178,16 +183,7 @@ export default function MatchScoringContainer({ match, games, races, leagueId, r
 
             {!match.submitted_at && !readOnly && !isLocked && (
                 <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'center', gap: '1rem' }}>
-                    {bothFinished && (
-                        <button
-                            className="btn btn-primary"
-                            style={{ padding: '1rem 2rem', fontSize: '1.1rem', backgroundColor: 'var(--success)', borderColor: 'var(--success)' }}
-                            onClick={handleSubmitMatch}
-                            disabled={isSubmittingMatch}
-                        >
-                            {isSubmittingMatch ? 'Submitting...' : 'Submit Final Match Results'}
-                        </button>
-                    )}
+
                     <button
                         className="btn"
                         style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', backgroundColor: 'transparent', border: '1px solid #444', color: '#666', alignSelf: 'center' }}

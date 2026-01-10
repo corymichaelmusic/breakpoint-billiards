@@ -32,7 +32,6 @@ export default function GameScoring({ match, games, gameType, readOnly, p1Breakp
     const [statEarly8, setStatEarly8] = useState(false);
     const [stat8WrongPocket, setStat8WrongPocket] = useState(false);
     // 9-Ball Stats
-    const [statWinZip, setStatWinZip] = useState(false);
     const [stat9OnSnap, setStat9OnSnap] = useState(false);
 
     // Use passed gameType
@@ -162,7 +161,6 @@ export default function GameScoring({ match, games, gameType, readOnly, p1Breakp
         } else {
             setStatBreakRun(game.is_break_and_run || false);
             setStatRackRun(game.is_rack_and_run || false);
-            setStatWinZip(game.is_win_zip || false);
             setStat9OnSnap(game.is_9_on_snap || false);
         }
 
@@ -177,7 +175,7 @@ export default function GameScoring({ match, games, gameType, readOnly, p1Breakp
         setStatRackRun(false);
         setStatEarly8(false);
         setStat8WrongPocket(false);
-        setStatWinZip(false);
+        setStat8WrongPocket(false);
         setStat9OnSnap(false);
         setBallAssignments({ 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null, 8: null, 9: null });
     };
@@ -234,7 +232,6 @@ export default function GameScoring({ match, games, gameType, readOnly, p1Breakp
             } : {
                 isBreakAndRun: statBreakRun,
                 isRackAndRun: statRackRun,
-                isWinZip: statWinZip,
                 is9OnSnap: stat9OnSnap
             };
 
@@ -281,7 +278,6 @@ export default function GameScoring({ match, games, gameType, readOnly, p1Breakp
                 setStatRackRun(false);
                 setStatEarly8(false);
                 setStat8WrongPocket(false);
-                setStatWinZip(false);
                 setStat9OnSnap(false);
                 setBallAssignments({ 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null, 8: null, 9: null });
             }
@@ -643,14 +639,7 @@ export default function GameScoring({ match, games, gameType, readOnly, p1Breakp
                                     </>
                                 ) : (
                                     <>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={statWinZip}
-                                                onChange={(e) => setStatWinZip(e.target.checked)}
-                                            />
-                                            <span style={{ fontSize: '0.9rem' }}>Win-Zip</span>
-                                        </label>
+
                                         <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                                             <input
                                                 type="checkbox"

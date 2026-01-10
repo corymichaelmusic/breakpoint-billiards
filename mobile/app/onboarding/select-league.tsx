@@ -1,5 +1,6 @@
 
-import { View, Text, SafeAreaView, FlatList, TouchableOpacity, ActivityIndicator, Alert, Image } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Alert, Image } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";

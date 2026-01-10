@@ -25,11 +25,11 @@ export default async function OperatorDashboard() {
                 <Navbar />
                 <div className="container max-w-xl mt-20 text-center">
                     <div className="card-glass p-12">
-                        <h1 className="text-3xl text-primary mb-4 font-serif">Application Pending</h1>
+                        <h1 className="text-3xl text-white mb-4 font-serif">Application Pending</h1>
                         <p className="text-lg text-gray-400">
                             Your application to become a League Operator is under review.
                         </p>
-                        <p className="text-sm text-gray-500 mt-4">
+                        <p className="text-sm text-gray-300 mt-4">
                             An administrator will review your request shortly.
                         </p>
                     </div>
@@ -55,10 +55,18 @@ export default async function OperatorDashboard() {
     }
 
     // Fetch Operator's League Organizations (All of them)
+    // Fetch Operator's League Organizations (via junction table)
+    const { data: assignments } = await supabase
+        .from("league_operators")
+        .select("league_id")
+        .eq("user_id", userId);
+
+    const assignedLeagueIds = assignments?.map(a => a.league_id) || [];
+
     const { data: leagueOrgs, error: orgError } = await supabase
         .from("leagues")
         .select("*")
-        .eq("operator_id", userId)
+        .in("id", assignedLeagueIds)
         .eq("type", "league")
         .order("created_at", { ascending: true });
 
@@ -122,8 +130,8 @@ export default async function OperatorDashboard() {
 
                 <div className="flex justify-between items-center mb-12">
                     <div>
-                        <h1 className="text-3xl font-bold font-sans text-primary">Operator Dashboard</h1>
-                        <p className="text-sm text-gray-500 mt-1">Manage your leagues and player requests</p>
+                        <h1 className="text-3xl font-bold font-sans text-white">Operator Dashboard</h1>
+                        <p className="text-sm text-gray-300 mt-1">Manage your leagues and player requests</p>
                     </div>
                 </div>
 
@@ -156,7 +164,7 @@ export default async function OperatorDashboard() {
                                         <div className="text-sm text-gray-400">
                                             Requested by: <span className="text-white">{req.requester?.full_name}</span>
                                         </div>
-                                        <div className="text-sm text-gray-500 italic mt-2 bg-surface/50 p-4 rounded max-w-md">
+                                        <div className="text-sm text-gray-300 italic mt-2 bg-surface/50 p-4 rounded max-w-md">
                                             "{req.reason}"
                                         </div>
                                     </div>
@@ -182,7 +190,7 @@ export default async function OperatorDashboard() {
                                     <div className="card-glass hover-effect h-full flex flex-col justify-between p-10 cursor-pointer group">
                                         <div>
                                             <div className="flex justify-between items-start mb-6">
-                                                <div className="w-14 h-14 rounded-full bg-surface-hover flex items-center justify-center text-primary font-sans text-2xl border border-transparent group-hover:border-primary transition-colors">
+                                                <div className="w-14 h-14 rounded-full bg-surface-hover flex items-center justify-center text-[#D4AF37] font-sans text-2xl border border-transparent group-hover:border-[#D4AF37] transition-colors">
                                                     {leagueOrg.name.charAt(0)}
                                                 </div>
                                                 {pendingCount > 0 && (
@@ -196,7 +204,7 @@ export default async function OperatorDashboard() {
                                                 {leagueOrg.name}
                                             </h3>
 
-                                            <div className="space-y-2 text-sm text-gray-400">
+                                            <div className="space-y-2 text-sm text-gray-300">
                                                 <div className="flex items-center gap-3">
                                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                                                     {leagueOrg.location || "No Location"}
@@ -213,7 +221,7 @@ export default async function OperatorDashboard() {
                                         </div>
 
                                         <div className="mt-8 flex justify-end">
-                                            <span className="text-sm font-semibold text-primary group-hover:underline">
+                                            <span className="text-sm font-semibold text-[#D4AF37] group-hover:underline">
                                                 Manage League &rarr;
                                             </span>
                                         </div>
@@ -222,27 +230,15 @@ export default async function OperatorDashboard() {
                             )
                         })}
 
-                        {/* New League Card */}
-                        <Link href="/dashboard/operator/leagues/new">
-                            <div className="card-glass border-dashed border-2 border-transparent bg-surface/30 h-full flex flex-col items-center justify-center p-10 cursor-pointer hover:border-primary hover:bg-surface/50 transition-all group">
-                                <div className="w-20 h-20 rounded-full bg-surface border border-transparent flex items-center justify-center text-gray-500 mb-6 group-hover:text-primary group-hover:border-primary transition-colors">
-                                    <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                                </div>
-                                <h3 className="text-xl font-bold text-gray-300 group-hover:text-white">Create New League</h3>
-                                <p className="text-sm text-gray-500 text-center mt-2">Launch a new organization</p>
-                            </div>
-                        </Link>
                     </div>
                 ) : (
                     <div className="card-glass p-16 text-center">
                         <div className="w-24 h-24 bg-surface-hover rounded-full flex items-center justify-center mx-auto mb-8 text-4xl border border-transparent">
                             🎱
                         </div>
-                        <h3 className="text-3xl font-bold mb-4">No Leagues Found</h3>
-                        <p className="text-gray-400 mb-10 max-w-lg mx-auto">Get started by creating your first Breakpoint Billiards league organization.</p>
-                        <Link href="/dashboard/operator/leagues/new" className="btn btn-primary px-10 py-4 text-xl">
-                            Create League
-                        </Link>
+                        <h3 className="text-3xl font-bold mb-4">No Leagues Assigned</h3>
+                        <p className="text-gray-400 mb-6 max-w-lg mx-auto">You haven't been assigned to any leagues yet.</p>
+                        <p className="text-sm text-gray-500">Contact an administrator to get access to your organization.</p>
                     </div>
                 )}
             </div>

@@ -9,86 +9,99 @@ export { getInitStats, aggregateMatchStats };
 export async function getSessionStats(sessionId: string): Promise<PlayerStats[]> {
     const supabase = createAdminClient();
 
-    // 1. Fetch Matches with Player Ratings
+    const statsMap = new Map<string, PlayerStats>();
+
+    // 1. Fetch All Active Players in the Session (Roster)
+    const { data: roster } = await supabase
+        .from("league_players")
+        .select("player_id, profiles:player_id(full_name)")
+        .eq("league_id", sessionId)
+        .eq("status", "active");
+
+    // Initialize stats for every player in the roster
+    if (roster && roster.length > 0) {
+        roster.forEach(membership => {
+            const pid = membership.player_id;
+            const pName = Array.isArray(membership.profiles) ? membership.profiles[0]?.full_name : (membership.profiles as any)?.full_name;
+            statsMap.set(pid, getInitStats(pid, pName || "Unknown"));
+        });
+    }
+
+    // 2. Fetch Matches with Player Ratings (Finalized only)
     const { data: matches } = await supabase
         .from("matches")
         .select("id, player1_id, player2_id, winner_id, current_points_p1, current_points_p2, points_8ball_p1, points_8ball_p2, points_9ball_p1, points_9ball_p2, status_8ball, status_9ball, winner_id_8ball, winner_id_9ball, is_forfeit, player1:player1_id(full_name, fargo_rating), player2:player2_id(full_name, fargo_rating)")
         .eq("league_id", sessionId)
-        .or("status.eq.finalized,winner_id.not.is.null") // Accept finalized OR valid winner
+        // .or("status.eq.finalized,winner_id.not.is.null") // REMOVED: Fetch all to allow scheduled games with scores to count
         .order("scheduled_date", { ascending: true });
 
-    if (!matches || matches.length === 0) return [];
+    // 3. Fetch Games for these matches (for detailed stats)
+    let allGames: any[] = [];
+    if (matches && matches.length > 0) {
+        const matchIds = matches.map(m => m.id);
+        const { data: games } = await supabase
+            .from("games")
+            .select("*")
+            .in("match_id", matchIds);
+        allGames = games || [];
 
-    // 2. Fetch Games for these matches (for detailed stats)
-    const matchIds = matches.map(m => m.id);
-    const { data: games } = await supabase
-        .from("games")
-        .select("*")
-        .in("match_id", matchIds);
+        matches.forEach(match => {
+            // Player 1
+            if (!statsMap.has(match.player1_id)) {
+                // Should already be there if in roster, but safety check for legacy/removed players
+                const p1Data = match.player1;
+                const p1Name = Array.isArray(p1Data) ? p1Data[0]?.full_name : (p1Data as any)?.full_name;
+                statsMap.set(match.player1_id, getInitStats(match.player1_id, p1Name || "Unknown"));
+            }
+            aggregateMatchStats(statsMap.get(match.player1_id)!, match, match.player1_id, allGames);
 
-    const allGames = games || [];
+            // Player 2
+            if (!statsMap.has(match.player2_id)) {
+                const p2Data = match.player2;
+                const p2Name = Array.isArray(p2Data) ? p2Data[0]?.full_name : (p2Data as any)?.full_name;
+                statsMap.set(match.player2_id, getInitStats(match.player2_id, p2Name || "Unknown"));
+            }
+            aggregateMatchStats(statsMap.get(match.player2_id)!, match, match.player2_id, allGames);
+        });
+    }
 
-    const statsMap = new Map<string, PlayerStats>();
+    // Calculate Ratings for Session (Internal tracker, or fetch from profiles?)
+    // Re-calculating purely from session matches for "Session Rating" context, 
+    // or just assume everyone is 500 base?
+    // Let's stick to the previous logic which seemed to calc running ELO.
 
-    matches.forEach(match => {
-        // Player 1
-        if (!statsMap.has(match.player1_id)) {
-            const p1Data = match.player1;
-            const p1Name = Array.isArray(p1Data) ? p1Data[0]?.full_name : (p1Data as any)?.full_name;
-            // console.log(`Init P1: ${match.player1_id} -> ${p1Name}`);
-            statsMap.set(match.player1_id, getInitStats(match.player1_id, p1Name || "Unknown"));
-        }
-        aggregateMatchStats(statsMap.get(match.player1_id)!, match, match.player1_id, allGames);
-
-        // Player 2
-        if (!statsMap.has(match.player2_id)) {
-            const p2Data = match.player2;
-            const p2Name = Array.isArray(p2Data) ? p2Data[0]?.full_name : (p2Data as any)?.full_name;
-            // console.log(`Init P2: ${match.player2_id} -> ${p2Name}`);
-            statsMap.set(match.player2_id, getInitStats(match.player2_id, p2Name || "Unknown"));
-        }
-        aggregateMatchStats(statsMap.get(match.player2_id)!, match, match.player2_id, allGames);
-    });
-
-    // Calculate Ratings for Session
     const ratings = new Map<string, number>();
-    // Initialize everyone at 500 (or existing rating if we fetched it, but user said "Everyone starts at 5")
-    // Note: If we want to persist rating across sessions, we should fetch Profile rating.
-    // But per request "Everyone starts at 5", we init to 500.
-    matches.forEach(m => {
-        if (!ratings.has(m.player1_id)) ratings.set(m.player1_id, 500);
-        if (!ratings.has(m.player2_id)) ratings.set(m.player2_id, 500);
-    });
+    // Reset everyone to 500 for this session calc
+    statsMap.forEach((_, pid) => ratings.set(pid, 500));
 
-    matches.forEach(match => {
-        const p1Rating = ratings.get(match.player1_id) || 500;
-        const p2Rating = ratings.get(match.player2_id) || 500;
+    if (matches && matches.length > 0) {
+        matches.forEach(match => {
+            const p1Rating = ratings.get(match.player1_id) || 500;
+            const p2Rating = ratings.get(match.player2_id) || 500;
 
-        let isP1Win = false;
-        let isDraw = false;
+            let isP1Win = false;
+            let isDraw = false;
 
-        const isP1 = true; // Relative to P1
+            if (match.winner_id) {
+                if (match.winner_id === match.player1_id) isP1Win = true;
+                else isP1Win = false;
+            } else {
+                const p1Points = (Number(match.points_8ball_p1) || 0) + (Number(match.points_9ball_p1) || 0);
+                const p2Points = (Number(match.points_8ball_p2) || 0) + (Number(match.points_9ball_p2) || 0);
+                if (p1Points > p2Points) isP1Win = true;
+                else if (p2Points > p1Points) isP1Win = false;
+                else isDraw = true;
+            }
 
-        if (match.winner_id) {
-            if (match.winner_id === match.player1_id) isP1Win = true;
-            else isP1Win = false;
-        } else {
-            // Fallback logic
-            const p1Points = (Number(match.points_8ball_p1) || 0) + (Number(match.points_9ball_p1) || 0);
-            const p2Points = (Number(match.points_8ball_p2) || 0) + (Number(match.points_9ball_p2) || 0);
-            if (p1Points > p2Points) isP1Win = true;
-            else if (p2Points > p1Points) isP1Win = false;
-            else isDraw = true;
-        }
+            if (!isDraw) {
+                const p1Delta = calculateEloChange(p1Rating, p2Rating, isP1Win);
+                const p2Delta = calculateEloChange(p2Rating, p1Rating, !isP1Win);
 
-        if (!isDraw) {
-            const p1Delta = calculateEloChange(p1Rating, p2Rating, isP1Win);
-            const p2Delta = calculateEloChange(p2Rating, p1Rating, !isP1Win);
-
-            ratings.set(match.player1_id, p1Rating + p1Delta);
-            ratings.set(match.player2_id, p2Rating + p2Delta);
-        }
-    });
+                ratings.set(match.player1_id, p1Rating + p1Delta);
+                ratings.set(match.player2_id, p2Rating + p2Delta);
+            }
+        });
+    }
 
     // Calculate Averages and Assign Rating
     const statsArray = Array.from(statsMap.values()).map(stat => {
@@ -103,6 +116,21 @@ export async function getSessionStats(sessionId: string): Promise<PlayerStats[]>
         stat.breakPoint = parseFloat(getBreakpointLevel(finalRating));
 
         return stat;
+    });
+
+    // Sort by Win Rate (desc), then Points (desc), then Matches Won (desc)
+    statsArray.sort((a, b) => {
+        // Primary: Win Rate (Set)
+        if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+        // Secondary: Total Points
+        if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+        // Tertiary: Matches Won
+        return b.matchesWon - a.matchesWon;
+    });
+
+    // Assign Ranks
+    statsArray.forEach((stat, index) => {
+        stat.rank = index + 1;
     });
 
     return statsArray;
@@ -240,7 +268,7 @@ export async function getPlayerSessionStats(playerId: string, sessionId: string)
         `)
         .eq("league_id", sessionId)
         .or(`player1_id.eq.${playerId},player2_id.eq.${playerId}`)
-        .neq('status', 'scheduled'); // Get everything that isn't just scheduled
+        .or(`player1_id.eq.${playerId},player2_id.eq.${playerId}`);
 
     console.log(`[Stats] Found ${matches?.length} matches for ${playerId} (ignoring status filter)`);
 
@@ -256,6 +284,24 @@ export async function getPlayerSessionStats(playerId: string, sessionId: string)
         .in("match_id", matchIds);
 
     const allGames = games || [];
+
+    // Calculate Global Confidence Score (Lifetime Games Played)
+    // We need to fetch ALL matches for this player globally to count total racks
+    const { data: globalMatches } = await supabase
+        .from("matches")
+        .select("id")
+        .or(`player1_id.eq.${playerId},player2_id.eq.${playerId}`)
+        .not("status", "eq", "scheduled"); // Only played matches
+
+    let lifetimeGames = 0;
+    if (globalMatches && globalMatches.length > 0) {
+        const globalMatchIds = globalMatches.map(m => m.id);
+        const { count } = await supabase
+            .from("games")
+            .select("*", { count: 'exact', head: true })
+            .in("match_id", globalMatchIds);
+        lifetimeGames = count || 0;
+    }
 
 
 

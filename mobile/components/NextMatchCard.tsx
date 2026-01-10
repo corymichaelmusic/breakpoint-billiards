@@ -1,7 +1,7 @@
 import { View, Text, TouchableOpacity, Alert } from "react-native";
 import { Link, useRouter } from "expo-router";
 import { useState, useEffect } from "react";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth, useUser } from "@clerk/clerk-expo";
 import { createClient } from "@supabase/supabase-js";
 
 
@@ -26,27 +26,45 @@ interface NextMatchCardProps {
         p2_9: number;
         isPlayer1: boolean;
     };
+    specialStats?: {
+        p1_8br: number;
+        p2_8br: number;
+        p1_9br: number;
+        p2_9br: number;
+        p1_snap: number;
+        p2_snap: number;
+    };
 }
 
 export default function NextMatchCard({
     opponentName, date, isLocked, matchId, leagueName, sessionName, weekNumber, status,
-    player1Id, player2Id, paymentStatusP1, paymentStatusP2, label, scores
+    player1Id, player2Id, paymentStatusP1, paymentStatusP2, label, scores, specialStats
 }: NextMatchCardProps) {
     const [isRequesting, setIsRequesting] = useState(false);
     const { getToken, userId } = useAuth();
+    const { user } = useUser();
     const router = useRouter();
 
     const [hasPendingRequest, setHasPendingRequest] = useState(false);
 
+    const myName = user?.firstName || 'Me';
+    const oppName = opponentName.split(' ')[0];
+
 
 
     useEffect(() => {
+        if (matchId && matchId.startsWith('user_')) {
+            console.error("NextMatchCard received User ID as matchId!", matchId);
+        }
         let isMounted = true;
         let subscription: any = null;
         let pollInterval: NodeJS.Timeout | null = null;
 
         const checkPendingRequest = async () => {
             if (!matchId || !userId) return;
+            // Optimization: Do not check pending requests for finalized games
+            if (status === 'finalized' || status === 'completed') return;
+
             try {
                 // Initial Fetch using singleton
                 // Note: We need auth token for RLS? Singleton handles auth state automatically if signed in via Clerk?
@@ -220,13 +238,14 @@ export default function NextMatchCard({
         }
 
         // Proceed
+        console.log("Navigating to Match:", matchId);
         router.push(`/match/${matchId}`);
     };
 
     return (
         <View className="bg-surface p-4 rounded-lg border border-border border-l-4 border-l-primary mb-6">
             <View className="flex-row justify-between items-center mb-1">
-                <Text className="text-primary text-xs font-bold uppercase tracking-wider">{label || 'Next Match'}</Text>
+                <Text className="text-primary text-xs font-bold uppercase tracking-wider" style={{ includeFontPadding: false }}>{label ? label + ' ' : 'Next Match '}</Text>
                 {/* Remove duplicate Week display if using label for it, or keep for date context? 
                     User asked to replace "Next Match" with "Week X". 
                     So let's keep weekNumber on the right only if it's NOT in the label to avoid redundancy?
@@ -235,41 +254,76 @@ export default function NextMatchCard({
                     We can assume if label is provided, we might want to hide the right-side week number if it's redundant.
                     But for now, minimal change: Just replace "Next Match" with label. 
                 */}
-                {weekNumber && <Text className="text-gray-400 text-[10px] uppercase">Week {weekNumber}</Text>}
+                {weekNumber && <Text className="text-gray-400 text-[10px] uppercase" style={{ includeFontPadding: false }}>Week {weekNumber} </Text>}
             </View>
-            <Text className="text-foreground text-xl font-bold mb-1">vs {opponentName}</Text>
+            <Text className="text-foreground text-xl font-bold mb-1" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>vs {opponentName}</Text>
             {leagueName && <Text className="text-gray-300 text-sm">{leagueName}</Text>}
             {sessionName && <Text className="text-gray-500 text-xs mb-1">{sessionName}</Text>}
             <Text className="text-gray-400 text-xs mb-4">{date}</Text>
 
-            {/* Payment Status Badges */}
-            <View className="flex-row gap-2 mb-4">
-                <View className={`px-2 py-1 rounded border ${isPaid(myPaymentStatus) ? 'bg-green-900/20 border-green-500/50' : 'bg-red-900/20 border-red-500/50'}`}>
-                    <Text className={`${isPaid(myPaymentStatus) ? 'text-green-400' : 'text-red-400'} text-[10px] font-bold uppercase`}>
-                        You: {isPaid(myPaymentStatus) ? 'Paid' : 'Unpaid'}
-                    </Text>
+            {/* Payment Status Badges - Only show if NOT finalized */}
+            {status !== 'finalized' && status !== 'completed' && (
+                <View className="flex-row gap-2 mb-4">
+                    <View className={`px-2 py-1 rounded border flex-1 items-center justify-center ${isPaid(myPaymentStatus) ? 'bg-green-900/20 border-green-500/50' : 'bg-red-900/20 border-red-500/50'}`}>
+                        <Text
+                            className={`${isPaid(myPaymentStatus) ? 'text-green-400' : 'text-red-400'} text-[10px] font-bold uppercase text-center w-full`}
+                            style={{ includeFontPadding: false }}
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                        >
+                            You: {isPaid(myPaymentStatus) ? 'Paid' : 'Unpaid'}
+                        </Text>
+                    </View>
+                    <View className={`px-2 py-1 rounded border flex-1 items-center justify-center ${isPaid(oppPaymentStatus) ? 'bg-green-900/20 border-green-500/50' : 'bg-red-900/20 border-red-500/50'}`}>
+                        <Text
+                            className={`${isPaid(oppPaymentStatus) ? 'text-green-400' : 'text-red-400'} text-[10px] font-bold uppercase text-center w-full`}
+                            style={{ includeFontPadding: false }}
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                        >
+                            Opponent: {isPaid(oppPaymentStatus) ? 'Paid' : 'Unpaid'}
+                        </Text>
+                    </View>
                 </View>
-                <View className={`px-2 py-1 rounded border ${isPaid(oppPaymentStatus) ? 'bg-green-900/20 border-green-500/50' : 'bg-red-900/20 border-red-500/50'}`}>
-                    <Text className={`${isPaid(oppPaymentStatus) ? 'text-green-400' : 'text-red-400'} text-[10px] font-bold uppercase`}>
-                        Opponent: {isPaid(oppPaymentStatus) ? 'Paid' : 'Unpaid'}
-                    </Text>
-                </View>
-            </View>
+            )}
 
             {scores && (status === 'finalized' || status === 'completed') && (
-                <View className="flex-row gap-4 mb-4">
-                    <View>
-                        <Text className="text-gray-400 text-[10px] uppercase">8-Ball</Text>
-                        <Text className={`font-bold ${((scores.isPlayer1 ? scores.p1_8 : scores.p2_8) > (scores.isPlayer1 ? scores.p2_8 : scores.p1_8)) ? 'text-green-400' : 'text-red-400'}`}>
-                            {scores.isPlayer1 ? scores.p1_8 : scores.p2_8} - {scores.isPlayer1 ? scores.p2_8 : scores.p1_8}
-                        </Text>
+                <View className="mb-4">
+                    <View className="flex-row gap-4 mb-4">
+                        <View>
+                            <Text className="text-gray-400 text-[10px] uppercase">8-Ball</Text>
+                            <Text className={`font-bold ${((scores.isPlayer1 ? scores.p1_8 : scores.p2_8) > (scores.isPlayer1 ? scores.p2_8 : scores.p1_8)) ? 'text-green-400' : 'text-red-400'}`}>
+                                {scores.isPlayer1 ? scores.p1_8 : scores.p2_8} - {scores.isPlayer1 ? scores.p2_8 : scores.p1_8}
+                            </Text>
+                        </View>
+                        <View>
+                            <Text className="text-gray-400 text-[10px] uppercase">9-Ball</Text>
+                            <Text className={`font-bold ${((scores.isPlayer1 ? scores.p1_9 : scores.p2_9) > (scores.isPlayer1 ? scores.p2_9 : scores.p1_9)) ? 'text-green-400' : 'text-red-400'}`}>
+                                {scores.isPlayer1 ? scores.p1_9 : scores.p2_9} - {scores.isPlayer1 ? scores.p2_9 : scores.p1_9}
+                            </Text>
+                        </View>
                     </View>
-                    <View>
-                        <Text className="text-gray-400 text-[10px] uppercase">9-Ball</Text>
-                        <Text className={`font-bold ${((scores.isPlayer1 ? scores.p1_9 : scores.p2_9) > (scores.isPlayer1 ? scores.p2_9 : scores.p1_9)) ? 'text-green-400' : 'text-red-400'}`}>
-                            {scores.isPlayer1 ? scores.p1_9 : scores.p2_9} - {scores.isPlayer1 ? scores.p2_9 : scores.p1_9}
-                        </Text>
-                    </View>
+
+                    {/* Uniform Stats Layout */}
+                    {specialStats && (
+                        <View className="flex-row gap-4">
+                            {/* MY Box */}
+                            <View className="flex-1 bg-surface-hover rounded p-2 border border-white/5 items-center">
+                                <Text className="text-primary font-bold text-xs uppercase mb-1 text-center" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{myName}</Text>
+                                <Text className="text-gray-400 text-[10px] uppercase font-bold">8BR - <Text className="text-white">{scores.isPlayer1 ? specialStats.p1_8br : specialStats.p2_8br}</Text></Text>
+                                <Text className="text-gray-400 text-[10px] uppercase font-bold">9BR - <Text className="text-white">{scores.isPlayer1 ? specialStats.p1_9br : specialStats.p2_9br}</Text></Text>
+                                <Text className="text-gray-400 text-[10px] uppercase font-bold">9BS - <Text className="text-white">{scores.isPlayer1 ? specialStats.p1_snap : specialStats.p2_snap}</Text></Text>
+                            </View>
+
+                            {/* OPP Box */}
+                            <View className="flex-1 bg-surface-hover rounded p-2 border border-white/5 items-center">
+                                <Text className="text-gray-400 font-bold text-xs uppercase mb-1 text-center" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{oppName}</Text>
+                                <Text className="text-gray-400 text-[10px] uppercase font-bold">8BR - <Text className="text-white">{scores.isPlayer1 ? specialStats.p2_8br : specialStats.p1_8br}</Text></Text>
+                                <Text className="text-gray-400 text-[10px] uppercase font-bold">9BR - <Text className="text-white">{scores.isPlayer1 ? specialStats.p2_9br : specialStats.p1_9br}</Text></Text>
+                                <Text className="text-gray-400 text-[10px] uppercase font-bold">9BS - <Text className="text-white">{scores.isPlayer1 ? specialStats.p2_snap : specialStats.p1_snap}</Text></Text>
+                            </View>
+                        </View>
+                    )}
                 </View>
             )}
 
@@ -280,32 +334,34 @@ export default function NextMatchCard({
                     </View>
                     {hasPendingRequest ? (
                         <Text className="text-yellow-500 text-[10px] uppercase font-bold italic">Unlock Pending...</Text>
-                    ) : (
+                    ) : (status !== 'finalized' && status !== 'completed') ? (
                         <TouchableOpacity onPress={handleRequestUnlock} disabled={isRequesting}>
                             <Text className={`text-primary text-[10px] uppercase underline font-bold ${isRequesting ? 'opacity-50' : ''}`}>
                                 {isRequesting ? 'Sending...' : 'Request Unlock'}
                             </Text>
                         </TouchableOpacity>
-                    )}
+                    ) : null}
                 </View>
             ) : (
-                matchId ? (
-                    <TouchableOpacity
-                        onPress={() => {
-                            if (status === 'finalized') {
-                                router.push(`/match-results/${matchId}`);
-                            } else {
+
+                matchId && !matchId.startsWith('user_') && matchId.length === 36 ? (
+                    status === 'finalized' ? null : (
+                        <TouchableOpacity
+                            onPress={() => {
                                 handlePlayMatch();
-                            }
-                        }}
-                        className={`${status === 'finalized' ? 'bg-secondary' : 'bg-primary'} px-4 py-2 rounded self-start`}
-                    >
-                        <Text className={`${status === 'finalized' ? 'text-white' : 'text-black'} font-bold uppercase text-xs tracking-wider`}>
-                            {status === 'finalized' ? 'View Results' : (status === 'in_progress' ? 'Continue Match' : 'Play Match')}
-                        </Text>
-                    </TouchableOpacity>
+                            }}
+                            className={`bg-primary px-4 py-2 rounded self-start`}
+                        >
+                            <Text className={`text-black font-bold uppercase text-xs tracking-wider`} style={{ includeFontPadding: false }}>
+                                {status === 'in_progress' ? 'Continue Match ' : 'Play Match '}
+                            </Text>
+                        </TouchableOpacity>
+                    )
                 ) : (
-                    <Text className="text-red-500 text-xs text-center font-bold">Error: Invalid Match ID</Text>
+                    <View className="bg-red-900/20 px-4 py-2 rounded border border-red-500/50">
+                        <Text className="text-red-400 text-xs font-bold">Invalid Match ID: {matchId ? 'Format Error' : 'Missing'}</Text>
+                        <Text className="text-red-500 text-[10px]">{matchId || 'NULL'}</Text>
+                    </View>
                 )
             )}
         </View >

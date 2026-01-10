@@ -65,7 +65,7 @@ export default async function AdminPlayerPage({ params }: { params: Promise<{ id
 
                         {/* Name & Basic Info */}
                         <div>
-                            <h1 style={{ marginBottom: "0.25rem" }}>{player?.full_name}</h1>
+                            <h1 style={{ marginBottom: "0.25rem", color: "white" }}>{player?.full_name}</h1>
                             {player?.nickname && (
                                 <div style={{ fontSize: "1.2rem", color: "var(--primary)", marginBottom: "0.5rem", fontStyle: "italic" }}>
                                     "{player.nickname}"
@@ -94,59 +94,59 @@ export default async function AdminPlayerPage({ params }: { params: Promise<{ id
                 {/* Contact Info */}
                 <div className="grid grid-2" style={{ marginBottom: "2rem" }}>
                     <div className="card" style={{ padding: "1.5rem" }}>
-                        <h3>Contact Information</h3>
+                        <h3 style={{ color: "white" }}>Contact Information</h3>
                         <div style={{ marginTop: "1rem", display: "grid", gap: "0.5rem" }}>
                             <div>
-                                <span style={{ color: "#888", width: "80px", display: "inline-block" }}>Email:</span>
-                                <span>{player?.email || "N/A"}</span>
+                                <span style={{ color: "#aaa", width: "80px", display: "inline-block" }}>Email:</span>
+                                <span style={{ color: "white" }}>{player?.email || "N/A"}</span>
                             </div>
                             <div>
-                                <span style={{ color: "#888", width: "80px", display: "inline-block" }}>Phone:</span>
-                                <span>{player?.phone || "N/A"}</span>
+                                <span style={{ color: "#aaa", width: "80px", display: "inline-block" }}>Phone:</span>
+                                <span style={{ color: "white" }}>{player?.phone || "N/A"}</span>
                             </div>
                             <div>
-                                <span style={{ color: "#888", width: "80px", display: "inline-block" }}>Created:</span>
-                                <span>{new Date(player?.created_at).toLocaleDateString()}</span>
+                                <span style={{ color: "#aaa", width: "80px", display: "inline-block" }}>Created:</span>
+                                <span style={{ color: "white" }}>{new Date(player?.created_at).toLocaleDateString()}</span>
                             </div>
                         </div>
                     </div>
 
                     <div className="card" style={{ padding: "1.5rem" }}>
-                        <h3>Leagues & Sessions</h3>
+                        <h3 style={{ color: "white" }}>Leagues & Sessions</h3>
                         {leagues && leagues.length > 0 ? (
-                            <ul style={{ paddingLeft: "1.2rem", marginTop: "1rem" }}>
+                            <ul style={{ paddingLeft: "1.2rem", marginTop: "1rem", color: "white" }}>
                                 {leagues.map((l: any) => (
                                     <li key={l.id} style={{ marginBottom: "0.5rem" }}>
-                                        {l.name} <span style={{ fontSize: "0.8rem", color: "#888" }}>({l.type})</span>
+                                        {l.name} <span style={{ fontSize: "0.8rem", color: "#aaa" }}>({l.type})</span>
                                     </li>
                                 ))}
                             </ul>
                         ) : (
-                            <p style={{ color: "#888", marginTop: "1rem" }}>No active league memberships.</p>
+                            <p style={{ color: "#aaa", marginTop: "1rem" }}>No active league memberships.</p>
                         )}
                     </div>
                 </div>
 
                 {/* Statistics Section */}
                 <div className="card" style={{ padding: "2rem", marginBottom: "2rem" }}>
-                    <h2 style={{ marginBottom: "1.5rem" }}>Lifetime Statistics</h2>
+                    <h2 style={{ marginBottom: "1.5rem", color: "white" }}>Lifetime Statistics</h2>
 
                     {/* Top Level Stats */}
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "1rem", marginBottom: "2rem", textAlign: "center" }}>
                         <div className="stat-box">
-                            <div className="label">Win Rate</div>
+                            <div className="label" style={{ color: "#aaa" }}>Win Rate</div>
                             <div className="value">{typeof stats?.winRate === 'number' ? stats.winRate : 0}%</div>
                         </div>
                         <div className="stat-box">
-                            <div className="label">Sets</div>
+                            <div className="label" style={{ color: "#aaa" }}>Sets</div>
                             <div className="value">{stats?.matchesPlayed || 0}</div>
                         </div>
                         <div className="stat-box">
-                            <div className="label">Won</div>
+                            <div className="label" style={{ color: "#aaa" }}>Won</div>
                             <div className="value">{stats?.matchesWon || 0}</div>
                         </div>
                         <div className="stat-box">
-                            <div className="label">Lost</div>
+                            <div className="label" style={{ color: "#aaa" }}>Lost</div>
                             <div className="value">{stats?.matchesLost || 0}</div>
                         </div>
                     </div>
@@ -162,7 +162,7 @@ export default async function AdminPlayerPage({ params }: { params: Promise<{ id
                                         Sets: {stats?.matchesWon_8ball || 0}-{stats?.matchesLost_8ball || 0} ({stats?.winRate_8ball || 0}%)
                                     </span>
                                 </h3>
-                                <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem", color: "white" }}>
                                     <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "0.5rem", borderBottom: "1px solid #222" }}>
                                         <span style={{ color: "#888" }}>Rack Breakdown</span>
                                         <span>{stats?.racksPlayed_8ball || 0} Racks, {(stats?.racksWon_8ball || 0)}-{(stats?.racksPlayed_8ball || 0) - (stats?.racksWon_8ball || 0)} <span style={{ color: '#666', fontSize: '0.9em' }}>({stats?.racksPlayed_8ball ? Math.round((stats.racksWon_8ball / stats.racksPlayed_8ball) * 100) : 0}%)</span></span>
@@ -190,7 +190,7 @@ export default async function AdminPlayerPage({ params }: { params: Promise<{ id
                                         Sets: {stats?.matchesWon_9ball || 0}-{stats?.matchesLost_9ball || 0} ({stats?.winRate_9ball || 0}%)
                                     </span>
                                 </h3>
-                                <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem", color: "white" }}>
                                     <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "0.5rem", borderBottom: "1px solid #222" }}>
                                         <span style={{ color: "#888" }}>Rack Breakdown</span>
                                         <span>{stats?.racksPlayed_9ball || 0} Racks, {(stats?.racksWon_9ball || 0)}-{(stats?.racksPlayed_9ball || 0) - (stats?.racksWon_9ball || 0)} <span style={{ color: '#666', fontSize: '0.9em' }}>({stats?.racksPlayed_9ball ? Math.round((stats.racksWon_9ball / stats.racksPlayed_9ball) * 100) : 0}%)</span></span>
@@ -216,14 +216,14 @@ export default async function AdminPlayerPage({ params }: { params: Promise<{ id
 
                 {/* Admin Controls */}
                 <div className="card" style={{ padding: "2rem", border: "1px solid #333" }}>
-                    <h2 style={{ marginBottom: "1rem" }}>Admin Controls</h2>
+                    <h2 style={{ marginBottom: "1rem", color: "white" }}>Admin Controls</h2>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "2rem" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                            <div style={{ fontWeight: "bold" }}>Role:</div>
+                            <div style={{ fontWeight: "bold", color: "white" }}>Role:</div>
                             <RoleSelector userId={id} currentRole={player?.role || 'player'} />
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                            <div style={{ fontWeight: "bold" }}>Override Fargo:</div>
+                            <div style={{ fontWeight: "bold", color: "white" }}>Override Fargo:</div>
                             <FargoEditor playerId={id} currentFargo={player?.fargo_rating} />
                         </div>
                     </div>
@@ -252,7 +252,7 @@ export default async function AdminPlayerPage({ params }: { params: Promise<{ id
                 .stat-box .value {
                     font-size: 1.5rem;
                     font-weight: bold;
-                    color: var(--primary);
+                    color: white;
                 }
                 .stat-box .label {
                     font-size: 0.8rem;

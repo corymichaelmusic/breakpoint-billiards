@@ -79,10 +79,17 @@ export default function MatchStartScreen({ match, races, onSelectGame, backLink,
                         >
                             <span className={styles.optionTitle}>8-Ball</span>
                             <span className={styles.status}>
-                                {match.status_8ball === 'finalized' ?
-                                    (match.winner_id_8ball ?
-                                        `Winner: ${match.winner_id_8ball === match.player1_id ? match.player1.full_name : match.player2.full_name} (View)` :
-                                        'Completed (View)') :
+                                {match.status_8ball === 'finalized' || (match.points_8ball_p1 || 0) > 0 || (match.points_8ball_p2 || 0) > 0 ?
+                                    (
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                            <span style={{ fontSize: '1.2em', fontWeight: 'bold' }}>
+                                                {match.points_8ball_p1 || 0} - {match.points_8ball_p2 || 0}
+                                            </span>
+                                            <span style={{ fontSize: '0.8em', opacity: 0.8 }}>
+                                                {match.status_8ball === 'finalized' ? '(Final)' : '(In Progress)'}
+                                            </span>
+                                        </div>
+                                    ) :
                                     match.status_8ball === 'in_progress' ? 'In Progress' : 'Start Match'}
                             </span>
                         </button>
@@ -94,10 +101,17 @@ export default function MatchStartScreen({ match, races, onSelectGame, backLink,
                         >
                             <span className={styles.optionTitle}>9-Ball</span>
                             <span className={styles.status}>
-                                {match.status_9ball === 'finalized' ?
-                                    (match.winner_id_9ball ?
-                                        `Winner: ${match.winner_id_9ball === match.player1_id ? match.player1.full_name : match.player2.full_name} (View)` :
-                                        'Completed (View)') :
+                                {match.status_9ball === 'finalized' || (match.points_9ball_p1 || 0) > 0 || (match.points_9ball_p2 || 0) > 0 ?
+                                    (
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                            <span style={{ fontSize: '1.2em', fontWeight: 'bold' }}>
+                                                {match.points_9ball_p1 || 0} - {match.points_9ball_p2 || 0}
+                                            </span>
+                                            <span style={{ fontSize: '0.8em', opacity: 0.8 }}>
+                                                {match.status_9ball === 'finalized' ? '(Final)' : '(In Progress)'}
+                                            </span>
+                                        </div>
+                                    ) :
                                     match.status_9ball === 'in_progress' ? 'In Progress' : 'Start Match'}
                             </span>
                         </button>

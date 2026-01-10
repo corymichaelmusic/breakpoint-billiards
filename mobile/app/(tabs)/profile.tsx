@@ -1,4 +1,5 @@
-import { View, Text, SafeAreaView, TouchableOpacity, ActivityIndicator, Dimensions, TextInput, Alert, Image, ActionSheetIOS, Platform, DeviceEventEmitter } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, Dimensions, TextInput, Alert, Image, ActionSheetIOS, Platform, DeviceEventEmitter, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from "@clerk/clerk-expo";
@@ -234,111 +235,121 @@ export default function ProfileScreen() {
     };
 
     return (
-        <SafeAreaView className="flex-1 bg-background">
-            <View className="flex-1 items-center p-6">
+        <SafeAreaView className="flex-1 bg-background" edges={['bottom', 'left', 'right']}>
+            <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+                <View className="flex-1 items-center p-6">
 
 
-                {loading ? (
-                    <ActivityIndicator color="#D4AF37" size="large" />
-                ) : profile ? (
-                    <View className="w-full items-center">
-                        {/* Player Name as Header */}
-                        <Text className="text-white text-3xl font-bold mb-6 text-center uppercase tracking-wider">{profile.full_name || 'Unknown Player'}</Text>
-
-                        {/* Avatar Edit Section */}
-                        <TouchableOpacity onPress={handleAvatarPress} disabled={uploading} className="mb-6 relative">
-                            <View className="w-32 h-32 rounded-full border-4 border-primary overflow-hidden bg-surface items-center justify-center">
-                                {profile.avatar_url ? (
-                                    <Image source={{ uri: profile.avatar_url }} className="w-full h-full" />
-                                ) : (
-                                    <Ionicons name="person" size={64} color="#666" />
-                                )}
-                                {uploading && (
-                                    <View className="absolute inset-0 bg-black/50 items-center justify-center">
-                                        <ActivityIndicator color="#D4AF37" />
-                                    </View>
-                                )}
-                            </View>
-                            <View className="absolute bottom-0 right-0 bg-primary p-2 rounded-full border-2 border-surface">
-                                <Ionicons name="camera" size={16} color="black" />
-                            </View>
-                        </TouchableOpacity>
-
-                        <View className="w-full bg-surface border border-border rounded-xl p-6 items-center shadow-lg">
-                            {/* Member ID */}
-                            <Text className="text-gray-400 text-lg mb-4 uppercase tracking-wider">
-                                Member ID: <Text className="text-primary font-bold">#{profile.player_number || '---'}</Text>
+                    {loading ? (
+                        <ActivityIndicator color="#D4AF37" size="large" />
+                    ) : profile ? (
+                        <View className="w-full items-center">
+                            {/* Player Name as Header */}
+                            <Text className="text-white text-3xl font-bold mb-6 text-center uppercase tracking-wider" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
+                                {profile.full_name || 'Unknown Player'}
                             </Text>
 
-                            {/* Nickname Row */}
-                            <View className="flex-row items-center mb-6 gap-3">
-                                <Text className="text-gray-400 text-lg uppercase tracking-wider w-24 text-right">Nickname:</Text>
-                                {editingNickname ? (
-                                    <View className="flex-row items-center gap-2">
-                                        <TextInput
-                                            value={tempNickname}
-                                            onChangeText={setTempNickname}
-                                            className="bg-white/10 text-primary font-bold text-lg px-3 py-1 rounded w-32 text-center"
-                                            autoFocus
-                                            placeholder="Optional"
-                                            placeholderTextColor="#666"
-                                        />
-                                        <TouchableOpacity onPress={handleUpdateNickname} className="bg-green-600/20 p-2 rounded-full">
-                                            <Ionicons name="checkmark" size={20} color="#4ade80" />
-                                        </TouchableOpacity>
-                                        <TouchableOpacity onPress={() => {
-                                            setEditingNickname(false);
-                                            setTempNickname(profile.nickname || "");
-                                        }} className="bg-red-600/20 p-2 rounded-full">
-                                            <Ionicons name="close" size={20} color="#f87171" />
-                                        </TouchableOpacity>
-                                    </View>
-                                ) : (
-                                    <View className="flex-row items-center gap-3">
-                                        <Text className="text-primary font-bold text-2xl">{profile.nickname || (profile.full_name ? profile.full_name.split(' ')[0] : '---')}</Text>
-                                        <TouchableOpacity onPress={() => setEditingNickname(true)}>
-                                            <Ionicons name="pencil" size={18} color="#6b7280" />
-                                        </TouchableOpacity>
-                                    </View>
-                                )}
-                            </View>
+                            {/* Avatar Edit Section */}
+                            <TouchableOpacity onPress={handleAvatarPress} disabled={uploading} className="mb-6 relative">
+                                <View className="w-32 h-32 rounded-full border-4 border-primary overflow-hidden bg-surface items-center justify-center">
+                                    {profile.avatar_url ? (
+                                        <Image source={{ uri: profile.avatar_url }} className="w-full h-full" />
+                                    ) : (
+                                        <Ionicons name="person" size={64} color="#666" />
+                                    )}
+                                    {uploading && (
+                                        <View className="absolute inset-0 bg-black/50 items-center justify-center">
+                                            <ActivityIndicator color="#D4AF37" />
+                                        </View>
+                                    )}
+                                </View>
+                                <View className="absolute bottom-0 right-0 bg-primary p-2 rounded-full border-2 border-surface">
+                                    <Ionicons name="camera" size={16} color="black" />
+                                </View>
+                            </TouchableOpacity>
 
-                            {/* Fargo Rating Row */}
-                            <View className="flex-row items-center mb-8 gap-3">
-                                <Text className="text-gray-400 text-lg uppercase tracking-wider w-24 text-right">Fargo:</Text>
-                                <View className="flex-row items-center gap-3">
-                                    <Text className="text-primary font-bold text-3xl">{profile.fargo_rating || 500}</Text>
-                                    {/* Edit Removed per user request */}
-                                    {/* <TouchableOpacity onPress={() => setEditingFargo(true)}>
+                            <View className="w-full bg-surface border border-border rounded-xl p-6 items-center shadow-lg">
+                                {/* Member ID */}
+                                <View className="flex-row items-center mb-4 gap-2">
+                                    <Text className="text-gray-400 text-lg uppercase tracking-wider" style={{ includeFontPadding: false }}>Member ID:</Text>
+                                    <Text className="text-primary font-bold text-lg" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>#{profile.player_number || '---'}  </Text>
+                                </View>
+
+                                {/* Nickname Row */}
+                                <View className="flex-row items-center mb-6 gap-3">
+                                    <Text className="text-gray-400 text-lg uppercase tracking-wider min-w-[110px] text-right" style={{ includeFontPadding: false }}>Nickname:</Text>
+                                    {editingNickname ? (
+                                        <View className="flex-row items-center gap-2">
+                                            <TextInput
+                                                value={tempNickname}
+                                                onChangeText={setTempNickname}
+                                                className="bg-white/10 text-primary font-bold text-lg px-3 py-1 rounded w-32 text-center"
+                                                autoFocus
+                                                placeholder="Optional"
+                                                placeholderTextColor="#666"
+                                            />
+                                            <TouchableOpacity onPress={handleUpdateNickname} className="bg-green-600/20 p-2 rounded-full">
+                                                <Ionicons name="checkmark" size={20} color="#4ade80" />
+                                            </TouchableOpacity>
+                                            <TouchableOpacity onPress={() => {
+                                                setEditingNickname(false);
+                                                setTempNickname(profile.nickname || "");
+                                            }} className="bg-red-600/20 p-2 rounded-full">
+                                                <Ionicons name="close" size={20} color="#f87171" />
+                                            </TouchableOpacity>
+                                        </View>
+                                    ) : (
+                                        <View className="flex-row items-center gap-3">
+                                            <Text className="text-primary font-bold text-2xl" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
+                                                {profile.nickname || (profile.full_name ? profile.full_name.split(' ')[0] : '---')}
+                                            </Text>
+                                            <TouchableOpacity onPress={() => setEditingNickname(true)}>
+                                                <Ionicons name="pencil" size={18} color="#6b7280" />
+                                            </TouchableOpacity>
+                                        </View>
+                                    )}
+                                </View>
+
+                                {/* Fargo Rating Row */}
+                                <View className="flex-row items-center mb-8 gap-3">
+                                    <Text className="text-gray-400 text-lg uppercase tracking-wider min-w-[110px] text-right" style={{ includeFontPadding: false }}>Fargo:</Text>
+                                    <View className="flex-row items-center gap-3">
+                                        <Text className="text-primary font-bold text-3xl" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
+                                            {profile.fargo_rating || 500}
+                                        </Text>
+                                        {/* Edit Removed per user request */}
+                                        {/* <TouchableOpacity onPress={() => setEditingFargo(true)}>
                                         <Ionicons name="pencil" size={18} color="#6b7280" />
                                     </TouchableOpacity> */}
+                                    </View>
                                 </View>
-                            </View>
 
-                            {/* QR Code Section */}
-                            <View className="bg-white p-4 rounded-lg items-center justify-center">
-                                {profile.player_number ? (
-                                    <QRCode
-                                        value={String(profile.player_number)}
-                                        size={160}
-                                    />
-                                ) : (
-                                    <Text className="text-black">No ID Assigned</Text>
-                                )}
-                            </View>
+                                {/* QR Code Section */}
+                                <View className="bg-white p-4 rounded-lg items-center justify-center">
+                                    {profile.player_number ? (
+                                        <QRCode
+                                            value={String(profile.player_number)}
+                                            size={160}
+                                        />
+                                    ) : (
+                                        <Text className="text-black">No ID Assigned</Text>
+                                    )}
+                                </View>
 
+                            </View>
                         </View>
-                    </View>
-                ) : (
-                    <Text className="text-gray-500">Could not load profile.</Text>
-                )}
-            </View>
+                    ) : (
+                        <Text className="text-gray-500">Could not load profile.</Text>
+                    )}
+                </View>
 
-            <View className="p-6">
+            </ScrollView>
+
+            <View className="p-6 bg-background border-t border-white/5">
                 <TouchableOpacity onPress={() => signOut()} className="bg-red-500/10 border border-red-500/50 py-4 rounded-lg items-center active:bg-red-500/20">
-                    <Text className="text-red-500 font-bold uppercase tracking-widest">Sign Out</Text>
+                    <Text className="text-red-500 font-bold uppercase tracking-widest" style={{ includeFontPadding: false }}>Sign Out </Text>
                 </TouchableOpacity>
             </View>
-        </SafeAreaView>
+        </SafeAreaView >
     );
 }

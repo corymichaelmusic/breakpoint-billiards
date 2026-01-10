@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, Image, Alert, ActivityIndicator, TextInput, KeyboardAvoidingView, TouchableWithoutFeedback, Keyboard, Platform, DeviceEventEmitter } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Alert, ActivityIndicator, TextInput, TouchableWithoutFeedback, Keyboard, Platform, DeviceEventEmitter, Dimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOAuth, useAuth, useUser, useSignIn, useSignUp } from '@clerk/clerk-expo';
 import * as Linking from 'expo-linking';
 import { useRouter, useSegments } from 'expo-router';
@@ -11,7 +12,11 @@ import { useWarmUpBrowser } from "../hooks/useWarmUpBrowser";
 // WebBrowser.maybeCompleteAuthSession(); // Removed: Handled in _layout.tsx
 
 export default function Login() {
-    useWarmUpBrowser();
+    // useWarmUpBrowser();
+    useEffect(() => {
+        console.log("[Login] Component MOUNTED (Effect)");
+        return () => console.log("[Login] Component UNMOUNTED");
+    }, []);
 
     const { signIn, setActive, isLoaded } = useSignIn();
     const { signUp, setActive: setActiveSignUp, isLoaded: isSignUpLoaded } = useSignUp();
@@ -153,8 +158,10 @@ export default function Login() {
                 identifier: emailAddress.trim(),
                 password,
             });
+            console.log("[Login] setActive starting...");
             await setActive({ session: completeSignIn.createdSessionId });
-            router.replace("/");
+            console.log("[Login] setActive complete. Letting Layout handle redirect.");
+            // router.replace("/"); // REMOVED: potentially causing race condition with _layout.tsx
         } catch (err: any) {
             console.log(JSON.stringify(err, null, 2));
             Alert.alert("Login Failed", err.errors ? err.errors[0].message : "Something went wrong");
@@ -202,12 +209,9 @@ export default function Login() {
     };
 
     return (
-        <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            className="flex-1"
-        >
+        <SafeAreaView className="flex-1 bg-background">
             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                <View className="flex-1 justify-center items-center bg-background p-6">
+                <View className="flex-1 justify-center items-center p-6">
                     <View className="w-full max-w-sm">
                         <View className="items-center mb-10">
                             <Image
@@ -261,15 +265,21 @@ export default function Login() {
                                     className="w-full bg-surface border border-border rounded-lg p-4 mb-6 text-foreground text-base"
                                 />
 
+
                                 <TouchableOpacity
                                     onPress={mode === "signin" ? onSignInPress : onSignUpPress}
                                     disabled={loading}
-                                    className="w-full bg-primary rounded-lg p-4 items-center mb-4"
+                                    className="w-full bg-primary rounded-lg p-4 justify-center mb-4"
                                 >
                                     {loading ? (
                                         <ActivityIndicator color="#000" />
                                     ) : (
-                                        <Text className="text-black font-bold text-lg uppercase tracking-wider">
+                                        <Text
+                                            className="text-black font-bold text-lg uppercase tracking-wider text-center w-full"
+                                            style={{ includeFontPadding: false }}
+                                            numberOfLines={1}
+                                            adjustsFontSizeToFit
+                                        >
                                             {mode === "signin" ? "Sign In" : "Sign Up"}
                                         </Text>
                                     )}
@@ -278,9 +288,16 @@ export default function Login() {
                                 <TouchableOpacity
                                     onPress={onGoogleSignInPress}
                                     disabled={loading}
-                                    className="w-full bg-surface border border-border rounded-lg p-4 items-center mb-6 flex-row justify-center"
+                                    className="w-full bg-surface border border-border rounded-lg p-4 justify-center mb-6"
                                 >
-                                    <Text className="text-white font-bold text-base">Sign in with Google</Text>
+                                    <Text
+                                        className="text-white font-bold text-base text-center w-full"
+                                        style={{ includeFontPadding: false }}
+                                        numberOfLines={1}
+                                        adjustsFontSizeToFit
+                                    >
+                                        Sign in with Google
+                                    </Text>
                                 </TouchableOpacity>
 
                                 <TouchableOpacity onPress={toggleMode} className="items-center">
@@ -334,6 +351,6 @@ export default function Login() {
                     </View>
                 </View>
             </TouchableWithoutFeedback>
-        </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 }

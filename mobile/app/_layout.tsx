@@ -1,15 +1,21 @@
-import { Stack, useRouter, useSegments } from "expo-router";
+import "../ignoreWarnings";
+import { Stack, useRouter, useSegments, usePathname } from "expo-router";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import Header from "../components/Header";
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { tokenCache } from "../lib/tokenCache";
 import { useEffect, useState, useRef } from "react";
-import { View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator, Text } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import "../global.css";
 import { applyRealtimeAuth } from "../lib/realtimeAuth";
 
 // Handle OAuth redirects instantly
-WebBrowser.maybeCompleteAuthSession();
+try {
+  WebBrowser.maybeCompleteAuthSession();
+} catch (e) {
+  // Ignore error on Android if browser is missing
+}
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
 
@@ -20,90 +26,42 @@ if (!publishableKey) {
 }
 
 const InitialLayout = () => {
-  const { isLoaded, isSignedIn, getToken } = useAuth();
+  const { isLoaded, isSignedIn, getToken, userId } = useAuth();
   const segments = useSegments();
   const router = useRouter();
-  const [isReady, setIsReady] = useState(false);
-
-  // Initial Safety Delay to allow Clerk to process Token
-  useEffect(() => {
-    if (isLoaded) {
-      const timer = setTimeout(() => setIsReady(true), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [isLoaded]);
-
-  // Sync Realtime Auth with Clerk Token
-  // Sync Realtime Auth with Clerk Token
-  const lastTokenRef = useRef<string | null>(null);
+  const pathname = usePathname();
 
   useEffect(() => {
-    let active = true;
-    const sync = async () => {
-      if (!isSignedIn) {
-        if (lastTokenRef.current !== null) {
-          await applyRealtimeAuth(null);
-          lastTokenRef.current = null;
-        }
-        return;
-      }
-      try {
-        const token = await getToken({ template: 'supabase' });
-        if (active && token !== lastTokenRef.current) {
-          await applyRealtimeAuth(token);
-          lastTokenRef.current = token || null;
-        }
-      } catch (e) {
-        console.error('[RealtimeAuth] Failed to get token:', e);
-      }
-    };
-    sync();
-    return () => { active = false; };
-  }, [isSignedIn, getToken]);
+    if (!isLoaded) return;
 
-
-  useEffect(() => {
-    if (!isLoaded || !isReady) return;
-
-    // Verify segmentation
     const inTabsGroup = segments[0] === "(tabs)";
     const inAuthGroup = segments[0] === "login";
-    const inOnboarding = segments.includes("onboarding");
 
-    // console.log("Layout Debug:", { isSignedIn, segments: JSON.stringify(segments), inTabs: inTabsGroup, inAuth: inAuthGroup, inOnb: inOnboarding });
+    console.log(`[Layout] Check. SignedIn: ${isSignedIn}, Loaded: ${isLoaded}, Segment: ${segments[0]}, Pathname: ${pathname}`);
 
-    // Handle Root / Empty Segments
-    if (segments.length === 0) {
-      if (isSignedIn) {
-        console.log("Root -> Home");
-        router.replace("/(tabs)");
-      } else {
-        console.log("Root -> Login");
-        router.replace("/login");
-      }
-      return;
-    }
-
-    // Standard Route Guards
     if (!isSignedIn && !inAuthGroup) {
-      console.log("Redirecting to Login (Not Signed In)...");
+      // Loop protection: if we think we are not in auth group, but pathname is /login, stop.
+      if (pathname === "/login") {
+        console.log("[Layout] Already on /login (path check). Skipping redirect.");
+        return;
+      }
+
+      console.log(`[Layout] Redirecting to Login. SignedIn: ${isSignedIn}, Segment: ${segments[0]}`);
       router.replace("/login");
     } else if (isSignedIn && inAuthGroup) {
-      // If user is signed in but on login screen, redirect to home
-      console.log("Redirecting to Home (Already Signed In)...");
+      console.log(`[Layout] Redirecting to Home. SignedIn: ${isSignedIn}, Segment: ${segments[0]}`);
       router.replace("/(tabs)");
     }
-  }, [isSignedIn, isLoaded, segments, isReady]);
+  }, [isSignedIn, isLoaded, segments, pathname]);
 
-  if (!isLoaded || !isReady) {
+  if (!isLoaded) {
     return (
       <View className="flex-1 justify-center items-center bg-background">
         <ActivityIndicator size="large" color="#D4AF37" />
+        <Text style={{ color: 'white', marginTop: 20 }}>Initializing Auth...</Text>
       </View>
     );
   }
-
-
 
   return (
     <Stack screenOptions={{
@@ -118,13 +76,18 @@ const InitialLayout = () => {
   );
 };
 
+
+
 export default function Layout() {
   return (
-    <ClerkProvider
-      publishableKey={publishableKey}
-      tokenCache={tokenCache}
-    >
-      <InitialLayout />
-    </ClerkProvider>
+    // 2. TOKEN CACHE REMOVED
+    <SafeAreaProvider>
+      <ClerkProvider
+        publishableKey={publishableKey}
+        tokenCache={tokenCache}
+      >
+        <InitialLayout />
+      </ClerkProvider>
+    </SafeAreaProvider>
   );
 }

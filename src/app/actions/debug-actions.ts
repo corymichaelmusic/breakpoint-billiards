@@ -4,12 +4,12 @@ import { createAdminClient } from "@/utils/supabase/admin";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 
-const ALLOWED_DEBUG_USER = "user_36G4WUMW9oc8aohN8s6FQUX6Xe9"; // Cory
+const ALLOWED_DEBUG_USER = process.env.DEBUG_USER_ID;
 
 export async function setDebugRole(role: 'admin' | 'operator' | 'player') {
     const { userId } = await auth();
 
-    if (userId !== ALLOWED_DEBUG_USER) {
+    if (!ALLOWED_DEBUG_USER || userId !== ALLOWED_DEBUG_USER) {
         return { error: "Unauthorized: Debug feature only." };
     }
 

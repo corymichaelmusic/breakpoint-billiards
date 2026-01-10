@@ -36,8 +36,24 @@ export type PlayerStats = {
     rackAndRuns_8ball: number;
     breakAndRuns_9ball: number;
     rackAndRuns_9ball: number;
-    winZips_9ball: number;
     nineOnSnaps_9ball: number;
+
+    // Formatted / Derived Stats for Display
+    display_setWinRate: string;
+    display_setRecord: string;
+    display_setWinRate8: string;
+    display_setRecord8: string;
+    display_setWinRate9: string;
+    display_setRecord9: string;
+    display_shutouts: number;
+
+    display_gameWinRate: string;
+    display_gameRecord: string;
+    display_gameWinRate8: string;
+    display_gameRecord8: string;
+    display_gameWinRate9: string;
+    display_gameRecord9: string;
+    confidenceScore: number;
 };
 
 export function getInitStats(playerId: string, playerName: string): PlayerStats {
@@ -73,8 +89,23 @@ export function getInitStats(playerId: string, playerName: string): PlayerStats 
         rackAndRuns_8ball: 0,
         breakAndRuns_9ball: 0,
         rackAndRuns_9ball: 0,
-        winZips_9ball: 0,
         nineOnSnaps_9ball: 0,
+
+        display_setWinRate: "0%",
+        display_setRecord: "0-0",
+        display_setWinRate8: "0%",
+        display_setRecord8: "0-0",
+        display_setWinRate9: "0%",
+        display_setRecord9: "0-0",
+        display_shutouts: 0,
+
+        display_gameWinRate: "0%",
+        display_gameRecord: "0-0",
+        display_gameWinRate8: "0%",
+        display_gameRecord8: "0-0",
+        display_gameWinRate9: "0%",
+        display_gameRecord9: "0-0",
+        confidenceScore: 0
     };
 }
 
@@ -229,11 +260,44 @@ export function aggregateMatchStats(stats: PlayerStats, match: any, playerId: st
             } else if (game.game_type === '9ball') {
                 if (game.is_break_and_run) stats.breakAndRuns_9ball++;
                 if (game.is_rack_and_run) stats.rackAndRuns_9ball++;
-                if (game.is_win_zip) stats.winZips_9ball++;
                 if (game.is_9_on_snap) stats.nineOnSnaps_9ball++;
             }
         }
     });
+
+    // Calculate Derived / Formatted Stats
+    const formatPercent = (won: number, total: number) => total > 0 ? Math.round((won / total) * 100) + "%" : "0%";
+    const formatRecord = (won: number, lost: number) => `${won}-${lost}`;
+
+    stats.display_setWinRate = formatPercent(stats.matchesWon, stats.matchesPlayed);
+    stats.display_setRecord = formatRecord(stats.matchesWon, stats.matchesLost);
+
+    stats.display_setWinRate8 = formatPercent(stats.matchesWon_8ball, stats.matchesPlayed_8ball);
+    stats.display_setRecord8 = formatRecord(stats.matchesWon_8ball, stats.matchesLost_8ball);
+
+    stats.display_setWinRate9 = formatPercent(stats.matchesWon_9ball, stats.matchesPlayed_9ball);
+    stats.display_setRecord9 = formatRecord(stats.matchesWon_9ball, stats.matchesLost_9ball);
+
+    stats.display_shutouts = stats.racklessSets_8ball + stats.racklessSets_9ball; // Assuming rackless = shutout
+
+    // Game (Rack) Stats
+    const totalRacksWon = stats.racksWon_8ball + stats.racksWon_9ball;
+    const totalRacksLost = stats.totalRacksPlayed - totalRacksWon;
+
+    stats.display_gameWinRate = formatPercent(totalRacksWon, stats.totalRacksPlayed);
+    stats.display_gameRecord = formatRecord(totalRacksWon, totalRacksLost);
+
+    const racksLost8 = stats.racksPlayed_8ball - stats.racksWon_8ball;
+    stats.display_gameWinRate8 = formatPercent(stats.racksWon_8ball, stats.racksPlayed_8ball);
+    stats.display_gameRecord8 = formatRecord(stats.racksWon_8ball, racksLost8);
+
+    const racksLost9 = stats.racksPlayed_9ball - stats.racksWon_9ball;
+    stats.display_gameWinRate9 = formatPercent(stats.racksWon_9ball, stats.racksPlayed_9ball);
+    stats.display_gameRecord9 = formatRecord(stats.racksWon_9ball, racksLost9);
+
+    // Confidence Score Calculation (Simple)
+    // 10 matches = 100% confidence
+    stats.confidenceScore = Math.min(stats.matchesPlayed * 10, 100);
 
     return stats;
 }

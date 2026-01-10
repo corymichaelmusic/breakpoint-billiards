@@ -37,10 +37,10 @@ export default function MatchDateManager({ matchId, initialDate, isUnlocked }: P
                         onChange={(e) => setDate(e.target.value)}
                         style={{ padding: '0.25rem', fontSize: '0.8rem', border: '1px solid var(--border)', borderRadius: '4px' }}
                     />
-                    <button onClick={handleDateUpdate} disabled={loading} style={{ fontSize: '0.8rem', color: 'var(--success)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                    <button onClick={handleDateUpdate} disabled={loading} style={{ fontSize: '0.8rem', color: '#4ade80', background: 'none', border: 'none', cursor: 'pointer' }}>
                         Save
                     </button>
-                    <button onClick={() => setIsEditing(false)} disabled={loading} style={{ fontSize: '0.8rem', color: 'var(--error)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                    <button onClick={() => setIsEditing(false)} disabled={loading} style={{ fontSize: '0.8rem', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}>
                         X
                     </button>
                 </div>
@@ -51,7 +51,7 @@ export default function MatchDateManager({ matchId, initialDate, isUnlocked }: P
                     </span>
                     <button
                         onClick={() => setIsEditing(true)}
-                        style={{ fontSize: '0.8rem', color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+                        style={{ fontSize: '0.8rem', color: '#D4AF37', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
                     >
                         Edit
                     </button>
@@ -101,9 +101,9 @@ export default function MatchDateManager({ matchId, initialDate, isUnlocked }: P
                             fontSize: '0.7rem',
                             padding: '0.1rem 0.5rem',
                             borderRadius: '1rem',
-                            background: isEffectiveUnlocked ? 'rgba(34, 197, 94, 0.1)' : '#333',
-                            color: isEffectiveUnlocked ? 'var(--success)' : '#888',
-                            border: isEffectiveUnlocked ? '1px solid var(--success)' : '1px solid var(--border)'
+                            background: isEffectiveUnlocked ? 'rgba(74, 222, 128, 0.1)' : '#333',
+                            color: isEffectiveUnlocked ? '#4ade80' : '#888',
+                            border: isEffectiveUnlocked ? '1px solid #22c55e' : '1px solid var(--border)'
                         }}>
                             {isUnlocked ? 'MANUALLY UNLOCKED' : isEffectiveUnlocked ? 'OPEN (TIME)' : isExpired ? 'LOCKED (EXPIRED)' : 'LOCKED (FUTURE)'}
                         </span>
@@ -112,7 +112,7 @@ export default function MatchDateManager({ matchId, initialDate, isUnlocked }: P
                             disabled={loading}
                             style={{
                                 fontSize: '0.7rem',
-                                color: isUnlocked ? '#888' : 'var(--warning)',
+                                color: isUnlocked ? '#888' : '#D4AF37',
                                 background: 'none',
                                 border: 'none',
                                 cursor: 'pointer',

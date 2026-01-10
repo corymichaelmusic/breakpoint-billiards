@@ -1,7 +1,8 @@
-import { View, Text, SafeAreaView, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
-import { Link, useRouter } from "expo-router";
+import { View, Text, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Link, useRouter, useFocusEffect } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "../../lib/supabase";
 import { createClient } from "@supabase/supabase-js";
 import NextMatchCard from "../../components/NextMatchCard";
@@ -12,12 +13,30 @@ export default function MatchesScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [matches, setMatches] = useState<any[]>([]);
     const [activeSession, setActiveSession] = useState<any>(null);
+    const lastFetchTime = useRef<number>(0);
+    const CACHE_DURATION = 60000; // 60 seconds
 
-    const fetchMatches = useCallback(async () => {
+    useFocusEffect(
+        useCallback(() => {
+            fetchMatches();
+        }, [])
+    );
+
+    const fetchMatches = useCallback(async (force = false) => {
+        const now = Date.now();
+        if (!force && lastFetchTime.current > 0 && (now - lastFetchTime.current) < CACHE_DURATION && matches.length > 0) {
+            console.log(" [Matches] Using cached data");
+            setLoading(false);
+            return;
+        }
+
         try {
             if (!userId) return;
+            console.log(" [Matches] Fetching new data...");
+            lastFetchTime.current = now;
 
             const token = await getToken({ template: 'supabase' });
+            // ... (rest of logic same)
             const supabaseAuthenticated = createClient(
                 process.env.EXPO_PUBLIC_SUPABASE_URL!,
                 process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
@@ -54,7 +73,8 @@ export default function MatchesScreen() {
                     .select(`
             *,
             player1:player1_id(full_name),
-            player2:player2_id(full_name)
+            player2:player2_id(full_name),
+            games (winner_id, is_break_and_run, is_9_on_snap, game_type)
           `)
                     .eq("league_id", session.id)
                     .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
@@ -73,13 +93,11 @@ export default function MatchesScreen() {
         }
     }, [userId, getToken]);
 
-    useEffect(() => {
-        fetchMatches();
-    }, [fetchMatches]);
+    // useEffect removed - replaced by useFocusEffect above
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
-        fetchMatches();
+        fetchMatches(true);
     }, [fetchMatches]);
 
     if (loading) {
@@ -91,13 +109,13 @@ export default function MatchesScreen() {
     }
 
     return (
-        <SafeAreaView className="flex-1 bg-background">
+        <SafeAreaView className="flex-1 bg-background" edges={['bottom', 'left', 'right']}>
             <View className="px-4 py-4 bg-background border-b border-white/5 items-center">
-                <Text className="text-gray-400 font-bold text-xs uppercase tracking-widest mb-1">Session Schedule</Text>
-                <Text className="text-foreground text-2xl font-bold tracking-wider uppercase text-center">
+                <Text className="text-gray-400 font-bold text-xs uppercase tracking-widest mb-1" style={{ includeFontPadding: false }}>Session Schedule </Text>
+                <Text className="text-foreground text-2xl font-bold tracking-wider uppercase text-center" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
                     {activeSession?.name || 'Schedule'}
                 </Text>
-                <Text className="text-primary font-bold tracking-widest uppercase text-sm mt-1">
+                <Text className="text-primary font-bold tracking-widest uppercase text-sm mt-1" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
                     {activeSession?.parent_league?.name || 'Matches'}
                 </Text>
             </View>
@@ -140,6 +158,35 @@ export default function MatchesScreen() {
                             isPlayer1: isP1
                         };
 
+                        // Calculate Special Stats
+                        let p1_8br = 0, p2_8br = 0;
+                        let p1_9br = 0, p2_9br = 0;
+                        let p1_snap = 0, p2_snap = 0;
+
+                        if (match.games) {
+                            match.games.forEach((g: any) => {
+                                if (g.is_break_and_run) {
+                                    if (g.game_type === '8ball') {
+                                        if (g.winner_id === match.player1_id) p1_8br++;
+                                        else if (g.winner_id === match.player2_id) p2_8br++;
+                                    } else if (g.game_type === '9ball') {
+                                        if (g.winner_id === match.player1_id) p1_9br++;
+                                        else if (g.winner_id === match.player2_id) p2_9br++;
+                                    }
+                                }
+                                if (g.is_9_on_snap) {
+                                    if (g.winner_id === match.player1_id) p1_snap++;
+                                    else if (g.winner_id === match.player2_id) p2_snap++;
+                                }
+                            });
+                        }
+
+                        const specialStats = {
+                            p1_8br, p2_8br,
+                            p1_9br, p2_9br,
+                            p1_snap, p2_snap
+                        };
+
                         return (
                             <NextMatchCard
                                 key={match.id}
@@ -155,6 +202,7 @@ export default function MatchesScreen() {
                                 paymentStatusP2={match.payment_status_p2}
                                 label={`Week ${match.week_number}`}
                                 scores={scores}
+                                specialStats={specialStats}
                             />
                         );
                     })

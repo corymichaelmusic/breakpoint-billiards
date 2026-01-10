@@ -1,9 +1,11 @@
-import { View, Text, SafeAreaView, ScrollView, ActivityIndicator, TouchableOpacity, Image } from "react-native";
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Image } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { FontAwesome5 } from "@expo/vector-icons";
+import NextMatchCard from "../components/NextMatchCard";
 
 export default function MatchHistoryScreen() {
     const { userId, getToken } = useAuth();
@@ -31,7 +33,8 @@ export default function MatchHistoryScreen() {
                         *,
                         player1:player1_id(full_name),
                         player2:player2_id(full_name),
-                        leagues(name, parent_league:parent_league_id(name))
+                        leagues(name, parent_league:parent_league_id(name)),
+                        games (winner_id, is_break_and_run, is_9_on_snap, game_type)
                     `)
                     .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
                     .or('status_8ball.eq.finalized,status_9ball.eq.finalized')
@@ -58,7 +61,7 @@ export default function MatchHistoryScreen() {
                         <FontAwesome5 name="arrow-left" size={20} color="#D4AF37" />
                     </TouchableOpacity>
                     <View>
-                        <Text className="text-xl font-bold text-white uppercase tracking-wide">
+                        <Text className="text-xl font-bold text-white uppercase tracking-wide" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
                             Match History
                         </Text>
                         <Text className="text-gray-400 uppercase tracking-widest text-[10px]">
@@ -84,101 +87,63 @@ export default function MatchHistoryScreen() {
                             const isP1 = match.player1_id === userId;
                             const opponentName = isP1 ? match.player2?.full_name : match.player1?.full_name || 'Unknown';
 
-                            // 8-Ball Stats
-                            const my8 = isP1 ? match.points_8ball_p1 : match.points_8ball_p2;
-                            const opp8 = isP1 ? match.points_8ball_p2 : match.points_8ball_p1;
-                            const played8 = (match.points_8ball_p1 || 0) > 0 || (match.points_8ball_p2 || 0) > 0;
-                            const win8 = my8 > opp8;
+                            const scores = {
+                                p1_8: match.points_8ball_p1 || 0,
+                                p2_8: match.points_8ball_p2 || 0,
+                                p1_9: match.points_9ball_p1 || 0,
+                                p2_9: match.points_9ball_p2 || 0,
+                                isPlayer1: isP1
+                            };
 
-                            // 9-Ball Stats
-                            const my9 = isP1 ? match.points_9ball_p1 : match.points_9ball_p2;
-                            const opp9 = isP1 ? match.points_9ball_p2 : match.points_9ball_p1;
-                            const played9 = (match.points_9ball_p1 || 0) > 0 || (match.points_9ball_p2 || 0) > 0;
-                            const win9 = my9 > opp9;
+                            // Calculate Special Stats Dynamically
+                            let p1_8br = 0, p2_8br = 0;
+                            let p1_9br = 0, p2_9br = 0;
+                            let p1_snap = 0, p2_snap = 0;
+
+                            if (match.games) {
+                                match.games.forEach((g: any) => {
+                                    if (g.is_break_and_run) {
+                                        if (g.game_type === '8ball') {
+                                            if (g.winner_id === match.player1_id) p1_8br++;
+                                            else if (g.winner_id === match.player2_id) p2_8br++;
+                                        } else if (g.game_type === '9ball') {
+                                            if (g.winner_id === match.player1_id) p1_9br++;
+                                            else if (g.winner_id === match.player2_id) p2_9br++;
+                                        }
+                                    }
+                                    if (g.is_9_on_snap) {
+                                        if (g.winner_id === match.player1_id) p1_snap++;
+                                        else if (g.winner_id === match.player2_id) p2_snap++;
+                                    }
+                                });
+                            }
+
+                            const specialStats = {
+                                p1_8br, p2_8br,
+                                p1_9br, p2_9br,
+                                p1_snap, p2_snap
+                            };
+
+                            // Determine status strictly for display purposes
+                            let effectiveStatus = match.status;
 
                             return (
-                                <View
+                                <NextMatchCard
                                     key={match.id}
-                                    className="bg-surface p-4 rounded-lg border border-border mb-4"
-                                >
-                                    <View className="flex-row justify-between items-start mb-4">
-                                        <View>
-                                            <Text className="text-gray-400 text-xs uppercase mb-1">{match.leagues?.parent_league?.name || 'League'}</Text>
-                                            <Text className="text-white font-bold text-lg">vs {opponentName}</Text>
-                                        </View>
-                                        <Text className="text-gray-500 text-xs">
-                                            {match.scheduled_date ? new Date(match.scheduled_date).toLocaleDateString() : 'TBD'}
-                                        </Text>
-                                    </View>
-
-                                    {/* 8-Ball Result */}
-                                    {played8 && (
-                                        <View className="flex-row items-center justify-between mb-2">
-                                            <View className="flex-row items-center gap-2">
-                                                <Text className="text-gray-300 font-bold text-sm w-12">8-Ball</Text>
-                                                <View className={`px-2 py-0.5 rounded ${win8 ? 'bg-green-900/30 border border-green-700' : 'bg-red-900/30 border border-red-700'}`}>
-                                                    <Text className={`font-bold text-[10px] uppercase ${win8 ? 'text-green-500' : 'text-red-500'}`}>
-                                                        {win8 ? 'Won' : 'Lost'}
-                                                    </Text>
-                                                </View>
-
-                                                {/* Special Badges 8-Ball */}
-                                                {(isP1 ? match.p1_break_run_8ball : match.p2_break_run_8ball) > 0 && (
-                                                    <View className="bg-primary/20 px-1.5 py-0.5 rounded border border-primary/50">
-                                                        <Text className="text-primary text-[8px] font-bold uppercase">B&R</Text>
-                                                    </View>
-                                                )}
-                                                {(isP1 ? match.p1_rack_run_8ball : match.p2_rack_run_8ball) > 0 && (
-                                                    <View className="bg-primary/20 px-1.5 py-0.5 rounded border border-primary/50">
-                                                        <Text className="text-primary text-[8px] font-bold uppercase">R&R</Text>
-                                                    </View>
-                                                )}
-                                                {win8 && opp8 === 0 && (
-                                                    <View className="bg-primary/20 px-1.5 py-0.5 rounded border border-primary/50">
-                                                        <Text className="text-primary text-[8px] font-bold uppercase">Zip</Text>
-                                                    </View>
-                                                )}
-                                            </View>
-                                            <Text className="text-white font-bold text-base">
-                                                {my8} - {opp8}
-                                            </Text>
-                                        </View>
-                                    )}
-
-                                    {/* 9-Ball Result */}
-                                    {played9 && (
-                                        <View className="flex-row items-center justify-between">
-                                            <View className="flex-row items-center gap-2">
-                                                <Text className="text-gray-300 font-bold text-sm w-12">9-Ball</Text>
-                                                <View className={`px-2 py-0.5 rounded ${win9 ? 'bg-green-900/30 border border-green-700' : 'bg-red-900/30 border border-red-700'}`}>
-                                                    <Text className={`font-bold text-[10px] uppercase ${win9 ? 'text-green-500' : 'text-red-500'}`}>
-                                                        {win9 ? 'Won' : 'Lost'}
-                                                    </Text>
-                                                </View>
-
-                                                {/* Special Badges 9-Ball */}
-                                                {(isP1 ? match.p1_break_run_9ball : match.p2_break_run_9ball) > 0 && (
-                                                    <View className="bg-primary/20 px-1.5 py-0.5 rounded border border-primary/50">
-                                                        <Text className="text-primary text-[8px] font-bold uppercase">B&R</Text>
-                                                    </View>
-                                                )}
-                                                {(isP1 ? match.p1_nine_on_snap : match.p2_nine_on_snap) > 0 && (
-                                                    <View className="bg-primary/20 px-1.5 py-0.5 rounded border border-primary/50">
-                                                        <Text className="text-primary text-[8px] font-bold uppercase">Snap</Text>
-                                                    </View>
-                                                )}
-                                                {win9 && opp9 === 0 && (
-                                                    <View className="bg-primary/20 px-1.5 py-0.5 rounded border border-primary/50">
-                                                        <Text className="text-primary text-[8px] font-bold uppercase">Zip</Text>
-                                                    </View>
-                                                )}
-                                            </View>
-                                            <Text className="text-white font-bold text-base">
-                                                {my9} - {opp9}
-                                            </Text>
-                                        </View>
-                                    )}
-                                </View>
+                                    matchId={match.id}
+                                    opponentName={opponentName}
+                                    date={match.scheduled_date ? new Date(match.scheduled_date).toLocaleDateString() : 'TBD'}
+                                    weekNumber={match.week_number}
+                                    status="finalized" // Force finalized to show stats
+                                    player1Id={match.player1_id}
+                                    player2Id={match.player2_id}
+                                    paymentStatusP1={match.payment_status_p1}
+                                    paymentStatusP2={match.payment_status_p2}
+                                    label={`Week ${match.week_number}`}
+                                    scores={scores}
+                                    specialStats={specialStats}
+                                    isLocked={true} // History items should be viewed as locked/completed
+                                />
                             );
                         })
                     ) : (

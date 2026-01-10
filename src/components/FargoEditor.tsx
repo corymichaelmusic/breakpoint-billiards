@@ -77,11 +77,11 @@ export default function FargoEditor({ playerId, currentFargo }: FargoEditorProps
 
     return (
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-            <span style={{ fontSize: "1.1rem", fontWeight: "bold" }}>{currentFargo || 'N/A'}</span>
+            <span style={{ fontSize: "1.1rem", fontWeight: "bold", color: "white" }}>{currentFargo || 'N/A'}</span>
             <button
                 onClick={() => setIsEditing(true)}
                 className="btn"
-                style={{ padding: "0.1rem 0.4rem", fontSize: "0.7rem", border: "1px solid var(--border)", background: "transparent" }}
+                style={{ padding: "0.1rem 0.4rem", fontSize: "0.7rem", border: "1px solid #D4AF37", background: "transparent", color: "#D4AF37" }}
             >
                 Edit
             </button>

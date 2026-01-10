@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
 import FargoEditor from "@/components/FargoEditor";
+import BackButton from "@/components/BackButton";
 
 export default async function LeaguePlayersPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params; // League Org ID
@@ -57,6 +58,15 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
         if (p.league_id === id) {
             player.leagueStatus = p.status;
             player.payment_status = p.payment_status;
+
+            // FIX: If we are viewing a specific Session, include it in the Active Sessions list
+            if (league.type === 'session') {
+                player.sessions.push({
+                    name: p.leagues?.name,
+                    status: p.status,
+                    payment: p.payment_status
+                });
+            }
         } else {
             player.sessions.push({
                 name: p.leagues?.name,
@@ -74,8 +84,9 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
             <div className="container py-8 max-w-6xl">
                 <div className="flex justify-between items-center mb-6">
                     <div>
-                        <Link href={`/dashboard/operator/leagues/${id}`} className="text-sm text-gray-500 hover:text-white transition-colors">&larr; Back to League</Link>
-                        <h1 className="text-3xl font-bold font-sans text-primary mt-2">Player Database</h1>
+                        <div className="h-[10px]" />
+                        <BackButton label="Back" className="!text-[#D4AF37] hover:!text-white" />
+                        <h1 className="text-3xl font-bold font-sans text-[#D4AF37] mt-2">{league.name} Player Database</h1>
                         <p className="text-gray-400">Total Players: {playerList.length}</p>
                     </div>
                 </div>
@@ -97,7 +108,7 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
                                     {playerList.map((p) => (
                                         <tr key={p.player_id} className="hover:bg-white/5 transition-colors">
                                             <td className="p-3 font-medium">
-                                                <Link href={`/dashboard/operator/leagues/${id}/players/${p.player_id}`} className="text-white hover:text-primary transition-colors font-bold">
+                                                <Link href={`/dashboard/operator/leagues/${id}/players/${p.player_id}`} className="!text-white hover:!text-[#D4AF37] transition-colors font-bold" style={{ color: 'white' }}>
                                                     {p.profiles?.full_name || "Unknown"}
                                                 </Link>
                                             </td>
@@ -110,7 +121,7 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
                                             </td>
                                             <td className="p-3">
                                                 <span className={`text-xs px-2 py-1 rounded font-bold uppercase tracking-wide border
-                                                    ${p.leagueStatus === 'active' ? 'bg-success/20 text-success border-success/30' : 'bg-surface text-gray-400 border-border'}`}>
+                                                    ${p.leagueStatus === 'active' ? 'bg-[#22c55e]/20 text-[#4ade80] border-[#22c55e]/30' : 'bg-surface text-gray-300 border-border'}`}>
                                                     {p.leagueStatus}
                                                 </span>
                                             </td>
@@ -122,9 +133,9 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
 
                                                         return (
                                                             <span key={idx} className={`text-[10px] px-2 py-0.5 rounded border font-semibold
-                                                                ${isPaid ? 'bg-success/10 text-success border-success/30' :
-                                                                    isUnpaid ? 'bg-error/10 text-error border-error/50' :
-                                                                        'bg-surface text-gray-400 border-gray-600'}`}>
+                                                                ${isPaid ? 'bg-[#22c55e]/10 text-[#4ade80] border-[#22c55e]/30' :
+                                                                    isUnpaid ? 'bg-error/10 text-[#ef4444] border-[#ef4444]/50' :
+                                                                        'bg-surface text-gray-300 border-gray-600'}`}>
                                                                 {s.name}
                                                             </span>
                                                         );

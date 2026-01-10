@@ -76,8 +76,8 @@ export default function NineBallScorer({
             <View className="bg-surface p-4 rounded-lg border border-border mb-6">
                 <View className="flex-row justify-between items-center">
                     <View className="items-center flex-1">
-                        <Text className="text-white font-bold text-lg" numberOfLines={1}>{player1.name}</Text>
-                        <Text className="text-primary text-5xl font-black">{p1Wins}</Text>
+                        <Text className="text-white font-bold text-lg text-center w-full" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>{player1.name}</Text>
+                        <Text className="text-primary text-5xl font-black w-full text-center" numberOfLines={1} adjustsFontSizeToFit>{p1Wins}</Text>
                         <Text className="text-gray-500 text-xs">Race to {raceTo.p1}</Text>
                     </View>
                     <View className="items-center px-2">
@@ -86,8 +86,8 @@ export default function NineBallScorer({
                         </View>
                     </View>
                     <View className="items-center flex-1">
-                        <Text className="text-white font-bold text-lg" numberOfLines={1}>{player2.name}</Text>
-                        <Text className="text-primary text-5xl font-black">{p2Wins}</Text>
+                        <Text className="text-white font-bold text-lg text-center w-full" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>{player2.name}</Text>
+                        <Text className="text-primary text-5xl font-black w-full text-center" numberOfLines={1} adjustsFontSizeToFit>{p2Wins}</Text>
                         <Text className="text-gray-500 text-xs">Race to {raceTo.p2}</Text>
                     </View>
                 </View>
@@ -101,13 +101,13 @@ export default function NineBallScorer({
                 </View>
             ) : isRaceComplete ? (
                 <View className="mb-8 bg-surface p-6 rounded-lg border border-green-600 items-center">
-                    <Text className="text-green-500 text-2xl font-bold mb-4">SET FINISHED</Text>
-                    <Text className="text-white mb-4">Race reached. Verify and Finalize.</Text>
+                    <Text className="text-green-500 text-2xl font-bold mb-4 w-full text-center" numberOfLines={1} adjustsFontSizeToFit>SET FINISHED</Text>
+                    <Text className="text-white mb-4 text-center">Race reached. Verify and Finalize.</Text>
                     <TouchableOpacity
                         onPress={onFinalize}
-                        className="bg-primary px-8 py-3 rounded-full"
+                        className="bg-primary px-8 py-3 rounded-full w-full items-center"
                     >
-                        <Text className="text-black font-bold">VERIFY & FINALIZE</Text>
+                        <Text className="text-black font-bold text-center w-full" numberOfLines={1} adjustsFontSizeToFit>VERIFY & FINALIZE</Text>
                     </TouchableOpacity>
                 </View>
             ) : (
@@ -122,8 +122,8 @@ export default function NineBallScorer({
                             <View className="w-16 h-16 rounded-full bg-primary/20 items-center justify-center mb-2 border border-primary">
                                 <Text className="text-primary text-2xl font-bold">{player1.name.charAt(0)}</Text>
                             </View>
-                            <Text className="text-white font-bold text-lg text-center">{player1.name.split(' ')[0]}</Text>
-                            <Text className="text-primary text-xs font-bold mt-1">SELECT WINNER</Text>
+                            <Text className="text-white font-bold text-lg text-center w-full" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>{player1.name.split(' ')[0]}</Text>
+                            <Text className="text-primary text-xs font-bold mt-1 text-center w-full" numberOfLines={1} adjustsFontSizeToFit>SELECT WINNER</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -133,8 +133,8 @@ export default function NineBallScorer({
                             <View className="w-16 h-16 rounded-full bg-gray-700 items-center justify-center mb-2 border border-gray-500">
                                 <Text className="text-white text-2xl font-bold">{player2.name.charAt(0)}</Text>
                             </View>
-                            <Text className="text-white font-bold text-lg text-center">{player2.name.split(' ')[0]}</Text>
-                            <Text className="text-gray-400 text-xs font-bold mt-1">SELECT WINNER</Text>
+                            <Text className="text-white font-bold text-lg text-center w-full" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>{player2.name.split(' ')[0]}</Text>
+                            <Text className="text-gray-400 text-xs font-bold mt-1 text-center w-full" numberOfLines={1} adjustsFontSizeToFit>SELECT WINNER</Text>
                         </TouchableOpacity>
                     </View>
                 </>
@@ -151,7 +151,7 @@ export default function NineBallScorer({
                     let methodText = "";
                     if (game.is_break_and_run) methodText = "Break & Run";
                     else if (game.is_9_on_snap) methodText = "9 on Snap";
-                    else if (game.is_win_zip) methodText = "Win-zip";
+
                     else methodText = "Made 9-Ball";
 
                     return (
@@ -171,8 +171,8 @@ export default function NineBallScorer({
                                 <Text className="text-gray-500 text-xs">{methodText}</Text>
                             </View>
                             {onEditGame && !isFinalized && (
-                                <View className="px-2">
-                                    <Text className="text-gray-500 text-xs font-bold">EDIT</Text>
+                                <View className="px-2 w-12 items-end">
+                                    <Text className="text-gray-500 text-xs font-bold" numberOfLines={1} adjustsFontSizeToFit>EDIT</Text>
                                 </View>
                             )}
                         </TouchableOpacity>
@@ -192,7 +192,7 @@ export default function NineBallScorer({
                     <View className="bg-surface rounded-t-3xl p-6 border-t border-gray-700">
                         <View className="items-center mb-6">
                             <View className="w-12 h-1 bg-gray-600 rounded-full mb-4" />
-                            <Text className="text-white text-xl font-bold">
+                            <Text className="text-white text-xl font-bold text-center w-full" numberOfLines={1} adjustsFontSizeToFit>
                                 How did {selectedWinnerId === player1.id ? player1.name : player2.name} win?
                             </Text>
                         </View>
@@ -204,25 +204,23 @@ export default function NineBallScorer({
                                     <View className="absolute w-full h-4 bg-yellow-400 top-2" />
                                     <Text className="text-black font-bold text-xs z-10">9</Text>
                                 </View>
-                                <Text className="text-white font-bold text-lg">Made 9-Ball</Text>
+                                <Text className="text-white font-bold text-lg flex-1" numberOfLines={1} adjustsFontSizeToFit>Made 9-Ball</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity onPress={() => handleOutcomeSelect('9_snap')} className="bg-yellow-600/20 border border-yellow-600 p-4 rounded-xl flex-row items-center">
-                                <Text className="text-white font-bold text-lg ml-2">9 on the Snap</Text>
+                                <Text className="text-white font-bold text-lg ml-2 flex-1" numberOfLines={1} adjustsFontSizeToFit>9 on the Snap</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity onPress={() => handleOutcomeSelect('break_run')} className="bg-green-600/20 border border-green-600 p-4 rounded-xl flex-row items-center">
-                                <Text className="text-green-500 font-bold text-lg ml-2">Break & Run</Text>
+                                <Text className="text-green-500 font-bold text-lg ml-2 flex-1" numberOfLines={1} adjustsFontSizeToFit>Break & Run</Text>
                             </TouchableOpacity>
 
-                            <TouchableOpacity onPress={() => handleOutcomeSelect('win_zip')} className="bg-blue-600/20 border border-blue-600 p-4 rounded-xl flex-row items-center">
-                                <Text className="text-blue-500 font-bold text-lg ml-2">Win-zip</Text>
-                            </TouchableOpacity>
+
 
                         </View>
 
                         <TouchableOpacity onPress={() => setOutcomeModalVisible(false)} className="items-center p-4">
-                            <Text className="text-gray-400 font-bold">Cancel</Text>
+                            <Text className="text-gray-400 font-bold text-center w-full" numberOfLines={1} adjustsFontSizeToFit>Cancel</Text>
                         </TouchableOpacity>
                     </View>
                 </View>

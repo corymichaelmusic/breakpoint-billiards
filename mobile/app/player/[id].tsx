@@ -1,4 +1,5 @@
-import { View, Text, SafeAreaView, ScrollView, ActivityIndicator, TouchableOpacity, Image } from "react-native";
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Image } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import { useEffect, useState } from "react";
@@ -127,10 +128,10 @@ export default function PlayerDetailScreen() {
                         <FontAwesome5 name="arrow-left" size={20} color="#D4AF37" />
                     </TouchableOpacity>
                     <View>
-                        <Text className="text-xl font-bold text-white uppercase tracking-wide">
+                        <Text className="text-xl font-bold text-white uppercase tracking-wide" style={{ includeFontPadding: false }}>
                             Head to Head
                         </Text>
-                        <Text className="text-gray-400 uppercase tracking-widest text-[10px]">
+                        <Text className="text-gray-400 uppercase tracking-widest text-[10px]" style={{ includeFontPadding: false }}>
                             {profile?.full_name || 'Loading...'}
                         </Text>
                     </View>
@@ -153,34 +154,34 @@ export default function PlayerDetailScreen() {
                         <View className="w-20 h-20 bg-primary/20 rounded-full items-center justify-center mb-3 border-2 border-primary">
                             <FontAwesome5 name="user" size={30} color="#D4AF37" />
                         </View>
-                        <Text className="text-white text-2xl font-bold mb-1">{profile?.full_name}</Text>
-                        <View className="flex-row gap-2 mb-4">
-                            <View className="bg-primary/20 px-3 py-1 rounded">
-                                <Text className="text-primary font-bold">
-                                    BP RATING: {getBreakpointLevel(profile?.breakpoint_rating || 500)}
+                        <Text className="text-white text-2xl font-bold mb-1 w-full text-center" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>{profile?.full_name} </Text>
+                        <View className="flex-row gap-2 mb-4 justify-center w-full">
+                            <View className="bg-primary/20 px-3 py-1 rounded shrink-1">
+                                <Text className="text-primary font-bold" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>
+                                    BP: {getBreakpointLevel(profile?.breakpoint_rating || 500)}
                                 </Text>
                             </View>
-                            <View className="bg-white/10 px-3 py-1 rounded border border-white/20">
-                                <Text className="text-white font-bold">
-                                    GLOBAL RANK: {profile?.rank || '-'}
+                            <View className="bg-white/10 px-3 py-1 rounded border border-white/20 shrink-1">
+                                <Text className="text-white font-bold" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>
+                                    RANK: {profile?.rank || '-'}
                                 </Text>
                             </View>
                         </View>
 
-                        <View className="flex-row gap-8">
-                            <View className="items-center">
-                                <Text className="text-3xl font-bold text-white">{stats.winRate}%</Text>
-                                <Text className="text-gray-400 text-xs uppercase tracking-widest">Win Rate</Text>
+                        <View className="flex-row justify-around w-full px-2">
+                            <View className="items-center flex-1">
+                                <Text className="text-3xl font-bold text-white" style={{ includeFontPadding: false }}>{stats.winRate}%  </Text>
+                                <Text className="text-gray-400 text-xs uppercase tracking-widest" style={{ includeFontPadding: false }}>Win Rate</Text>
                             </View>
                             <View className="w-[1px] bg-white/10" />
-                            <View className="items-center">
-                                <Text className="text-3xl font-bold text-white">{stats.wins}-{stats.losses}</Text>
-                                <Text className="text-gray-400 text-xs uppercase tracking-widest">Record</Text>
+                            <View className="items-center flex-1 px-1">
+                                <Text className="text-3xl font-bold text-white text-center" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>{stats.wins}-{stats.losses} </Text>
+                                <Text className="text-gray-400 text-xs uppercase tracking-widest" style={{ includeFontPadding: false }}>Record</Text>
                             </View>
                             <View className="w-[1px] bg-white/10" />
-                            <View className="items-center">
-                                <Text className="text-3xl font-bold text-white">{profile?.confidence || 0}</Text>
-                                <Text className="text-gray-400 text-xs uppercase tracking-widest">Confidence</Text>
+                            <View className="items-center flex-1">
+                                <Text className="text-3xl font-bold text-white" style={{ includeFontPadding: false }}>{profile?.confidence || 0} </Text>
+                                <Text className="text-gray-400 text-xs uppercase tracking-widest" style={{ includeFontPadding: false }}>Confidence</Text>
                             </View>
                         </View>
                     </View>
@@ -220,13 +221,13 @@ export default function PlayerDetailScreen() {
                                         <View className="flex-row items-center justify-between mb-2">
                                             <View className="flex-row items-center gap-2">
                                                 <Text className="text-gray-300 font-bold text-sm w-12">8-Ball</Text>
-                                                <View className={`px-2 py-0.5 rounded ${win8 ? 'bg-green-900/30 border border-green-700' : 'bg-red-900/30 border border-red-700'}`}>
-                                                    <Text className={`font-bold text-[10px] uppercase ${win8 ? 'text-green-500' : 'text-red-500'}`}>
-                                                        {win8 ? 'Won' : 'Lost'}
+                                                <View className={`px-2 py-0.5 rounded min-w-[50px] items-center ${win8 ? 'bg-green-900/30 border border-green-700' : 'bg-red-900/30 border border-red-700'}`}>
+                                                    <Text className={`font-bold text-[10px] uppercase ${win8 ? 'text-green-500' : 'text-red-500'}`} style={{ includeFontPadding: false }} numberOfLines={1}>
+                                                        {win8 ? 'Won  ' : 'Lost  '}
                                                     </Text>
                                                 </View>
                                             </View>
-                                            <Text className="text-white font-bold text-base">
+                                            <Text className="text-white font-bold text-base min-w-[30px] text-right" style={{ includeFontPadding: false }}>
                                                 {my8} - {opp8}
                                             </Text>
                                         </View>
@@ -237,13 +238,13 @@ export default function PlayerDetailScreen() {
                                         <View className="flex-row items-center justify-between">
                                             <View className="flex-row items-center gap-2">
                                                 <Text className="text-gray-300 font-bold text-sm w-12">9-Ball</Text>
-                                                <View className={`px-2 py-0.5 rounded ${win9 ? 'bg-green-900/30 border border-green-700' : 'bg-red-900/30 border border-red-700'}`}>
-                                                    <Text className={`font-bold text-[10px] uppercase ${win9 ? 'text-green-500' : 'text-red-500'}`}>
-                                                        {win9 ? 'Won' : 'Lost'}
+                                                <View className={`px-2 py-0.5 rounded min-w-[50px] items-center ${win9 ? 'bg-green-900/30 border border-green-700' : 'bg-red-900/30 border border-red-700'}`}>
+                                                    <Text className={`font-bold text-[10px] uppercase ${win9 ? 'text-green-500' : 'text-red-500'}`} style={{ includeFontPadding: false }} numberOfLines={1}>
+                                                        {win9 ? 'Won  ' : 'Lost  '}
                                                     </Text>
                                                 </View>
                                             </View>
-                                            <Text className="text-white font-bold text-base">
+                                            <Text className="text-white font-bold text-base min-w-[30px] text-right" style={{ includeFontPadding: false }}>
                                                 {my9} - {opp9}
                                             </Text>
                                         </View>

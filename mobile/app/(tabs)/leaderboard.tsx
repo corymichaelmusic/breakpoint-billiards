@@ -1,4 +1,5 @@
-import { View, Text, SafeAreaView, ScrollView, ActivityIndicator, RefreshControl, FlatList, NativeSyntheticEvent, NativeScrollEvent, TouchableOpacity } from "react-native";
+import { View, Text, ScrollView, ActivityIndicator, RefreshControl, FlatList, NativeSyntheticEvent, NativeScrollEvent, TouchableOpacity } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "../../lib/supabase";
 import { createClient } from "@supabase/supabase-js";
@@ -141,12 +142,12 @@ export default function LeaderboardScreen() {
     if (loading) return <View className="flex-1 bg-background items-center justify-center"><ActivityIndicator color="#D4AF37" /></View>;
 
     return (
-        <SafeAreaView className="flex-1 bg-background">
+        <SafeAreaView className="flex-1 bg-background" edges={['bottom', 'left', 'right']}>
             <View className="p-4 bg-background border-b border-border items-center z-50">
 
-                <Text className="text-gray-400 font-bold text-xs uppercase tracking-widest mb-1">Session Leaderboard</Text>
-                <Text className="text-foreground text-2xl font-bold tracking-wider uppercase text-center">{sessionName || 'Session'}</Text>
-                <Text className="text-primary font-bold tracking-widest uppercase text-sm mt-1">{leagueName || 'Leaderboard'}</Text>
+                <Text className="text-gray-400 font-bold text-xs uppercase tracking-widest mb-1" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>Session Leaderboard  </Text>
+                <Text className="text-foreground text-2xl font-bold tracking-wider uppercase text-center" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>{sessionName || 'Session'} </Text>
+                <Text className="text-primary font-bold tracking-widest uppercase text-sm mt-1" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>{leagueName || 'Leaderboard'} </Text>
             </View>
 
             <ScrollView
@@ -175,7 +176,7 @@ export default function LeaderboardScreen() {
                             <Text className="w-14 text-center text-black font-bold text-sm">W%</Text>
                             <Text className="w-16 text-center text-black font-bold text-sm">W-L</Text>
                             <Text className="w-12 text-center text-black font-bold text-sm">SO</Text>
-                            <Text className="w-10 text-center text-black font-bold text-sm">BP</Text>
+                            <Text className="w-10 text-center text-black font-bold text-sm" style={{ includeFontPadding: false }}>BP</Text>
                         </View>
                     </ScrollView>
                 </View>
@@ -219,7 +220,7 @@ export default function LeaderboardScreen() {
                                     <Text className="w-14 text-center text-gray-300 font-bold text-sm">{item.winRate}%</Text>
                                     <Text className="w-16 text-center text-foreground font-bold text-sm">{item.wins}-{item.played - item.wins}</Text>
                                     <Text className="w-12 text-center text-primary font-bold text-sm">{item.shutouts}</Text>
-                                    <Text className="w-10 text-center text-primary font-bold text-sm">{item.breakPoint}</Text>
+                                    <Text className="w-10 text-center text-primary font-bold text-sm" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>{item.breakPoint} </Text>
                                 </TouchableOpacity>
                             ))}
                         </View>

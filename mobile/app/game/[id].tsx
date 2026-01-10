@@ -1,4 +1,5 @@
-import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Switch, Alert, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Switch, Alert, ActivityIndicator } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -24,7 +25,7 @@ export default function EditGameScreen() {
         is_break_and_run: false,
         is_rack_and_run: false,
         is_9_on_snap: false,
-        is_win_zip: false,
+
         is_early_8: false,
         is_scratch_8: false,
         innings: 1
@@ -56,7 +57,7 @@ export default function EditGameScreen() {
             // Fetch Match to get Player Names
             const { data: matchData, error: matchError } = await supabase
                 .from("matches")
-                .select("*, player1:player1_id(id, full_name), player2:player2_id(id, full_name)")
+                .select("*, player1:player1_id(id, full_name, nickname), player2:player2_id(id, full_name, nickname)")
                 .eq("id", gameData.match_id)
                 .single();
 
@@ -70,7 +71,7 @@ export default function EditGameScreen() {
                 is_break_and_run: gameData.is_break_and_run || false,
                 is_rack_and_run: gameData.is_rack_and_run || false,
                 is_9_on_snap: gameData.is_9_on_snap || false,
-                is_win_zip: gameData.is_win_zip || false,
+
                 is_early_8: gameData.is_early_8 || false,
                 is_scratch_8: gameData.is_scratch_8 || false,
                 innings: 1 // No innings column in games yet
@@ -101,7 +102,7 @@ export default function EditGameScreen() {
                 is_break_and_run: stats.is_break_and_run,
                 is_rack_and_run: stats.is_rack_and_run,
                 is_9_on_snap: stats.is_9_on_snap,
-                is_win_zip: stats.is_win_zip,
+
                 is_early_8: stats.is_early_8,
                 is_scratch_8: stats.is_scratch_8
             };
@@ -279,7 +280,7 @@ export default function EditGameScreen() {
 
     const StatSwitch = ({ label, value, onValueChange }: any) => (
         <View className="flex-row justify-between items-center bg-surface p-4 rounded-lg mb-2">
-            <Text className="text-white font-bold">{label}</Text>
+            <Text className="text-white font-bold flex-1 mr-4" numberOfLines={1} adjustsFontSizeToFit>{label}</Text>
             <Switch
                 value={value}
                 onValueChange={onValueChange}
@@ -298,20 +299,20 @@ export default function EditGameScreen() {
                 {/* Left Button */}
                 <TouchableOpacity
                     onPress={() => router.back()}
-                    className="z-10"
+                    className="z-10 w-16"
                 >
-                    <Text className="text-primary font-bold">Back</Text>
+                    <Text className="text-primary font-bold" numberOfLines={1} adjustsFontSizeToFit>Back</Text>
                 </TouchableOpacity>
 
                 {/* Centered Title */}
-                <View className="absolute left-0 right-0 items-center justify-center pointer-events-none">
-                    <Text className="text-white font-bold text-lg">Game {game.game_number}</Text>
+                <View className="absolute left-0 right-0 items-center justify-center pointer-events-none px-20">
+                    <Text className="text-white font-bold text-lg text-center" numberOfLines={1} adjustsFontSizeToFit>Game {game.game_number}</Text>
                 </View>
 
                 {/* Right Button (Save) */}
                 {!isLocked ? (
-                    <TouchableOpacity onPress={handleSave} disabled={saving} className="z-10">
-                        <Text className={`font-bold ${saving ? 'text-gray-500' : 'text-primary'}`}>Save</Text>
+                    <TouchableOpacity onPress={handleSave} disabled={saving} className="z-10 w-16 items-end">
+                        <Text className={`font-bold ${saving ? 'text-gray-500' : 'text-primary'}`} numberOfLines={1} adjustsFontSizeToFit>Save</Text>
                     </TouchableOpacity>
                 ) : (
                     <View className="w-10" />
@@ -334,8 +335,8 @@ export default function EditGameScreen() {
                         onPress={() => setWinnerId(match.player1.id)}
                         className={`flex-1 p-4 rounded-lg border ${winnerId === match.player1.id ? 'bg-primary border-primary' : 'bg-surface border-border'} items-center ${isLocked ? 'opacity-80' : ''}`}
                     >
-                        <Text className={`font-bold ${winnerId === match.player1.id ? 'text-black' : 'text-white'}`}>
-                            {match.player1.full_name.split(' ')[0]}
+                        <Text className={`font-bold ${winnerId === match.player1.id ? 'text-black' : 'text-white'} text-center w-full`} numberOfLines={1} adjustsFontSizeToFit>
+                            {match.player1.nickname || match.player1.full_name?.split(' ')[0]}
                         </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -343,8 +344,8 @@ export default function EditGameScreen() {
                         onPress={() => setWinnerId(match.player2.id)}
                         className={`flex-1 p-4 rounded-lg border ${winnerId === match.player2.id ? 'bg-primary border-primary' : 'bg-surface border-border'} items-center ${isLocked ? 'opacity-80' : ''}`}
                     >
-                        <Text className={`font-bold ${winnerId === match.player2.id ? 'text-black' : 'text-white'}`}>
-                            {match.player2.full_name.split(' ')[0]}
+                        <Text className={`font-bold ${winnerId === match.player2.id ? 'text-black' : 'text-white'} text-center w-full`} numberOfLines={1} adjustsFontSizeToFit>
+                            {match.player2.nickname || match.player2.full_name?.split(' ')[0]}
                         </Text>
                     </TouchableOpacity>
                 </View>
@@ -387,11 +388,7 @@ export default function EditGameScreen() {
                             value={stats.is_9_on_snap}
                             onValueChange={(v: boolean) => setStats({ ...stats, is_9_on_snap: v })}
                         />
-                        <StatSwitch
-                            label="Win Zip"
-                            value={stats.is_win_zip}
-                            onValueChange={(v: boolean) => setStats({ ...stats, is_win_zip: v })}
-                        />
+
                     </>
                 )}
 
@@ -400,7 +397,7 @@ export default function EditGameScreen() {
                         onPress={handleDelete}
                         className="mt-8 bg-red-900/50 border border-red-800 p-4 rounded-lg items-center"
                     >
-                        <Text className="text-red-400 font-bold">Delete Game</Text>
+                        <Text className="text-red-400 font-bold w-full text-center" numberOfLines={1} adjustsFontSizeToFit>Delete Game</Text>
                     </TouchableOpacity>
                 )}
 

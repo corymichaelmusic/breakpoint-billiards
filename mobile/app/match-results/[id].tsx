@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, SafeAreaView, Image } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Image, Alert } from 'react-native';
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { createClient } from '@supabase/supabase-js';
@@ -8,6 +9,7 @@ import { getBreakpointLevel } from '../../utils/rating';
 
 export default function MatchResultsScreen() {
     const { id } = useLocalSearchParams();
+    const matchId = Array.isArray(id) ? id[0] : id;
     const router = useRouter();
     const { userId, getToken } = useAuth();
     const [loading, setLoading] = useState(true);
@@ -18,12 +20,31 @@ export default function MatchResultsScreen() {
     });
 
     useEffect(() => {
-        fetchResults();
-    }, [id]);
+        if (matchId) fetchResults();
+    }, [matchId]);
 
     const fetchResults = async () => {
         try {
-            if (!id) return;
+            if (!matchId) return;
+
+            // Validate UUID format to prevent SQL errors if invalid ID passed
+            console.log(" [MatchResults] Validating ID:", matchId, "Length:", matchId.length);
+
+            // Simple robust checks
+            if (matchId.length !== 36 || matchId.startsWith('user_')) {
+                console.error(" [MatchResults] Aborting: Invalid Match ID format (Length/Prefix):", matchId);
+                Alert.alert("Error", "Invalid Match ID detected. Please try refreshing.");
+                setLoading(false);
+                return;
+            }
+
+            const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(matchId);
+            if (!isValidUUID) {
+                console.error(" [MatchResults] Aborting: Invalid Match ID format (Regex):", matchId);
+                setLoading(false);
+                return;
+            }
+
             const token = await getToken({ template: 'supabase' });
             const supabase = createClient(
                 process.env.EXPO_PUBLIC_SUPABASE_URL!,
@@ -31,25 +52,39 @@ export default function MatchResultsScreen() {
                 { global: { headers: { Authorization: `Bearer ${token}` } } }
             );
 
-            // Fetch Match & Players
-            const { data: matchData, error } = await supabase
+            // 1. Fetch Match Details
+            const { data: matchRaw, error: matchError } = await supabase
                 .from('matches')
                 .select(`
                     *,
-                    player1:player1_id (id, full_name, avatar_url, breakpoint_rating),
-                    player2:player2_id (id, full_name, avatar_url, breakpoint_rating),
-                    league:league_id (name)
+                    player1:player1_id(full_name, avatar_url, breakpoint_rating),
+                    player2:player2_id(full_name, avatar_url, breakpoint_rating),
+                    league:league_id(name)
                 `)
-                .eq('id', id)
+                .eq('id', matchId)
                 .single();
 
-            if (error) throw error;
+            if (matchError) {
+                console.error("Match fetch error:", matchError);
+                if (matchError.code === '22P02') {
+                    Alert.alert("Error", "Invalid Match ID.");
+                    setLoading(false);
+                    return;
+                }
+                throw matchError;
+            }
+            if (!matchRaw) throw new Error("Match not found");
 
-            // Fetch Games for Stats Calculation
-            const { data: games } = await supabase
+            // 2. Fetch Games
+            const { data: games, error: gamesError } = await supabase
                 .from('games')
                 .select('*')
-                .eq('match_id', id);
+                .eq('match_id', matchId);
+
+            if (gamesError) throw gamesError;
+
+            // Enrich match (league is already joined)
+            const matchData = matchRaw;
 
             // Calculate Stats
             const newStats = {
@@ -58,7 +93,7 @@ export default function MatchResultsScreen() {
             };
 
             if (games) {
-                games.forEach(g => {
+                games.forEach((g: any) => {
                     // Check if Player 1 Won
                     const p1Won8 = g.winner_id === matchData.player1_id && g.game_type === '8ball';
                     const p1Won9 = g.winner_id === matchData.player1_id && g.game_type === '9ball';
@@ -66,20 +101,16 @@ export default function MatchResultsScreen() {
                     const p2Won9 = g.winner_id === matchData.player2_id && g.game_type === '9ball';
 
                     // Break & Runs (break_and_run flag)
-                    if (g.break_and_run) {
+                    if (g.is_break_and_run) {
                         if (p1Won8) newStats.p1.bnr8++;
                         if (p1Won9) newStats.p1.bnr9++;
                         if (p2Won8) newStats.p2.bnr8++;
                         if (p2Won9) newStats.p2.bnr9++;
                     }
 
-                    // Rack & Runs (not break & run, but run out from first inning? - Complex, logic usually relies on 'table_run' or similar if tracked)
-                    // Assuming 'table_run' or we just skip if not explicitly tracked in games columns yet.
-                    // Checking schema: games usually has break_and_run, nine_on_snap. 
-
                     // 9-on-Snap
-                    if (g.nine_on_snap) {
-                        if (p1Won9) newStats.p1.snaps++; // Usually winner gets it, but technically even if they lose? No, snap wins the game.
+                    if (g.is_9_on_snap) {
+                        if (p1Won9) newStats.p1.snaps++;
                         if (p2Won9) newStats.p2.snaps++;
                     }
                 });
@@ -149,11 +180,11 @@ export default function MatchResultsScreen() {
                                 <FontAwesome5 name="user" size={32} color="#666" />
                             )}
                         </View>
-                        <Text className="text-foreground font-bold text-center mb-1" numberOfLines={1}>
+                        <Text className="text-foreground font-bold text-center mb-1" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>
                             {match.player1.full_name?.split(' ')[0]}
                         </Text>
                         <View className="bg-primary/20 px-3 py-1 rounded-full">
-                            <Text className="text-primary text-xs font-bold uppercase">
+                            <Text className="text-primary text-xs font-bold uppercase" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
                                 Level {getBreakpointLevel(match.player1.breakpoint_rating)}
                             </Text>
                         </View>
@@ -161,7 +192,7 @@ export default function MatchResultsScreen() {
 
                     {/* VS / Info */}
                     <View className="items-center px-4">
-                        <Text className="text-gray-500 font-bold text-xs uppercase mb-1">Final</Text>
+                        <Text className="text-gray-500 font-bold text-xs uppercase mb-1" style={{ includeFontPadding: false }}>Final </Text>
                         <View className="h-8 w-[1px] bg-border mb-1" />
                         <Text className="text-gray-400 text-xs">Week {match.week_number}</Text>
                     </View>
@@ -175,11 +206,11 @@ export default function MatchResultsScreen() {
                                 <FontAwesome5 name="user" size={32} color="#666" />
                             )}
                         </View>
-                        <Text className="text-foreground font-bold text-center mb-1" numberOfLines={1}>
+                        <Text className="text-foreground font-bold text-center mb-1" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>
                             {match.player2.full_name?.split(' ')[0]}
                         </Text>
                         <View className="bg-primary/20 px-3 py-1 rounded-full">
-                            <Text className="text-primary text-xs font-bold uppercase">
+                            <Text className="text-primary text-xs font-bold uppercase" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
                                 Level {getBreakpointLevel(match.player2.breakpoint_rating)}
                             </Text>
                         </View>
@@ -196,11 +227,11 @@ export default function MatchResultsScreen() {
 
                     {/* 8-Ball Row */}
                     <View className="flex-row justify-between items-center bg-surface p-3 rounded-lg mb-2 border border-border">
-                        <View className="w-20 flex-row items-center">
+                        <View className="w-24 flex-row items-center">
                             <View className="w-6 h-6 rounded-full bg-black items-center justify-center border border-gray-700 mr-2">
-                                <Text className="text-white text-[10px] font-bold">8</Text>
+                                <Text className="text-white text-[10px] font-bold" style={{ includeFontPadding: false }}>8</Text>
                             </View>
-                            <Text className="text-foreground font-bold">8-Ball</Text>
+                            <Text className="text-foreground font-bold" style={{ includeFontPadding: false }}>8-Ball </Text>
                         </View>
                         <Text className={`flex-1 text-center font-bold text-lg ${match.winner_id_8ball === match.player1_id ? 'text-green-400' : 'text-gray-400'}`}>
                             {p1Score8}
@@ -212,11 +243,11 @@ export default function MatchResultsScreen() {
 
                     {/* 9-Ball Row */}
                     <View className="flex-row justify-between items-center bg-surface p-3 rounded-lg border border-border">
-                        <View className="w-20 flex-row items-center">
+                        <View className="w-24 flex-row items-center">
                             <View className="w-6 h-6 rounded-full bg-yellow-400 items-center justify-center border border-yellow-600 mr-2">
-                                <Text className="text-black text-[10px] font-bold">9</Text>
+                                <Text className="text-black text-[10px] font-bold" style={{ includeFontPadding: false }}>9</Text>
                             </View>
-                            <Text className="text-foreground font-bold">9-Ball</Text>
+                            <Text className="text-foreground font-bold" style={{ includeFontPadding: false }}>9-Ball </Text>
                         </View>
                         <Text className={`flex-1 text-center font-bold text-lg ${match.winner_id_9ball === match.player1_id ? 'text-green-400' : 'text-gray-400'}`}>
                             {p1Score9}

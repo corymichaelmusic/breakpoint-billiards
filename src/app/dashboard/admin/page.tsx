@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import AdminPlayerFilters from "@/components/AdminPlayerFilters";
 import Navbar from "@/components/Navbar";
 import { approveOperator, rejectOperator, createLeagueForOperator, updateSessionFeeStatus, approveApplication, rejectApplication, deleteApplication, deleteLeague, archiveLeague } from "@/app/actions/admin-actions";
 import { createAdminClient } from "@/utils/supabase/admin";
@@ -9,6 +10,9 @@ import PlayerActions from "@/components/PlayerActions";
 import RoleSelector from "@/components/RoleSelector";
 import FinancialSettingsForm from "@/components/FinancialSettingsForm";
 import DeleteApplicationButton from "@/components/DeleteApplicationButton";
+import SessionFeeToggle from "@/components/SessionFeeToggle";
+import AssignLeagueButton from "@/components/AssignLeagueButton";
+import PreregistrationManager from "@/components/PreregistrationManager";
 
 export default async function AdminDashboard({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
     const { userId } = await auth();
@@ -63,14 +67,20 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
         .eq("operator_status", "approved");
 
     // Fetch All Leagues (to see who has one)
-    const { data: leagues } = await supabase
+    const { data: leagues } = await adminSupabase
         .from("leagues")
-        .select("*, profiles(full_name, email)")
+        .select("*, profiles(full_name, email), league_operators(profiles(full_name, email))")
         .eq("type", "league")
         .in("status", ["active", "setup"]);
 
+    // Fetch Pre-registrations
+    const { data: preregs } = await adminSupabase
+        .from("preregistrations")
+        .select("*")
+        .order("created_at", { ascending: false });
+
     // Fetch users based on filter
-    let query = supabase
+    let query = adminSupabase
         .from("profiles")
         .select("id, full_name, email, role, is_active");
 
@@ -90,7 +100,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
             <div className="container py-12 pb-24">
                 <div className="flex justify-between items-center mb-12">
                     <div>
-                        <h1 className="text-3xl font-bold font-sans text-primary">Admin Dashboard</h1>
+                        <h1 className="text-3xl font-bold font-sans text-white">Admin Dashboard</h1>
                         <p className="text-sm text-gray-500 mt-1">System Overview & Management</p>
                     </div>
                 </div>
@@ -98,7 +108,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                 {/* Operator Applications */}
                 <div className="card-glass mb-16 border-primary/30">
                     <div className="flex justify-between items-center mb-8 pb-4">
-                        <h2 className="text-xl font-bold text-primary flex items-center gap-2">
+                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
                             {showAllApps ? "All Operator Applications" : "Pending Operator Applications"}
                             {!showAllApps && applications && applications.length > 0 && (
                                 <span className="bg-primary text-black text-xs px-2 py-0.5 rounded-full">{applications.length}</span>
@@ -106,7 +116,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                         </h2>
                         <Link
                             href={showAllApps ? "/dashboard/admin" : "/dashboard/admin?app_view=all"}
-                            className="btn bg-surface hover:bg-surface-hover border border-border text-xs px-3 py-1"
+                            className="btn bg-[#D4AF37] text-black hover:bg-[#b0902c] border-transparent font-bold text-xs px-4 py-2 uppercase tracking-wide"
                         >
                             {showAllApps ? "View Pending Only" : "View Application Archive"}
                         </Link>
@@ -252,10 +262,14 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                             <div key={l.id} className="p-6 border border-transparent rounded bg-surface/30">
                                 <div className="flex justify-between items-center mb-4">
                                     <div className="font-bold text-white text-lg">
-                                        {l.name} <span className="font-normal text-gray-500">- {l.profiles?.full_name} ({l.location})</span>
+                                        {l.name} <span className="font-normal text-gray-500">- {
+                                            l.league_operators && l.league_operators.length > 0
+                                                ? l.league_operators.map((op: any) => op.profiles?.full_name).join(", ")
+                                                : l.profiles?.full_name
+                                        } ({l.location})</span>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <div className="text-xs text-primary uppercase font-bold tracking-wider mr-2">{l.schedule_day}s</div>
+                                        <div className="text-xs text-white uppercase font-bold tracking-wider mr-2">{l.schedule_day}s</div>
                                         <form action={async () => {
                                             'use server';
                                             await archiveLeague(l.id);
@@ -278,9 +292,16 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
 
                 <div className="h-5"></div>
 
+                {/* Pre-registrations */}
+                {preregs && preregs.length > 0 && (
+                    <PreregistrationManager preregs={preregs as any[]} />
+                )}
+
+                <div className="h-5"></div>
+
                 {/* Financial Settings */}
                 <div className="card-glass mb-16 border-primary/30">
-                    <h2 className="text-xl font-bold text-primary mb-6 border-b border-transparent pb-4">Financial Settings</h2>
+                    <h2 className="text-xl font-bold text-white mb-6 border-b border-transparent pb-4">Financial Settings</h2>
                     <FinancialSettingsForm sessionFee={sessionFee} creationFee={creationFee} leaderboardLimit={leaderboardLimit} />
                 </div>
 
@@ -290,39 +311,11 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                 <div className="card-glass">
                     <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-6">
                         <h2 className="text-xl font-bold text-white m-0">Player Database</h2>
-                        <div className="flex flex-wrap gap-2 items-center text-sm">
-                            <span className="text-gray-500 mr-2">Filter:</span>
-                            <div className="flex bg-surface rounded p-1 border border-transparent">
-                                {['player', 'operator', 'admin', 'all'].map((role) => (
-                                    <Link
-                                        key={role}
-                                        href={`/dashboard/admin?player_status=${playerView}&role_filter=${role}`}
-                                        className={`px-3 py-1 rounded text-xs uppercase font-bold transition-colors ${roleFilter === role ? 'bg-primary text-black' : 'text-gray-400 hover:text-white'}`}
-                                    >
-                                        {role}
-                                    </Link>
-                                ))}
-                            </div>
-                            <div className="w-px h-6 bg-white/5 mx-2"></div>
-                            <div className="flex bg-surface rounded p-1 border border-transparent">
-                                <Link
-                                    href={`/dashboard/admin?player_status=active&role_filter=${roleFilter}`}
-                                    className={`px-3 py-1 rounded text-xs uppercase font-bold transition-colors ${playerView === 'active' ? 'bg-success text-black' : 'text-gray-400 hover:text-white'}`}
-                                >
-                                    Active
-                                </Link>
-                                <Link
-                                    href={`/dashboard/admin?player_status=deactivated&role_filter=${roleFilter}`}
-                                    className={`px-3 py-1 rounded text-xs uppercase font-bold transition-colors ${playerView === 'deactivated' ? 'bg-error text-white' : 'text-gray-400 hover:text-white'}`}
-                                >
-                                    Deactivated
-                                </Link>
-                            </div>
-                        </div>
+                        <AdminPlayerFilters currentRole={roleFilter} currentStatus={playerView} />
                     </div>
 
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
+                        <table className="w-full text-left border-separate border-spacing-y-[3px]">
                             <thead>
                                 <tr className="border-b border-transparent text-gray-500 text-sm uppercase">
                                     <th className="p-3 font-semibold">Name</th>
@@ -333,16 +326,19 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                             </thead>
                             <tbody>
                                 {displayedPlayers?.map((player) => (
-                                    <tr key={player.id} className="hover:bg-white/5 transition-colors">
+                                    <tr key={player.id} className="bg-white/5 hover:bg-white/10 transition-colors">
                                         <td className="p-3 font-medium text-white">{player.full_name}</td>
                                         <td className="p-3 text-gray-400">{player.email}</td>
                                         <td className="p-3">
                                             <RoleSelector userId={player.id} currentRole={player.role} />
                                         </td>
                                         <td className="p-3 flex gap-2">
-                                            <Link href={`/dashboard/admin/players/${player.id}`} className="btn text-xs px-2 py-1 bg-surface border border-transparent hover:border-white">
+                                            <Link href={`/dashboard/admin/players/${player.id}`} className="btn bg-[#D4AF37] text-black hover:bg-[#b0902c] border-transparent font-bold text-xs px-4 py-2 uppercase tracking-wide">
                                                 View
                                             </Link>
+                                            {player.role === 'operator' && (
+                                                <AssignLeagueButton operatorId={player.id} availableLeagues={leagues || []} />
+                                            )}
                                             <PlayerActions playerId={player.id} isActive={player.is_active !== false} />
                                         </td>
                                     </tr>
@@ -380,33 +376,12 @@ async function SuspenseSessions({ leagueId }: { leagueId: string }) {
             {sessions.map(s => (
                 <div key={s.id} className="flex justify-between items-center text-sm">
                     <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-300">{s.name}</span>
+                        <span className="font-medium text-white">{s.name}</span>
                         <span className={`text-[10px] px-1.5 rounded uppercase font-bold
-                            ${s.status === 'active' ? 'bg-success/20 text-success' : 'bg-gray-800 text-gray-500'}`}>
+                            ${s.status === 'active' ? 'bg-[#22c55e]/20 text-[#4ade80]' : 'bg-gray-800 text-gray-500'}`}>
                             {s.status}
                         </span>
-                        <span className={`text-[10px] px-1.5 rounded uppercase font-bold
-                            ${s.creation_fee_status === 'unpaid' ? 'bg-error text-white' : 'bg-success/20 text-success'}`}>
-                            Fee: {s.creation_fee_status}
-                        </span>
-                    </div>
-                    <div className="flex gap-2">
-                        {s.creation_fee_status === 'unpaid' && (
-                            <>
-                                <form action={async () => {
-                                    'use server';
-                                    await updateSessionFeeStatus(s.id, 'paid');
-                                }}>
-                                    <button className="text-xs bg-success text-black px-2 py-0.5 rounded hover:opacity-80">Mark Paid</button>
-                                </form>
-                                <form action={async () => {
-                                    'use server';
-                                    await updateSessionFeeStatus(s.id, 'waived');
-                                }}>
-                                    <button className="text-xs bg-surface border border-border text-gray-400 px-2 py-0.5 rounded hover:text-white">Waive</button>
-                                </form>
-                            </>
-                        )}
+                        <SessionFeeToggle sessionId={s.id} initialStatus={s.creation_fee_status} />
                     </div>
                 </div>
             ))}

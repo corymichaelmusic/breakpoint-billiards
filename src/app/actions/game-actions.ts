@@ -16,22 +16,51 @@ export async function submitGameScore(
         isRackAndRun?: boolean;
         isEarly8?: boolean;
         is8WrongPocket?: boolean;
-        isWinZip?: boolean;
         is9OnSnap?: boolean;
     },
     ballMapping?: Record<string, string | null>
 ) {
-    const supabase = createAdminClient();
+    const { createClient } = await import("@/utils/supabase/server");
+    const supabase = await createClient();
+    const { auth } = await import("@clerk/nextjs/server");
+    const { userId } = await auth();
+
+    if (!userId) return { error: "Unauthorized" };
+
     console.log("submitGameScore called with:", { matchId, leagueId, gameNumber, winnerId, p1Score, p2Score, gameType, stats, ballMapping });
 
-    // 1. Fetch current match state
+    // 1. Fetch current match state AND Verify Ownership
     const { data: match } = await supabase
         .from("matches")
-        .select("*")
+        .select("*, leagues(operator_id)")
         .eq("id", matchId)
         .single();
 
     if (!match) return { error: "Match not found" };
+
+    // Verify Operator
+    // We expect `match.leagues.operator_id` to be the caller
+    // Or Admin
+    // Or if we allow players to keep score? (Audit says "NO check that caller is participant").
+    // If we want to allow players, we should check `player1_id` or `player2_id`.
+    // For now, let's assume STRICT OPERATOR/ADMIN as this is the safest default given the audit.
+    // Actually, `league-actions` implies operators do the work.
+    // If the app is "Self Scoring", then players should be allowed.
+    // Let's allow Operator OR Players involved in the match. (Standard for scorekeeping apps).
+
+    // Check Admin
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
+    const isAdmin = profile?.role === 'admin';
+
+    const leagueData = Array.isArray(match.leagues) ? match.leagues[0] : match.leagues;
+    const isOperator = leagueData?.operator_id === userId;
+    const isPlayer = match.player1_id === userId || match.player2_id === userId;
+
+    if (!isOperator && !isPlayer && !isAdmin) {
+        return { error: "Unauthorized. You must be the operator or a player in this match." };
+    }
+
+    // Continue...
 
     // 2. Calculate points (Use provided scores directly)
     // For 8-ball, we might still want to enforce the 10-point rule if we rely on the UI to send it?
@@ -89,7 +118,6 @@ export async function submitGameScore(
         is_rack_and_run: stats?.isRackAndRun || false,
         is_early_8: stats?.isEarly8 || false,
         is_8_wrong_pocket: stats?.is8WrongPocket || false,
-        is_win_zip: stats?.isWinZip || false,
         is_9_on_snap: stats?.is9OnSnap || false,
         ball_mapping: ballMapping ? ballMapping : null,
         dead_balls_count: ballMapping ? Object.values(ballMapping).filter(v => v === 'dead').length : 0
@@ -174,14 +202,38 @@ export async function updateGameScore(
         isRackAndRun?: boolean;
         isEarly8?: boolean;
         is8WrongPocket?: boolean;
-        isWinZip?: boolean;
         is9OnSnap?: boolean;
     },
     ballMapping?: Record<string, string | null>
 ) {
-    const supabase = createAdminClient();
+    const { createClient } = await import("@/utils/supabase/server");
+    const supabase = await createClient();
+    const { auth } = await import("@clerk/nextjs/server");
+    const { userId } = await auth();
 
-    // 1. Update the specific game
+    if (!userId) return { error: "Unauthorized" };
+
+    // 1. Verify Ownership
+    const { data: match } = await supabase
+        .from("matches")
+        .select("*, leagues(operator_id)")
+        .eq("id", matchId)
+        .single();
+
+    if (!match) return { error: "Match not found" };
+
+    // Check Verify
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
+    const isAdmin = profile?.role === 'admin';
+    const leagueData = Array.isArray(match.leagues) ? match.leagues[0] : match.leagues;
+    const isOperator = leagueData?.operator_id === userId;
+    const isPlayer = match.player1_id === userId || match.player2_id === userId;
+
+    if (!isOperator && !isPlayer && !isAdmin) {
+        return { error: "Unauthorized." };
+    }
+
+    // Continue with update...
     const { error: updateError } = await supabase
         .from("games")
         .update({
@@ -192,7 +244,6 @@ export async function updateGameScore(
             is_rack_and_run: stats?.isRackAndRun || false,
             is_early_8: stats?.isEarly8 || false,
             is_8_wrong_pocket: stats?.is8WrongPocket || false,
-            is_win_zip: stats?.isWinZip || false,
             is_9_on_snap: stats?.is9OnSnap || false,
             ball_mapping: ballMapping ? ballMapping : null,
             dead_balls_count: ballMapping ? Object.values(ballMapping).filter(v => v === 'dead').length : 0,
@@ -205,12 +256,9 @@ export async function updateGameScore(
         return { error: "Failed to update game" };
     }
 
-    // 2. Fetch Match Data to get Races
-    const { data: match } = await supabase
-        .from("matches")
-        .select("*")
-        .eq("id", matchId)
-        .single();
+    // 2. Verified Match Data already fetched above (match)
+    // No need to re-fetch unless we suspect it changed in the split second (unlikely for race config)
+    if (!match) return { error: "Match not found" };
 
     if (!match) return { error: "Match not found" };
 
@@ -312,11 +360,26 @@ export async function updateGameScore(
 }
 
 export async function startMatch(matchId: string, leagueId: string) {
-    const supabase = createAdminClient();
+    const { createClient } = await import("@/utils/supabase/server");
+    const supabase = await createClient();
+    const { auth } = await import("@clerk/nextjs/server");
+    const { userId } = await auth();
 
-    // Check if running already
-    const { data: match } = await supabase.from('matches').select('started_at').eq('id', matchId).single();
-    if (match?.started_at) return { success: true };
+    if (!userId) return { error: "Unauthorized" };
+
+    // Check ownership
+    const { data: match } = await supabase.from('matches').select('started_at, leagues(operator_id), player1_id, player2_id').eq('id', matchId).single();
+    if (!match) return { error: "Match not found" };
+
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
+    const isAdmin = profile?.role === 'admin';
+    const leagueData = Array.isArray(match.leagues) ? match.leagues[0] : match.leagues;
+    const isOperator = leagueData?.operator_id === userId;
+    const isPlayer = match.player1_id === userId || match.player2_id === userId;
+
+    if (!isOperator && !isPlayer && !isAdmin) return { error: "Unauthorized" };
+
+    if (match.started_at) return { success: true };
 
     const { error } = await supabase
         .from('matches')
@@ -333,10 +396,25 @@ export async function startMatch(matchId: string, leagueId: string) {
 }
 
 export async function submitMatch(matchId: string, leagueId: string) {
-    const supabase = createAdminClient();
+    const { createClient } = await import("@/utils/supabase/server");
+    const supabase = await createClient();
+    const { auth } = await import("@clerk/nextjs/server");
+    const { userId } = await auth();
 
-    const { data: match } = await supabase.from('matches').select('started_at').eq('id', matchId).single();
-    if (!match?.started_at) return { error: "Match hasn't started" };
+    if (!userId) return { error: "Unauthorized" };
+
+    const { data: match } = await supabase.from('matches').select('started_at, leagues(operator_id), player1_id, player2_id').eq('id', matchId).single();
+    if (!match) return { error: "Match not found" };
+
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
+    const isAdmin = profile?.role === 'admin';
+    const leagueData = Array.isArray(match.leagues) ? match.leagues[0] : match.leagues;
+    const isOperator = leagueData?.operator_id === userId;
+    const isPlayer = match.player1_id === userId || match.player2_id === userId;
+
+    if (!isOperator && !isPlayer && !isAdmin) return { error: "Unauthorized" };
+
+    if (!match.started_at) return { error: "Match hasn't started" };
 
     const now = new Date();
     const startedAt = new Date(match.started_at);
@@ -363,11 +441,24 @@ export async function submitMatch(matchId: string, leagueId: string) {
 }
 
 export async function forfeitMatch(matchId: string, leagueId: string, forfeitedByPlayerId: string, opponentId: string) {
-    const supabase = createAdminClient();
+    const { createClient } = await import("@/utils/supabase/server");
+    const supabase = await createClient();
+    const { auth } = await import("@clerk/nextjs/server");
+    const { userId } = await auth();
 
-    const { data: match } = await supabase.from('matches').select('started_at, status').eq('id', matchId).single();
+    if (!userId) return { error: "Unauthorized" };
+
+    const { data: match } = await supabase.from('matches').select('started_at, status, leagues(operator_id), player1_id, player2_id').eq('id', matchId).single();
 
     if (!match) return { error: "Match not found" };
+
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
+    const isAdmin = profile?.role === 'admin';
+    const leagueData = Array.isArray(match.leagues) ? match.leagues[0] : match.leagues;
+    const isOperator = leagueData?.operator_id === userId;
+    const isPlayer = match.player1_id === userId || match.player2_id === userId; // Players can forfeit themselves
+
+    if (!isOperator && !isPlayer && !isAdmin) return { error: "Unauthorized" };
 
     const now = new Date();
     let durationSeconds = 0;

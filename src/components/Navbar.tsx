@@ -33,20 +33,44 @@ export default async function Navbar() {
             zIndex: 100
         }}>
 
-            <div className="container" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", rowGap: "0.5rem", maxWidth: "100vw" }}>
-                {/* ... existing navbar content ... */}
-                <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 1 }}>
+            <div className="container" style={{ display: "flex", alignItems: "center", position: "relative", height: "40px", maxWidth: "100vw" }}>
+
+                {/* Left Side Icon */}
+                <Link href="/" style={{ display: 'flex', alignItems: 'center', zIndex: 10 }}>
                     <div className={styles.logoContainer}>
                         <Image
                             src="/logo-nav-final.png"
-                            alt="BREAKPOINT BILLIARDS"
+                            alt="BP Logo"
                             fill
                             style={{ objectFit: 'contain', objectPosition: 'left' }}
                             priority
                         />
                     </div>
                 </Link>
-                <div className={styles.links}>
+
+                {/* Centered Text Logo */}
+                <Link href="/" style={{
+                    position: "absolute",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    display: 'flex',
+                    alignItems: 'center',
+                    height: "100%",
+                    zIndex: 1
+                }}>
+                    <div style={{ position: 'relative', height: '32px', width: '200px' }}>
+                        <Image
+                            src="/logo-text-gold.png"
+                            alt="BREAKPOINT BILLIARDS"
+                            fill
+                            style={{ objectFit: 'contain', objectPosition: 'center' }}
+                            priority
+                        />
+                    </div>
+                </Link>
+
+                {/* Right Side Links (pushed right) */}
+                <div className={styles.links} style={{ marginLeft: "auto", display: "flex", alignItems: "center" }}>
                     <SignedIn>
                         {role && (
                             <span style={{

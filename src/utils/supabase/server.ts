@@ -22,9 +22,16 @@ export async function createClient() {
         // console.log("Supabase Client: JWT token found.");
     }
 
+
+
+    // Check Env
+    const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!sbUrl || !sbKey) throw new Error("Missing Supabase Env Vars");
+
     return createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        sbUrl,
+        sbKey,
         {
             cookies: {
                 getAll() {

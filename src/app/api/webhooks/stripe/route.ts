@@ -1,18 +1,17 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin'; // Use Admin Client for Webhooks
 import Stripe from 'stripe';
 
-
-
-const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
-
 export async function POST(req: Request) {
-    if (!endpointSecret) {
-        console.error('STRIPE_WEBHOOK_SECRET is not set');
+    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    const stripeKey = process.env.STRIPE_SECRET_KEY;
+
+    if (!endpointSecret || !stripeKey) {
+        console.error('STRIPE_WEBHOOK_SECRET or STRIPE_SECRET_KEY is not set');
         return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
     }
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+    const stripe = new Stripe(stripeKey, {
         apiVersion: '2024-12-18.acacia' as any,
     });
 
@@ -38,10 +37,17 @@ export async function POST(req: Request) {
             const metadata = session.metadata;
 
             if (metadata) {
-                const supabase = await createClient();
+                const supabase = createAdminClient();
 
                 if (metadata.type === 'match_fee' && metadata.match_id && metadata.role) {
                     console.log(`Processing Match Fee: Match ${metadata.match_id}, Role ${metadata.role}`);
+
+                    // Verify Match Exists
+                    const { data: match } = await supabase.from('matches').select('id').eq('id', metadata.match_id).single();
+                    if (!match) {
+                        console.error(`Match not found: ${metadata.match_id}`);
+                        return NextResponse.json({ error: 'Match not found' }, { status: 404 });
+                    }
 
                     const updateData: any = {};
                     if (metadata.role === 'player1') {
@@ -64,6 +70,12 @@ export async function POST(req: Request) {
                 } else if (metadata.type === 'session_creation' && metadata.league_id) {
                     console.log(`Processing Session Creation Fee: League ${metadata.league_id}`);
 
+                    // Verify Exists
+                    const { count } = await supabase.from('leagues').select('*', { count: 'exact', head: true }).eq('id', metadata.league_id);
+                    if (count === 0) {
+                        return NextResponse.json({ error: 'League not found' }, { status: 404 });
+                    }
+
                     const { error } = await supabase
                         .from('leagues')
                         .update({ creation_fee_status: 'paid' })
@@ -77,6 +89,15 @@ export async function POST(req: Request) {
 
                 } else if (metadata.type === 'player_session_fee' && metadata.session_id && metadata.player_id) {
                     console.log(`Processing Player Session Fee: Player ${metadata.player_id} in Session ${metadata.session_id}`);
+
+                    // Verify Exists
+                    const { count } = await supabase.from('league_players').select('*', { count: 'exact', head: true })
+                        .eq('league_id', metadata.session_id)
+                        .eq('player_id', metadata.player_id);
+
+                    if (count === 0) {
+                        return NextResponse.json({ error: 'Player record not found' }, { status: 404 });
+                    }
 
                     const { error } = await supabase
                         .from('league_players')

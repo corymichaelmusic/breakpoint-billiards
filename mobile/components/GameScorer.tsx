@@ -127,7 +127,6 @@ export default function GameScorer({
         isBreakAndRun: false,
         isRackAndRun: false,
         isEarly8: false,
-        isWinZip: false,
         is9OnSnap: false,
     });
     const [selectedWinnerId, setSelectedWinnerId] = useState<string | null>(null);
@@ -166,7 +165,6 @@ export default function GameScorer({
             isBreakAndRun: false,
             isRackAndRun: false,
             isEarly8: false,
-            isWinZip: false,
             is9OnSnap: false,
         });
         setBallAssignments({
@@ -240,7 +238,6 @@ export default function GameScorer({
             isBreakAndRun: outcomeType === 'break_run',
             isRackAndRun: outcomeType === 'rack_run',
             isEarly8: outcomeType === 'early8' || outcomeType === 'scratch8',
-            isWinZip: false,
             is9OnSnap: false,
             innings: 0
         };
@@ -264,7 +261,6 @@ export default function GameScorer({
             isBreakAndRun: false,
             isRackAndRun: false,
             isEarly8: true,
-            isWinZip: false,
             is9OnSnap: false,
             innings: 0
         };
@@ -281,7 +277,7 @@ export default function GameScorer({
     };
 
     // 9-BALL LOGIC
-    const submit9BallGame = (outcome: 'std' | 'break_run' | 'win_zip' | '9_on_snap') => {
+    const submit9BallGame = (outcome: 'std' | 'break_run' | '9_on_snap') => {
         const { p1Score, p2Score, calculatedWinner } = calculate9BallScore();
 
         // Safety check if 9 ball not assigned (should be caught by UI state)
@@ -301,7 +297,6 @@ export default function GameScorer({
             p2Score,
             stats: {
                 isBreakAndRun: outcome === 'break_run',
-                isWinZip: outcome === 'win_zip',
                 is9OnSnap: outcome === '9_on_snap',
                 isRackAndRun: false,
                 innings: 0

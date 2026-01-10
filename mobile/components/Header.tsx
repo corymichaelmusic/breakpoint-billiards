@@ -1,6 +1,6 @@
-
-import React, { useEffect, useState } from 'react';
-import { View, Text, Image, ActivityIndicator, SafeAreaView, Platform, StatusBar, TouchableOpacity, DeviceEventEmitter } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, Image, ActivityIndicator, Platform, StatusBar, TouchableOpacity, DeviceEventEmitter } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@clerk/clerk-expo';
 import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'expo-router';
@@ -13,6 +13,8 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 export default function Header() {
     const router = useRouter();
     const { userId, getToken } = useAuth();
+    const isMounted = useRef(true);
+
     const [nickname, setNickname] = useState<string>('');
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [rating, setRating] = useState<{ level: string, confidence: number } | null>(null);
@@ -20,13 +22,22 @@ export default function Header() {
     const [retried, setRetried] = useState(false);
 
     useEffect(() => {
+        isMounted.current = true;
         const fetchProfile = async () => {
             if (!userId) return;
             try {
                 const token = await getToken({ template: 'supabase' });
+
+                if (!isMounted.current) return;
+
                 const authHeader = token ? { Authorization: `Bearer ${token}` } : undefined;
                 const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-                    global: { headers: authHeader }
+                    global: { headers: authHeader },
+                    auth: {
+                        persistSession: false,
+                        autoRefreshToken: false,
+                        detectSessionInUrl: false
+                    }
                 });
 
                 const { data, error } = await supabase
@@ -35,25 +46,30 @@ export default function Header() {
                     .eq('id', userId)
                     .single();
 
-                console.log("Header Profile Data:", data);
+                if (!isMounted.current) return;
+
+                if (error) {
+                    // console.warn("[Header] Supabase Query Error:", error.message);
+                }
 
                 if (data) {
                     const displayName = data.nickname || (data.full_name ? data.full_name.split(' ')[0] : 'User') || 'User';
 
-                    // Simple Retry Logic: If we got "User" or "Player", maybe the DB wasn't ready. Try again once.
+                    // Simple Retry Logic
                     if ((displayName === 'User' || displayName === 'Player') && !retried) {
-                        console.log("Header: Name is generic, retrying in 1s...");
                         setRetried(true);
-                        setTimeout(fetchProfile, 1000);
+                        setTimeout(() => {
+                            if (isMounted.current) fetchProfile();
+                        }, 1000);
                         return;
                     }
 
-                    // Check breakpoint_rating first, then fall back to fargo_rating, then 500
-                    // Fetch Confidence (Total Racks Played)
                     const { data: leagueStats } = await supabase
                         .from('league_players')
                         .select('breakpoint_racks_played')
                         .eq('player_id', userId);
+
+                    if (!isMounted.current) return;
 
                     const confidence = leagueStats
                         ? leagueStats.reduce((sum, item) => sum + (item.breakpoint_racks_played || 0), 0)
@@ -66,30 +82,29 @@ export default function Header() {
                     setAvatarUrl(data.avatar_url);
                     setRating({ level: formattedRating, confidence });
                 } else {
-                    console.log("Header: No profile data found for", userId);
                     setNickname("User");
                 }
             } catch (error) {
-                console.error("Error fetching header profile:", error);
-                setNickname("User");
+                console.warn("Error fetching header profile:", error);
+                if (isMounted.current) setNickname("User");
             } finally {
-                setLoading(false);
+                if (isMounted.current) setLoading(false);
             }
         };
 
         fetchProfile();
 
-        // Listen for updates from Profile Screen
         const subscription = DeviceEventEmitter.addListener('refreshProfile', fetchProfile);
 
         return () => {
+            isMounted.current = false;
             subscription.remove();
         };
     }, [userId]);
 
     return (
-        <SafeAreaView className="bg-surface pb-4 pt-2">
-            <View className="flex-row items-center justify-between px-6 h-20">
+        <SafeAreaView edges={['top', 'left', 'right']} className="bg-surface pb-4">
+            <View className="flex-row items-center justify-between px-4 pt-2 h-16">
                 {/* Left: User Info */}
                 <View className="flex-1 flex-row items-center">
                     {loading ? (
@@ -105,15 +120,18 @@ export default function Header() {
                                 )}
                             </View>
 
-                            <View>
-                                <Text className="text-white font-bold text-xl mb-1">
+                            <View className="flex-1">
+                                <Text className="text-white font-bold text-xl mb-1" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>
                                     Hello, <Text className="text-primary">{nickname}</Text>
                                 </Text>
-                                <View className="flex-row items-center">
-                                    <Text className="text-gray-400 text-sm font-bold tracking-wider">
-                                        BP: <Text className="text-primary text-base">{rating?.level || '-'}</Text>
-                                        <Text className="text-gray-500 text-xs"> ({rating?.confidence || 0})</Text>
-                                    </Text>
+                                <View className="flex-row items-center pr-2">
+                                    <Text className="text-gray-400 text-sm font-bold tracking-wider shrink-0" style={{ includeFontPadding: false }}>BP: </Text>
+                                    <View className="mx-1 justify-center min-w-[30px]">
+                                        <Text className="text-primary text-base font-bold" style={{ includeFontPadding: false }}>{rating?.level || '-'}</Text>
+                                    </View>
+                                    <View className="justify-center">
+                                        <Text className="text-gray-300 text-xs font-bold shrink-0" style={{ includeFontPadding: false }}>({rating?.confidence || 0}) </Text>
+                                    </View>
                                 </View>
                             </View>
                         </View>

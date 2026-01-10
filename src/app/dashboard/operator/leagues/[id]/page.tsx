@@ -9,6 +9,7 @@ import SessionLeaderboard from "@/components/SessionLeaderboard";
 import RescheduleInbox from "@/components/RescheduleInbox";
 import MatchDateManager from "@/components/MatchDateManager";
 import { createAdminClient } from "@/utils/supabase/admin";
+import GenerateScheduleForm from "@/components/GenerateScheduleForm";
 
 export default async function LeaguePage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -129,15 +130,15 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                 <div className="container py-8 max-w-5xl">
                     <div className="flex justify-between items-center mb-6">
                         <div>
-                            <Link href="/dashboard/operator" className="text-sm text-gray-500 hover:text-white transition-colors">&larr; Back to Dashboard</Link>
-                            <h1 className="text-3xl font-bold font-sans text-primary mt-2">{league.name}</h1>
-                            <p className="text-gray-400">Organization Dashboard</p>
+                            <Link href="/dashboard/operator" className="text-sm text-gray-300 hover:text-white transition-colors">&larr; Back to Dashboard</Link>
+                            <h1 className="text-3xl font-bold font-sans text-[#D4AF37] mt-2">{league.name}</h1>
+                            <p className="text-gray-300">Organization Dashboard</p>
                         </div>
                         <div className="flex gap-2">
                             <Link href={`/dashboard/operator/leagues/${id}/sessions/new`} className="btn btn-primary text-sm px-4">
                                 + Add Session
                             </Link>
-                            <Link href={`/dashboard/operator/leagues/${id}/players`} className="btn bg-surface border-border hover:bg-surface-hover text-sm px-4">
+                            <Link href={`/dashboard/operator/leagues/${id}/players`} className="btn bg-transparent border border-white hover:bg-white/20 !text-white text-sm px-4">
                                 View Players
                             </Link>
                         </div>
@@ -181,7 +182,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                         </div>
                     )}
 
-                    <h2 className="text-xl font-bold text-white mb-4 border-b border-border pb-2">Active Sessions</h2>
+                    <h2 className="text-xl font-bold text-white mb-4 border-b border-white/10 pb-2">Active Sessions</h2>
                     {sessions.length > 0 ? (
                         <div className="grid gap-4">
                             {sessions.map((session: any) => (
@@ -191,7 +192,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                             <h3 className="text-xl font-bold text-white mb-2 group-hover:text-primary transition-colors">{session.name}</h3>
                                             <div className="flex gap-2 items-center">
                                                 <span className={`text-xs px-2 py-1 rounded font-bold uppercase tracking-wide border
-                                                    ${session.status === 'active' ? 'bg-success/20 text-success border-success/30' : 'bg-surface text-gray-400 border-border'}`}>
+                                                    ${session.status === 'active' ? 'bg-[#22c55e]/20 text-[#4ade80] border-[#22c55e]/30' : 'bg-surface text-gray-300 border-border'}`}>
                                                     {session.status}
                                                 </span>
                                                 {session.creation_fee_status === 'unpaid' && (
@@ -201,7 +202,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                                 )}
                                             </div>
                                         </div>
-                                        <div className="text-primary font-semibold text-sm group-hover:underline">
+                                        <div className="text-[#D4AF37] font-semibold text-sm group-hover:underline">
                                             Manage Session &rarr;
                                         </div>
                                     </div>
@@ -234,18 +235,18 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
             <div className="container py-8 max-w-6xl">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                     <div>
-                        <Link href={`/dashboard/operator/leagues/${league.parent_league_id}`} className="text-sm text-gray-500 hover:text-white transition-colors">&larr; Back to Organization</Link>
+                        <Link href={`/dashboard/operator/leagues/${league.parent_league_id}`} className="text-sm !text-[#D4AF37] hover:!text-white transition-colors" style={{ color: '#D4AF37' }}>&larr; Back to Organization</Link>
                         <div className="flex items-center gap-4 mt-2">
-                            <h1 className="text-3xl font-bold font-sans text-primary m-0">{league.name}</h1>
+                            <h1 className="text-3xl font-bold font-sans text-[#D4AF37] m-0">{league.name}</h1>
                             {sessionStartDate && (
-                                <span className="text-sm text-gray-400 border-l border-border pl-4">
+                                <span className="text-sm text-gray-300 border-l border-border pl-4">
                                     Start: {sessionStartDate}
                                 </span>
                             )}
                         </div>
                         <div className="flex gap-2 mt-2">
                             <span className={`text-xs px-2 py-0.5 rounded font-bold uppercase tracking-wide border
-                                ${isCompleted ? 'bg-success/20 text-success border-success/30' : 'bg-surface text-gray-400 border-border'}`}>
+                                ${isCompleted ? 'bg-success/20 text-success border-success/30' : 'bg-surface text-gray-300 border-border'}`}>
                                 Status: {league.status}
                             </span>
                             {league.creation_fee_status === 'unpaid' && (
@@ -257,10 +258,10 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                     </div>
 
                     <div className="flex gap-2">
-                        <Link href={`/dashboard/operator/leagues/${id}/players`} className="btn bg-surface border-border hover:bg-surface-hover text-sm px-4">
+                        <Link href={`/dashboard/operator/leagues/${id}/players`} className="btn bg-transparent border border-white hover:bg-white/20 !text-white text-sm px-4">
                             Players
                         </Link>
-                        <Link href={`/dashboard/operator/leagues/${id}/stats`} className="btn bg-surface border-border hover:bg-surface-hover text-sm px-4">
+                        <Link href={`/dashboard/operator/leagues/${id}/stats`} className="btn bg-transparent border border-white hover:bg-white/20 !text-white text-sm px-4">
                             Stats
                         </Link>
                     </div>
@@ -276,41 +277,13 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                 <h3 className="text-lg font-bold text-white mb-4">Session Actions</h3>
                                 <div className="space-y-4">
                                     {isSetup && !hasMatches && (
-                                        <form action={async (formData) => {
-                                            'use server';
-                                            const { generateSchedule, updateLeague } = await import("@/app/actions/league-actions");
-                                            const startDate = formData.get('start_date') as string;
-                                            const timezone = formData.get('timezone') as string;
-
-                                            if (startDate || timezone) {
-                                                await updateLeague(id, { ...(startDate && { start_date: startDate }), ...(timezone && { timezone }) });
-                                            }
-
-                                            const res = await generateSchedule(id);
-                                            if (res?.error === 'NOT_ENOUGH_PLAYERS') {
-                                                const parentId = league.parent_league_id;
-                                                redirect(`/dashboard/operator/leagues/${parentId}/sessions/${id}/add-players`);
-                                            }
-                                        }} className="bg-surface/30 p-4 rounded border border-border">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                                <div className="space-y-1">
-                                                    <label className="text-xs text-gray-400">Start Date</label>
-                                                    <input type="date" name="start_date" required defaultValue={league.start_date ? new Date(league.start_date).toISOString().split('T')[0] : ''} className="input w-full text-sm bg-black/50 border-gray-700" />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <label className="text-xs text-gray-400">Timezone</label>
-                                                    <select name="timezone" defaultValue={league.timezone || 'America/Chicago'} className="input w-full text-sm bg-black/50 border-gray-700">
-                                                        <option value="America/Chicago">Central Time (CT)</option>
-                                                        <option value="America/New_York">Eastern Time (ET)</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <button type="submit"
-                                                disabled={league.creation_fee_status === 'unpaid'}
-                                                className={`btn w-full ${league.creation_fee_status === 'unpaid' ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'btn-primary'}`}>
-                                                {league.creation_fee_status === 'unpaid' ? 'Pay Fee to Generate Schedule' : 'Generate Schedule'}
-                                            </button>
-                                        </form>
+                                        <GenerateScheduleForm
+                                            leagueId={id}
+                                            initialStartDate={league.start_date ? new Date(league.start_date).toISOString().split('T')[0] : ''}
+                                            initialTimezone={league.timezone}
+                                            creationFeeStatus={league.creation_fee_status}
+                                            parentLeagueId={league.parent_league_id}
+                                        />
                                     )}
 
                                     {league.creation_fee_status === 'unpaid' && (
@@ -361,7 +334,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                         const { submitLeagueResults } = await import("@/app/actions/league-actions");
                                         await submitLeagueResults(id);
                                     }}>
-                                        <button className="btn text-xs px-3 py-1 bg-surface border border-primary text-primary hover:bg-primary hover:text-black">End Season</button>
+                                        <button className="btn text-xs px-3 py-1 font-bold" style={{ backgroundColor: '#D4AF37', color: 'black', border: '1px solid #D4AF37' }}>End Season</button>
                                     </form>
                                 )}
                             </div>
@@ -379,46 +352,70 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-border">
-                                            {matches.map((match) => (
-                                                <tr key={match.id} className="hover:bg-white/5 transition-colors">
-                                                    <td className="p-2 font-mono text-gray-400">{match.week_number}</td>
-                                                    <td className="p-2 text-sm">
-                                                        <MatchDateManager matchId={match.id} initialDate={match.scheduled_date} isUnlocked={match.is_manually_unlocked} />
-                                                    </td>
-                                                    <td className="p-2">
-                                                        <div className="flex flex-col gap-1 text-sm">
-                                                            <div className="flex items-center gap-2">
-                                                                <PaymentStatusManager matchId={match.id} playerId={match.player1_id} status={match.payment_status_p1} playerName={match.player1?.full_name || "P1"} />
-                                                                <span className={match.winner_id === match.player1_id ? 'text-primary font-bold' : 'text-gray-300'}>{match.player1?.full_name}</span>
+                                            {matches.map((match, index) => {
+                                                const hasPoints = (match.points_8ball_p1 || 0) > 0 || (match.points_8ball_p2 || 0) > 0 || (match.points_9ball_p1 || 0) > 0 || (match.points_9ball_p2 || 0) > 0;
+                                                const is8BallDone = match.status_8ball === 'finalized';
+                                                const is9BallDone = match.status_9ball === 'finalized';
+
+                                                // Check if likely near bottom of viewport
+                                                const isNearBottom = index >= matches.length - 4;
+
+                                                let effectiveStatus = match.status;
+                                                if (is8BallDone && is9BallDone) {
+                                                    effectiveStatus = 'finalized';
+                                                } else if (match.status === 'scheduled' && (match.started_at || hasPoints)) {
+                                                    effectiveStatus = 'in_progress';
+                                                }
+
+                                                return (
+                                                    <tr key={match.id} className="hover:bg-white/5 transition-colors">
+                                                        <td className="p-2 font-mono text-gray-400">{match.week_number}</td>
+                                                        <td className="p-2 text-sm">
+                                                            <MatchDateManager matchId={match.id} initialDate={match.scheduled_date} isUnlocked={match.is_manually_unlocked} />
+                                                        </td>
+                                                        <td className="p-2">
+                                                            <div className="flex flex-col gap-1 text-sm">
+                                                                <div className="flex items-center gap-2">
+                                                                    <PaymentStatusManager matchId={match.id} playerId={match.player1_id} status={match.payment_status_p1} playerName={match.player1?.full_name || "P1"} openUpwards={isNearBottom} />
+                                                                    <span className={match.winner_id === match.player1_id ? 'text-primary font-bold' : 'text-gray-300'}>{match.player1?.full_name}</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <PaymentStatusManager matchId={match.id} playerId={match.player2_id} status={match.payment_status_p2} playerName={match.player2?.full_name || "P2"} openUpwards={isNearBottom} />
+                                                                    <span className={match.winner_id === match.player2_id ? 'text-primary font-bold' : 'text-gray-300'}>{match.player2?.full_name}</span>
+                                                                </div>
                                                             </div>
+                                                        </td>
+                                                        <td className="p-2">
+                                                            <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase font-bold
+                                                                ${effectiveStatus === 'finalized' ? 'bg-[#22c55e]/20 text-[#4ade80]' :
+                                                                    effectiveStatus === 'in_progress' ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'bg-surface text-gray-300'}`}>
+                                                                {effectiveStatus}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-2">
                                                             <div className="flex items-center gap-2">
-                                                                <PaymentStatusManager matchId={match.id} playerId={match.player2_id} status={match.payment_status_p2} playerName={match.player2?.full_name || "P2"} />
-                                                                <span className={match.winner_id === match.player2_id ? 'text-primary font-bold' : 'text-gray-300'}>{match.player2?.full_name}</span>
+                                                                {(effectiveStatus === 'in_progress' || effectiveStatus === 'finalized') && (
+                                                                    <div className="flex flex-col gap-1 items-end min-w-[60px]">
+                                                                        <span className="text-[10px] font-mono bg-black/40 px-1.5 py-0.5 rounded text-gray-300 whitespace-nowrap">
+                                                                            <span className="text-gray-500 mr-1">8B:</span>
+                                                                            <span className="text-white">{match.points_8ball_p1}-{match.points_8ball_p2}</span>
+                                                                        </span>
+                                                                        <span className="text-[10px] font-mono bg-black/40 px-1.5 py-0.5 rounded text-gray-300 whitespace-nowrap">
+                                                                            <span className="text-gray-500 mr-1">9B:</span>
+                                                                            <span className="text-white">{match.points_9ball_p1}-{match.points_9ball_p2}</span>
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                                {(league.status === 'active' || league.status === 'completed') && (
+                                                                    <Link href={`/dashboard/operator/leagues/${id}/matches/${match.id}/score`} className="btn text-xs px-2 py-1 bg-surface border border-border hover:border-white !text-white hover:!text-white hover:bg-white/10 h-full flex items-center">
+                                                                        View
+                                                                    </Link>
+                                                                )}
                                                             </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="p-2">
-                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase font-bold
-                                                            ${match.status === 'finalized' ? 'bg-success/20 text-success' : 'bg-surface text-gray-500'}`}>
-                                                            {match.status}
-                                                        </span>
-                                                    </td>
-                                                    <td className="p-2">
-                                                        <div className="flex items-center gap-2">
-                                                            {(match.status === 'in_progress' || match.status === 'finalized') && (
-                                                                <span className="text-xs font-mono bg-black/50 px-2 py-1 rounded">
-                                                                    {match.points_8ball_p1}-{match.points_8ball_p2}
-                                                                </span>
-                                                            )}
-                                                            {(league.status === 'active' || league.status === 'completed') && (
-                                                                <Link href={`/dashboard/operator/leagues/${id}/matches/${match.id}/score`} className="btn text-xs px-2 py-1 bg-surface border border-border hover:border-white">
-                                                                    View
-                                                                </Link>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>

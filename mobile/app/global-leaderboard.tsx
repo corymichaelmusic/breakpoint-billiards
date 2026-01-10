@@ -1,5 +1,6 @@
 
-import { View, Text, SafeAreaView, ScrollView, ActivityIndicator, TouchableOpacity, Image } from "react-native";
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Image } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { useAuth } from "@clerk/clerk-expo";
@@ -53,10 +54,10 @@ export default function LeaderboardScreen() {
                         <FontAwesome5 name="arrow-left" size={20} color="#D4AF37" />
                     </TouchableOpacity>
                     <View>
-                        <Text className="text-xl font-bold text-white uppercase tracking-wide">
+                        <Text className="text-xl font-bold text-white uppercase tracking-wide shrink" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>
                             Global Leaderboard
                         </Text>
-                        <Text className="text-gray-400 uppercase tracking-widest text-[10px]">
+                        <Text className="text-gray-400 uppercase tracking-widest text-[10px]" style={{ includeFontPadding: false }}>
                             Breakpoint Rating
                         </Text>
                     </View>
@@ -108,7 +109,7 @@ export default function LeaderboardScreen() {
                                     </Text>
                                     <View className="w-20 items-center">
                                         <View className="bg-primary/20 px-2 py-1 rounded">
-                                            <Text className="text-primary font-bold">
+                                            <Text className="text-primary font-bold" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
                                                 {getBreakpointLevel(player.breakpoint_rating || 500)}
                                             </Text>
                                         </View>

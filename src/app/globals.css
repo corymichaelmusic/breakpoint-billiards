@@ -47,8 +47,14 @@ body {
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  /* Premium Dark Grid Background */
+  background-color: #050505;
+  background-image:
+    radial-gradient(circle at 50% 0%, #1a1a1a 0%, transparent 80%),
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 100% 100%, 60px 60px, 60px 60px;
+  background-attachment: fixed;
   font-family: var(--font-sans), sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

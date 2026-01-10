@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { auth } from "@clerk/nextjs/server";
 import Navbar from "@/components/Navbar";
+import PreregistrationForm from "@/components/PreregistrationForm";
 
 export default async function Home() {
   const { userId } = await auth();
@@ -11,18 +12,11 @@ export default async function Home() {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0a0a0a] to-black z-0 pointer-events-none" />
 
       {/* Navigation Overlay */}
-      <nav className="relative z-10 w-full p-6 flex justify-between items-center container mx-auto">
-        <div className="w-12 h-12 relative opacity-80 hover:opacity-100 transition-opacity">
-          <Image src="/logo-nav-final.png" alt="Breakpoint Logo" fill className="object-contain" />
-        </div>
+      <nav className="relative z-10 w-full p-6 flex justify-end items-center container mx-auto">
         <div>
-          {userId ? (
-            <Link href="/dashboard" className="px-6 py-2 rounded-full border border-yellow-600/50 text-yellow-500 hover:bg-yellow-600/10 transition-all text-sm font-medium tracking-wide uppercase">
+          {userId && (
+            <Link href="/dashboard" className="flex items-center justify-center w-[160px] h-[34px] rounded-full bg-[#D4AF37] text-black hover:bg-[#b0902c] transition-all text-[11px] font-bold tracking-[0.1em] uppercase shadow-[0_0_20px_rgba(212,175,55,0.3)] hover:shadow-[0_0_30px_rgba(212,175,55,0.5)]">
               Go to Dashboard
-            </Link>
-          ) : (
-            <Link href="/sign-in" className="px-6 py-2 rounded-full border border-white/10 text-slate-300 hover:bg-white/5 hover:text-white hover:border-white/30 transition-all text-sm font-medium tracking-wide uppercase">
-              Operator Sign In
             </Link>
           )}
         </div>
@@ -70,9 +64,45 @@ export default async function Home() {
           </div>
 
           {/* Headline */}
-          <h1 className="text-6xl md:text-8xl font-black tracking-tight text-[#D4AF37] font-cinzel drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] leading-none bg-clip-text text-transparent bg-gradient-to-b from-[#F5D061] to-[#AD8A1F] mt-32">
+          <h1 className="text-6xl md:text-8xl font-black tracking-tight text-[#D4AF37] font-cinzel drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] leading-none bg-clip-text text-transparent bg-gradient-to-b from-[#F5D061] to-[#AD8A1F] mt-24 mb-12">
             ELEVATE YOUR GAME
           </h1>
+
+          {/* Pre-registration */}
+          {/* Pre-registration */}
+          <div className="w-full max-w-2xl mx-auto bg-black/60 backdrop-blur-md border border-white/10 rounded-3xl shadow-2xl text-center">
+
+            {/* Spacer */}
+            <div className="h-12 md:h-16 w-full" />
+
+            <div className="px-6 md:px-12">
+              <h2 className="text-xl md:text-3xl font-bold text-white font-cinzel leading-relaxed tracking-wide">
+                MONEY MONDAYS @ FAT'S BILLIARDS<br />
+                <span className="text-[#D4AF37]">STARTS FEBRUARY 16</span>
+              </h2>
+
+              {/* Spacer */}
+              <div className="h-8 md:h-12 w-full" />
+
+              <p className="text-gray-300 font-medium tracking-widest text-xs md:text-sm uppercase">
+                Secure Your Spot. Get Notified When Registration Opens!
+              </p>
+
+              {/* Spacer */}
+              <div className="h-8 md:h-10 w-full" />
+
+              <div className="flex justify-center w-full">
+                <div className="w-full max-w-md">
+                  <PreregistrationForm />
+                </div>
+              </div>
+            </div>
+
+            {/* Spacer */}
+            <div className="h-12 md:h-16 w-full" />
+
+          </div>
+
         </div>
       </section>
 

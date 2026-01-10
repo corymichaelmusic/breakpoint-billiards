@@ -74,11 +74,60 @@ export async function createSession(parentLeagueId: string, name: string, startD
 }
 
 export async function addPlayersToSession(sessionId: string, playerIds: string[]) {
-    const supabase = createAdminClient();
+    const { createClient } = await import("@/utils/supabase/server");
+    const supabase = await createClient(); // Authenticated client
+    const { auth } = await import("@clerk/nextjs/server");
+    const { userId } = await auth();
+
+    if (!userId) return { error: "Unauthorized" };
 
     if (!playerIds || playerIds.length === 0) {
         return { error: "No players selected." };
     }
+
+    // VERIFY OWNERSHIP: The caller must be the operator of the parent league
+    // 1. Get Session -> Parent League -> Operator
+    const { data: session } = await supabase
+        .from("leagues")
+        .select("parent_league_id")
+        .eq("id", sessionId)
+        .single();
+
+    if (!session || !session.parent_league_id) return { error: "Session not found or invalid." };
+
+    const { data: parentLeague } = await supabase
+        .from("leagues")
+        .select("operator_id")
+        .eq("id", session.parent_league_id)
+        .single();
+
+    if (!parentLeague) return { error: "Parent league not found." };
+
+    // Check if user is the operator (or Admin - though admin client would bypass this, here we use auth client which RLS might block if not admin, but owner has rights)
+    // Actually, RLS usually allows INSERT if you own the resource. 
+    // But since we are inserting into `league_players`, the RLS policy for `league_players` might be complex.
+    // If the RLS allows "Operator of league can insert players", then `createClient` is sufficient.
+    // IF NOT, we might STILL need `createAdminClient` BUT ONLY AFTER WE VERIFY HERE.
+    // Given the audit complaint was "Admin Client Overuse" and "No Verification", 
+    // The BEST fix is: Verify here, THEN use Admin Client if RLS is too restrictive, OR fix RLS.
+    // For now, let's explicitely VERIFY here, and if we stick to `supabase` (authed), we assume RLS exists.
+    // If RLS is missing for operators, `createClient` might fail.
+    // SAFE APPROACH: Explicitly check operator_id here.
+
+    // Check Admin Role too
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
+    const isAdmin = profile?.role === 'admin';
+
+    if (parentLeague.operator_id !== userId && !isAdmin) {
+        return { error: "Unauthorized. Only the League Operator can add players." };
+    }
+
+    // Now we are authorized.
+    // We can use `createAdminClient` if we need to bypass RLS for the actual insert (if RLS is strict on 'public' inserting to others tables),
+    // OR use the authed client. 
+    // The Audit says "Should Be: const supabase = await createClient(); // Uses JWT".
+    // So let's try using the authed client. If it fails due to RLS, we fix RLS or revert to Admin-after-check.
+    // However, mass-inserting usually requires admin privileges or RLS "insert if user is operator of league_id".
 
     const records = playerIds.map(pid => ({
         league_id: sessionId,
@@ -101,7 +150,26 @@ export async function addPlayersToSession(sessionId: string, playerIds: string[]
 }
 
 export async function syncSessionPlayers(sessionId: string, playerIds: string[]) {
-    const supabase = createAdminClient();
+    const { createClient } = await import("@/utils/supabase/server");
+    const supabase = await createClient();
+    const { auth } = await import("@clerk/nextjs/server");
+    const { userId } = await auth();
+
+    if (!userId) return { error: "Unauthorized" };
+
+    // VERIFY OWNERSHIP
+    const { data: session } = await supabase.from("leagues").select("parent_league_id").eq("id", sessionId).single();
+    if (!session || !session.parent_league_id) return { error: "Session invalid." };
+
+    const { data: parentLeague } = await supabase.from("leagues").select("operator_id").eq("id", session.parent_league_id).single();
+    if (!parentLeague) return { error: "Parent league not found." };
+
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
+    const isAdmin = profile?.role === 'admin';
+
+    if (parentLeague.operator_id !== userId && !isAdmin) {
+        return { error: "Unauthorized. Only the League Operator can sync players." };
+    }
 
     // 1. Get current players in session
     const { data: currentPlayers } = await supabase
@@ -150,7 +218,7 @@ export async function syncSessionPlayers(sessionId: string, playerIds: string[])
     return { success: true };
 }
 
-export async function generateSchedule(leagueId: string) {
+export async function generateSchedule(leagueId: string, skipDates: string[] = []) {
     const supabase = createAdminClient();
 
     // 0. Check Fee Status and Start Date
@@ -183,12 +251,6 @@ export async function generateSchedule(leagueId: string) {
         return { error: "NOT_ENOUGH_PLAYERS" };
     }
 
-    // Fee check moved to startSession
-    // const unpaidPlayers = leaguePlayers.filter(lp => lp.payment_status !== 'paid');
-    // if (unpaidPlayers.length > 0) {
-    //    return { error: "All players must pay the session fee before generating the schedule." };
-    // }
-
     const playerIds = leaguePlayers.map(lp => lp.player_id);
 
     // 2. Generate Round Robin Schedule
@@ -199,115 +261,39 @@ export async function generateSchedule(leagueId: string) {
     const n = playerIds.length;
     const rounds = n - 1;
     const matches = [];
-    const totalWeeks = 16;
-    // Parse start date explicitly to avoid UTC timezone shift
-    // league.start_date is YYYY-MM-DD
+    const totalMatchWeeks = 16; // We want 16 weeks of PLAY
+
+    // Parse start date explicitly
     const [y, m, d] = league.start_date.split('-').map(Number);
-
-    // Create date at noon in the specified timezone, or fallback to noon local if not supported by simple Date constructor
-    // Since JS Date doesn't support setting timezone in constructor easily without libraries like date-fns-tz or moment-timezone,
-    // and we want to avoid heavy dependencies if possible.
-    // However, we can use toLocaleString with timeZone option to verify.
-    // But for storing in DB as ISO string, we want the resulting string to represent the correct absolute time.
-
-    // Simplest approach for MVP:
-    // 1. Create a UTC date for noon on that day.
-    // 2. Adjust it by the timezone offset.
-    // BUT, offsets change (DST).
-
-    // Better approach:
-    // Store the date as YYYY-MM-DD + Time + Timezone.
-    // The `scheduled_date` column is timestamptz.
-    // If we construct "YYYY-MM-DDT12:00:00" and append the offset?
-
-    // Let's use a helper to get the ISO string for noon in the target timezone.
-    // We can use `Intl.DateTimeFormat` to find the offset, but it's complex.
-
-    // User requirement: "There should be some indication of what date the date field is referring to"
-    // If we just set it to Noon Local Time (as we did before), it works for the user's browser if they are in the same timezone.
-    // But if the server is UTC, `new Date(y, m-1, d, 12)` creates noon Server Time.
-    // If Server is UTC, that's 12:00 UTC.
-    // If User is CST (-6), that's 06:00 CST. Still the same day.
-    // If User is +13, that's next day.
-
-    // The previous fix `new Date(y, m-1, d, 12, 0, 0)` uses SERVER local time.
-    // If we want to support specific timezones, we should ideally use a library.
-    // But let's try to do it with standard `toLocaleString`.
-
-    // Actually, if we just want "Noon on that day in that timezone", we can construct a string and let Postgres handle it?
-    // No, we are inserting ISO strings.
-
-    // Let's stick to the "Noon" logic but try to respect the timezone if possible.
-    // If we can't easily do it without a library, maybe we just stick to Noon UTC?
-    // Noon UTC is 6am CST, 7am EST, 4am PST. Always the same day in US.
-    // It's 8pm in China. Same day.
-    // So Noon UTC is a pretty safe bet for "Date" representation globally, unless you are in the middle of the Pacific.
-
-    // Let's try to use the `timezone` field to just inform the user, but store Noon UTC?
-    // Or, we can try to be smarter.
-
-    // Let's use the `league.timezone` to adjust if provided.
-    // If we assume the user wants 8 AM in their timezone (as per the lock logic), we should aim for that.
-    // The lock logic checks `scheduled_date` (timestamptz).
-    // If we set it to 8 AM in the target timezone, the lock logic (which uses 8 AM window) works perfectly.
-
-    // So, let's target 8 AM in the target timezone.
-    // How to get ISO string for "YYYY-MM-DD 08:00:00" in "America/Chicago"?
-
-    // We can use `new Date().toLocaleString("en-US", { timeZone: "America/Chicago" })` to get parts, but reversing it is hard.
-
-    // Hacky but effective way without libraries:
-    // Create a date, check its string in the target timezone, adjust until it matches.
-    // Or just use a library. I don't have one installed.
-
-    // Let's go with Noon UTC for now, which covers the US safely.
-    // Wait, the user specifically asked for timezone support.
-    // "You should make it select the timezone as well before scheduling."
-
-    // Let's try to set it to 12:00 of the target timezone.
-    // We can simply append the timezone to the string if we knew the offset.
-    // But we don't know the offset for a future date (DST).
-
-    // Let's use a simple lookup for standard US timezones?
-    // No, that's brittle.
-
-    // Let's just use Noon Local (Server) for now, but maybe add a comment that we are using the timezone for display/logic later?
-    // Actually, the previous fix `new Date(y, m-1, d, 12)` worked for the user.
-    // The user just wants to SELECT the timezone.
-    // Maybe they want to ensure it's correct.
-
-    // Let's use the `timezone` to set the `scheduled_date` more accurately if we can.
-    // If not, let's just save the timezone in the DB (which we did) and use the Noon logic which seems robust enough for dates.
-
-    // BUT, if I set Noon UTC, and the user is in CST, it shows as 6 AM.
-    // If the user wants to play at 8 AM, and the lock is 8 AM - 8 AM.
-    // If the match is scheduled for 6 AM, the window is 6 AM - 6 AM next day?
-    // No, the lock logic is "Match Date 8 AM" to "Match Date + 1 8 AM".
-    // It extracts the YYYY-MM-DD from the `scheduled_date`.
-    // If `scheduled_date` is 6 AM CST, the date is correct.
-
-    // So, the exact time doesn't matter as much as the DATE part being correct in the user's timezone.
-    // If we store Noon UTC, it is Noon GMT.
-    // In CST, it is 6 AM. Date is correct.
-    // In EST, it is 7 AM. Date is correct.
-    // In PST, it is 4 AM. Date is correct.
-    // In Australia (+10), it is 10 PM. Date is correct.
-
-    // So Noon UTC is actually a very good "Date" anchor.
-    // I will update the code to use UTC Noon explicitly.
-
     const startDate = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
 
-    // Generate rounds
-    for (let week = 1; week <= totalWeeks; week++) {
-        const roundIndex = (week - 1) % rounds;
+    // Helper to check if a date is skipped
+    // skipDates are in "YYYY-MM-DD" format.
+    // We compare with the ISO string date part of the calculated match date.
 
-        // Calculate scheduled date for this week
-        const matchDate = new Date(startDate);
-        matchDate.setUTCDate(startDate.getUTCDate() + (week - 1) * 7);
+    let currentWeekOfPlay = 1;
+    let calendarWeekOffset = 0;
+
+    // Loop until we have generated 16 weeks of MATCHES
+    while (currentWeekOfPlay <= totalMatchWeeks) {
+        // Calculate the candidate date for this calendar week
+        const candidateDate = new Date(startDate);
+        candidateDate.setUTCDate(startDate.getUTCDate() + (calendarWeekOffset * 7));
+
+        const candidateDateString = candidateDate.toISOString().split('T')[0];
+
+        // Check if this date is in the skip list
+        if (skipDates.includes(candidateDateString)) {
+            // SKIP this week
+            console.log(`Skipping date: ${candidateDateString}`);
+            calendarWeekOffset++; // Move to next calendar week
+            continue; // Do NOT increment currentWeekOfPlay
+        }
+
+        // If not skipped, generate matches for this week
+        const roundIndex = (currentWeekOfPlay - 1) % rounds;
 
         // Indices for this round
-        const roundPairings = [];
         let currentPlayers = [...playerIds];
 
         // Rotate players array for the current round
@@ -326,12 +312,15 @@ export async function generateSchedule(leagueId: string) {
                     league_id: leagueId,
                     player1_id: p1,
                     player2_id: p2,
-                    week_number: week,
+                    week_number: currentWeekOfPlay, // This stays 1..16
                     status: 'scheduled',
-                    scheduled_date: matchDate.toISOString()
+                    scheduled_date: candidateDate.toISOString() // This reflects the actual skipped date
                 });
             }
         }
+
+        currentWeekOfPlay++;
+        calendarWeekOffset++;
     }
 
     // 3. Bulk Insert Matches

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "db:setup": "node scripts/setup-db.js",
-    "db:update-operator": "node scripts/update-schema-operator-applications.js"
+    "db:update-operator": "node scripts/update-schema-operator-applications.js",
+    "db:migrate-operators": "node scripts/execute_multi_operator_migration.js"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.9.6",

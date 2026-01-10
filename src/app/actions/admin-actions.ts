@@ -5,8 +5,25 @@ import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import { auth } from "@clerk/nextjs/server";
 
+// Helper to verify admin
+async function verifyAdmin() {
+    const { createClient } = await import("@/utils/supabase/server");
+    const supabase = await createClient();
+    const { auth } = await import("@clerk/nextjs/server");
+    const { userId } = await auth();
+
+    if (!userId) return { error: "Unauthorized", supabase: null };
+
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
+    if (profile?.role !== 'admin') {
+        return { error: "Unauthorized: Admin privileges required.", supabase: null };
+    }
+    return { supabase, error: null };
+}
+
 export async function approveOperator(operatorId: string) {
-    const supabase = createAdminClient();
+    const { supabase, error: authError } = await verifyAdmin();
+    if (authError || !supabase) return { error: authError };
 
     const { error } = await supabase
         .from("profiles")
@@ -23,7 +40,8 @@ export async function approveOperator(operatorId: string) {
 }
 
 export async function rejectOperator(operatorId: string) {
-    const supabase = createAdminClient();
+    const { supabase, error: authError } = await verifyAdmin();
+    if (authError || !supabase) return { error: authError };
 
     const { error } = await supabase
         .from("profiles")
@@ -36,12 +54,12 @@ export async function rejectOperator(operatorId: string) {
     }
 
     revalidatePath("/dashboard/admin");
-    revalidatePath("/dashboard/admin");
     return { success: true };
 }
 
 export async function approveApplication(applicationId: string) {
-    const supabase = createAdminClient();
+    const { supabase, error: authError } = await verifyAdmin();
+    if (authError || !supabase) return { error: authError };
 
     const { error } = await supabase
         .from("operator_applications")
@@ -58,7 +76,8 @@ export async function approveApplication(applicationId: string) {
 }
 
 export async function rejectApplication(applicationId: string) {
-    const supabase = createAdminClient();
+    const { supabase, error: authError } = await verifyAdmin();
+    if (authError || !supabase) return { error: authError };
 
     const { error } = await supabase
         .from("operator_applications")
@@ -75,7 +94,8 @@ export async function rejectApplication(applicationId: string) {
 }
 
 export async function createLeagueForOperator(operatorId: string, name: string, location: string, city: string, state: string, schedule: string) {
-    const supabase = createAdminClient();
+    const { supabase, error: authError } = await verifyAdmin();
+    if (authError || !supabase) return { error: authError };
 
     // Check if operator already has a league
     const { count } = await supabase
@@ -110,8 +130,9 @@ export async function createLeagueForOperator(operatorId: string, name: string, 
     return { success: true };
 }
 
-export async function updateSessionFeeStatus(sessionId: string, status: 'paid' | 'waived') {
-    const supabase = createAdminClient();
+export async function updateSessionFeeStatus(sessionId: string, status: 'paid' | 'waived' | 'unpaid') {
+    const { supabase, error: authError } = await verifyAdmin();
+    if (authError || !supabase) return { error: authError };
 
     const { error } = await supabase
         .from("leagues")
@@ -128,7 +149,8 @@ export async function updateSessionFeeStatus(sessionId: string, status: 'paid' |
 }
 
 export async function updateSystemSetting(key: string, value: string) {
-    const supabase = createAdminClient();
+    const { supabase, error: authError } = await verifyAdmin();
+    if (authError || !supabase) return { error: authError };
 
     const { error } = await supabase
         .from("system_settings")
@@ -144,7 +166,9 @@ export async function updateSystemSetting(key: string, value: string) {
 }
 
 export async function deactivatePlayer(playerId: string) {
-    const supabase = createAdminClient();
+    const { supabase, error: authError } = await verifyAdmin();
+    if (authError || !supabase) return { error: authError };
+
     const { error } = await supabase.from("profiles").update({ is_active: false }).eq("id", playerId);
     if (error) {
         console.error("Error deactivating player:", error);
@@ -155,7 +179,9 @@ export async function deactivatePlayer(playerId: string) {
 }
 
 export async function reactivatePlayer(playerId: string) {
-    const supabase = createAdminClient();
+    const { supabase, error: authError } = await verifyAdmin();
+    if (authError || !supabase) return { error: authError };
+
     const { error } = await supabase.from("profiles").update({ is_active: true }).eq("id", playerId);
     if (error) {
         console.error("Error reactivating player:", error);
@@ -166,7 +192,9 @@ export async function reactivatePlayer(playerId: string) {
 }
 
 export async function deletePlayer(playerId: string) {
-    const supabase = createAdminClient();
+    const { supabase, error: authError } = await verifyAdmin();
+    if (authError || !supabase) return { error: authError };
+
     const { error } = await supabase.from("profiles").delete().eq("id", playerId);
     if (error) {
         console.error("Error deleting player:", error);
@@ -179,22 +207,10 @@ export async function deletePlayer(playerId: string) {
 }
 
 export async function adminUpdateUserRole(userId: string, newRole: string) {
-    // 1. Verify Caller is Admin
-    const { userId: callerId } = await auth();
-    if (!callerId) return { error: "Unauthorized" };
+    const { supabase, error: authError } = await verifyAdmin();
+    if (authError || !supabase) return { error: authError };
 
-    const supabase = createClient(); // Regular client to check caller's role via RLS or explicit query
-    // Actually, createClient might use the cookie.
-    // Better to use createAdminClient to check the caller's profile quickly, assuming we trust auth().
-    const adminClient = createAdminClient();
-
-    const { data: callerProfile } = await adminClient.from("profiles").select("role").eq("id", callerId).single();
-    if (callerProfile?.role !== 'admin') {
-        return { error: "Unauthorized: Admin privileges required." };
-    }
-
-    // 2. Perform Update
-    const { error } = await adminClient.from("profiles").update({ role: newRole }).eq("id", userId);
+    const { error } = await supabase.from("profiles").update({ role: newRole }).eq("id", userId);
 
     if (error) {
         console.error("Error updating user role:", error);
@@ -206,7 +222,8 @@ export async function adminUpdateUserRole(userId: string, newRole: string) {
 }
 
 export async function deleteApplication(applicationId: string) {
-    const supabase = createAdminClient();
+    const { supabase, error: authError } = await verifyAdmin();
+    if (authError || !supabase) return { error: authError };
 
     const { error } = await supabase
         .from("operator_applications")
@@ -223,7 +240,8 @@ export async function deleteApplication(applicationId: string) {
 }
 
 export async function deleteLeague(leagueId: string) {
-    const supabase = createAdminClient();
+    const { supabase, error: authError } = await verifyAdmin();
+    if (authError || !supabase) return { error: authError };
 
     const { error } = await supabase
         .from("leagues")
@@ -240,7 +258,8 @@ export async function deleteLeague(leagueId: string) {
 }
 
 export async function archiveLeague(leagueId: string) {
-    const supabase = createAdminClient();
+    const { supabase, error: authError } = await verifyAdmin();
+    if (authError || !supabase) return { error: authError };
 
     // Using 'inactive' as the archive status since we couldn't run the migration for 'archived'
     const { error } = await supabase
@@ -251,6 +270,31 @@ export async function archiveLeague(leagueId: string) {
     if (error) {
         console.error("Error archiving league:", error);
         return { error: "Failed to archive league." };
+    }
+
+    revalidatePath("/dashboard/admin");
+    return { success: true };
+}
+
+export async function assignOperatorToLeague(operatorId: string, leagueId: string) {
+    const { supabase, error: authError } = await verifyAdmin();
+    if (authError || !supabase) return { error: authError };
+
+    const { error } = await supabase
+        .from("league_operators")
+        .insert({
+            league_id: leagueId,
+            user_id: operatorId,
+            role: 'admin'
+        });
+
+    if (error) {
+        // Handle constraint violation (already assigned)
+        if (error.code === '23505') {
+            return { error: "Operator is already assigned to this league." };
+        }
+        console.error("Error assigning operator:", error);
+        return { error: "Failed to assign operator." };
     }
 
     revalidatePath("/dashboard/admin");

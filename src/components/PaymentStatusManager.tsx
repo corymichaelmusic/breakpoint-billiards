@@ -10,7 +10,7 @@ interface PaymentStatusManagerProps {
     playerName: string;
 }
 
-export default function PaymentStatusManager({ matchId, playerId, status, playerName }: PaymentStatusManagerProps) {
+export default function PaymentStatusManager({ matchId, playerId, status, playerName, openUpwards = false }: PaymentStatusManagerProps & { openUpwards?: boolean }) {
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -39,6 +39,19 @@ export default function PaymentStatusManager({ matchId, playerId, status, player
         await markMatchPaid(matchId, playerId, method);
         setIsLoading(false);
         setIsOpen(false);
+    };
+
+    const dropdownStyle: React.CSSProperties = {
+        position: 'absolute',
+        left: 0,
+        background: '#1a1a1a',
+        border: '1px solid #333',
+        borderRadius: '8px',
+        padding: '0.5rem',
+        zIndex: 10,
+        minWidth: '140px',
+        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)',
+        ...(openUpwards ? { bottom: 'calc(100% + 0.5rem)' } : { top: 'calc(100% + 0.5rem)' })
     };
 
     return (
@@ -73,18 +86,7 @@ export default function PaymentStatusManager({ matchId, playerId, status, player
                         style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9 }}
                         onClick={() => setIsOpen(false)}
                     />
-                    <div style={{
-                        position: 'absolute',
-                        top: 'calc(100% + 0.5rem)',
-                        left: 0,
-                        background: '#1a1a1a',
-                        border: '1px solid #333',
-                        borderRadius: '8px',
-                        padding: '0.5rem',
-                        zIndex: 10,
-                        minWidth: '140px',
-                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)'
-                    }}>
+                    <div style={dropdownStyle}>
                         <div style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', color: '#666', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             Set Status
                         </div>
