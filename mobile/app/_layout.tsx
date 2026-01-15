@@ -51,6 +51,14 @@ const InitialLayout = () => {
     } else if (isSignedIn && inAuthGroup) {
       console.log(`[Layout] Redirecting to Home. SignedIn: ${isSignedIn}, Segment: ${segments[0]}`);
       router.replace("/(tabs)");
+    } else if (segments.length === 0) {
+      // Handle Root Path specifically
+      console.log(`[Layout] Root path detected. Deciding based on auth.`);
+      if (isSignedIn) {
+        router.replace("/(tabs)");
+      } else {
+        router.replace("/login");
+      }
     }
   }, [isSignedIn, isLoaded, segments, pathname]);
 

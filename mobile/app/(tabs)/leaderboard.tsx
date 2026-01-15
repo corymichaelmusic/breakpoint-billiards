@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, ActivityIndicator, RefreshControl, FlatList, NativeSyntheticEvent, NativeScrollEvent, TouchableOpacity } from "react-native";
+import { View, Text, ScrollView, ActivityIndicator, RefreshControl, FlatList, NativeSyntheticEvent, NativeScrollEvent, TouchableOpacity, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "../../lib/supabase";
@@ -8,15 +8,18 @@ import { useRouter } from "expo-router";
 
 import { getBreakpointLevel } from "../../utils/rating";
 
-// Constants for Fixed Layout
+// Constants for Fixed Layout (Phone)
 const ROW_HEIGHT = 48;
 const HEADER_HEIGHT = 40;
 const LEFT_COL_WIDTH = 184; // w-10 (40) + w-36 (144)
-const RIGHT_COL_WIDTH = 312;
+const RIGHT_COL_WIDTH_FIXED = 312;
 
 export default function LeaderboardScreen() {
     const { userId, getToken } = useAuth();
     const router = useRouter();
+    const { width } = useWindowDimensions();
+    const isLargeScreen = width > 600; // Increased threshold slightly for tablet feel
+
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [leaderboard, setLeaderboard] = useState<any[]>([]);
@@ -50,7 +53,7 @@ export default function LeaderboardScreen() {
                 .select("league_id, leagues!inner(name, type, status, parent_league:parent_league_id(name))")
                 .eq("player_id", userId)
                 .eq("leagues.type", "session")
-                .in("leagues.status", ["active", "setup", "completed"])
+                .in("leagues.status", ["active", "setup"])
                 .order("leagues(status)", { ascending: true }) // active < setup? No, alphabetical. active(a) < setup(s). So Active first.
                 // Wait, sorting by joined column on nested relation is tricky.
                 // Best to fetch all and sort in JS if few.
@@ -135,6 +138,7 @@ export default function LeaderboardScreen() {
     }, []);
 
     const handleHorizontalScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        if (isLargeScreen) return; // No sync needed if not scrolling
         const x = event.nativeEvent.contentOffset.x;
         headerScrollViewRef.current?.scrollTo({ x, animated: false });
     };
@@ -163,22 +167,32 @@ export default function LeaderboardScreen() {
                         <Text className="w-36 ml-2 text-black font-bold text-sm">PLAYER</Text>
                     </View>
 
-                    {/* Right Header (Scrollable Sync) */}
-                    <ScrollView
-                        horizontal
-                        ref={headerScrollViewRef}
-                        scrollEnabled={false}
-                        showsHorizontalScrollIndicator={false}
-                        style={{ flex: 1 }}
-                    >
-                        <View style={{ width: RIGHT_COL_WIDTH, height: HEADER_HEIGHT }} className="flex-row items-center px-2">
-                            <Text className="w-12 text-center text-black font-bold text-sm">MP</Text>
-                            <Text className="w-14 text-center text-black font-bold text-sm">W%</Text>
-                            <Text className="w-16 text-center text-black font-bold text-sm">W-L</Text>
-                            <Text className="w-12 text-center text-black font-bold text-sm">SO</Text>
-                            <Text className="w-10 text-center text-black font-bold text-sm" style={{ includeFontPadding: false }}>BP</Text>
+                    {/* Right Header (Adaptive) */}
+                    {isLargeScreen ? (
+                        <View style={{ flex: 1, height: HEADER_HEIGHT }} className="flex-row items-center px-4">
+                            <Text className="flex-1 text-center text-black font-bold text-sm">MP</Text>
+                            <Text className="flex-1 text-center text-black font-bold text-sm">W%</Text>
+                            <Text className="flex-1 text-center text-black font-bold text-sm">W-L</Text>
+                            <Text className="flex-1 text-center text-black font-bold text-sm">SO</Text>
+                            <Text className="flex-1 text-center text-black font-bold text-sm" style={{ includeFontPadding: false }}>BP</Text>
                         </View>
-                    </ScrollView>
+                    ) : (
+                        <ScrollView
+                            horizontal
+                            ref={headerScrollViewRef}
+                            scrollEnabled={false}
+                            showsHorizontalScrollIndicator={false}
+                            style={{ flex: 1 }}
+                        >
+                            <View style={{ width: RIGHT_COL_WIDTH_FIXED, height: HEADER_HEIGHT }} className="flex-row items-center px-2">
+                                <Text className="w-12 text-center text-black font-bold text-sm">MP</Text>
+                                <Text className="w-14 text-center text-black font-bold text-sm">W%</Text>
+                                <Text className="w-16 text-center text-black font-bold text-sm">W-L</Text>
+                                <Text className="w-12 text-center text-black font-bold text-sm">SO</Text>
+                                <Text className="w-10 text-center text-black font-bold text-sm" style={{ includeFontPadding: false }}>BP</Text>
+                            </View>
+                        </ScrollView>
+                    )}
                 </View>
 
                 {/* 1. Body Container */}
@@ -199,32 +213,52 @@ export default function LeaderboardScreen() {
                         ))}
                     </View>
 
-                    {/* Right Column Stack (Scrollable) */}
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={true}
-                        scrollEventThrottle={16}
-                        onScroll={handleHorizontalScroll}
-                        style={{ flex: 1 }}
-                    >
-                        <View style={{ width: RIGHT_COL_WIDTH }}>
+                    {/* Right Column Stack (Adaptive) */}
+                    {isLargeScreen ? (
+                        <View style={{ flex: 1 }}>
                             {leaderboard.map((item) => (
                                 <TouchableOpacity
                                     key={item.id}
                                     onPress={() => router.push(`/player/${item.id}`)}
                                     disabled={item.id === userId}
                                     style={{ height: ROW_HEIGHT }}
-                                    className={`flex-row items-center px-2 border-b border-border ${item.id === userId ? 'bg-surface-hover' : ''}`}
+                                    className={`flex-row items-center px-4 border-b border-border ${item.id === userId ? 'bg-surface-hover' : ''}`}
                                 >
-                                    <Text className="w-12 text-center text-gray-400 font-bold text-sm">{item.played}</Text>
-                                    <Text className="w-14 text-center text-gray-300 font-bold text-sm">{item.winRate}%</Text>
-                                    <Text className="w-16 text-center text-foreground font-bold text-sm">{item.wins}-{item.played - item.wins}</Text>
-                                    <Text className="w-12 text-center text-primary font-bold text-sm">{item.shutouts}</Text>
-                                    <Text className="w-10 text-center text-primary font-bold text-sm" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>{item.breakPoint} </Text>
+                                    <Text className="flex-1 text-center text-gray-400 font-bold text-sm">{item.played}</Text>
+                                    <Text className="flex-1 text-center text-gray-300 font-bold text-sm">{item.winRate}%</Text>
+                                    <Text className="flex-1 text-center text-foreground font-bold text-sm">{item.wins}-{item.played - item.wins}</Text>
+                                    <Text className="flex-1 text-center text-primary font-bold text-sm">{item.shutouts}</Text>
+                                    <Text className="flex-1 text-center text-primary font-bold text-sm" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>{item.breakPoint} </Text>
                                 </TouchableOpacity>
                             ))}
                         </View>
-                    </ScrollView>
+                    ) : (
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={true}
+                            scrollEventThrottle={16}
+                            onScroll={handleHorizontalScroll}
+                            style={{ flex: 1 }}
+                        >
+                            <View style={{ width: RIGHT_COL_WIDTH_FIXED }}>
+                                {leaderboard.map((item) => (
+                                    <TouchableOpacity
+                                        key={item.id}
+                                        onPress={() => router.push(`/player/${item.id}`)}
+                                        disabled={item.id === userId}
+                                        style={{ height: ROW_HEIGHT }}
+                                        className={`flex-row items-center px-2 border-b border-border ${item.id === userId ? 'bg-surface-hover' : ''}`}
+                                    >
+                                        <Text className="w-12 text-center text-gray-400 font-bold text-sm">{item.played}</Text>
+                                        <Text className="w-14 text-center text-gray-300 font-bold text-sm">{item.winRate}%</Text>
+                                        <Text className="w-16 text-center text-foreground font-bold text-sm">{item.wins}-{item.played - item.wins}</Text>
+                                        <Text className="w-12 text-center text-primary font-bold text-sm">{item.shutouts}</Text>
+                                        <Text className="w-10 text-center text-primary font-bold text-sm" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>{item.breakPoint} </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </ScrollView>
+                    )}
                 </View>
 
                 {leaderboard.length === 0 && (

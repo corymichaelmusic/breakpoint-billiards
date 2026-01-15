@@ -1,6 +1,6 @@
 import { View, Text, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Link, useRouter, useFocusEffect } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "../../lib/supabase";

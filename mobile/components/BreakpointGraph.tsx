@@ -11,6 +11,9 @@ interface BreakpointGraphProps {
 }
 
 export default function BreakpointGraph({ data }: BreakpointGraphProps) {
+    const [graphWidth, setGraphWidth] = React.useState(0);
+
+    // Initial check for data
     if (!data || data.length < 2) {
         return (
             <View className="bg-surface p-6 rounded-lg border border-border items-center justify-center mb-6">
@@ -25,12 +28,14 @@ export default function BreakpointGraph({ data }: BreakpointGraphProps) {
     const minLevel = 1;
 
     const graphHeight = 150;
-    const containerWidth = 300; // Approximate available width (p-4 = 16px padding on sides)
+    // We use measuring now, but default to measuring logic or safe fallback
+    // If width is 0 (first render), we won't draw lines/points yet to avoid glitch
 
     // Helper to calculate X and Y for a point
-    // We assume equal spacing for X
     const getCoordinates = (index: number, rating: number, count: number) => {
-        const xStep = count > 1 ? (containerWidth / (count - 1)) : 0;
+        // Use padding-adjusted width if needed, but here we measure the inner view
+        const availableWidth = graphWidth > 0 ? graphWidth : 300;
+        const xStep = count > 1 ? (availableWidth / (count - 1)) : 0;
         const x = index * xStep;
 
         // Y is inverted (0 is top)
@@ -44,64 +49,73 @@ export default function BreakpointGraph({ data }: BreakpointGraphProps) {
         <View className="bg-surface p-4 rounded-lg border border-border mb-6">
             <Text className="text-gray-300 text-xs font-bold uppercase tracking-wider mb-4">Breakpoint History</Text>
 
-            <View style={{ height: graphHeight + 30, width: '100%', position: 'relative' }}>
+            <View
+                style={{ height: graphHeight + 30, width: '100%', position: 'relative' }}
+                onLayout={(event) => {
+                    const { width } = event.nativeEvent.layout;
+                    setGraphWidth(width);
+                }}
+            >
                 {/* Y-Axis Grid Lines (Optional) */}
                 <View className="absolute w-full h-full border-l border-b border-border/50" />
 
-                {/* Draw Lines */}
-                {recentData.map((point, i) => {
-                    if (i === recentData.length - 1) return null;
-                    const nextPoint = recentData[i + 1];
+                {/* Only render content if we have a valid width to prevent jump */}
+                {graphWidth > 0 && (
+                    <>
+                        {/* Draw Lines */}
+                        {recentData.map((point, i) => {
+                            if (i === recentData.length - 1) return null;
+                            const nextPoint = recentData[i + 1];
 
-                    const p1 = getCoordinates(i, point.rating, recentData.length);
-                    const p2 = getCoordinates(i + 1, nextPoint.rating, recentData.length);
+                            const p1 = getCoordinates(i, point.rating, recentData.length);
+                            const p2 = getCoordinates(i + 1, nextPoint.rating, recentData.length);
 
-                    // Calculate distance and angle
-                    const dx = p2.x - p1.x;
-                    const dy = p2.y - p1.y;
-                    const length = Math.sqrt(dx * dx + dy * dy);
-                    const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+                            // Calculate distance and angle
+                            const dx = p2.x - p1.x;
+                            const dy = p2.y - p1.y;
+                            const length = Math.sqrt(dx * dx + dy * dy);
+                            const angle = Math.atan2(dy, dx) * (180 / Math.PI);
 
-                    // Center point of the line
-                    const cx = (p1.x + p2.x) / 2;
-                    const cy = (p1.y + p2.y) / 2;
+                            // Center point of the line
+                            const cx = (p1.x + p2.x) / 2;
+                            const cy = (p1.y + p2.y) / 2;
 
-                    return (
-                        <View
-                            key={`line-${i}`}
-                            style={{
-                                position: 'absolute',
-                                left: cx - length / 2,
-                                top: cy - 1,
-                                width: length + 1.5, // Slight overlap to prevent gaps
-                                height: 2,
-                                backgroundColor: '#D4AF37',
-                                transform: [{ rotate: `${angle}deg` }],
-                                zIndex: 1
-                            }}
-                        />
-                    );
-                })}
+                            return (
+                                <View
+                                    key={`line-${i}`}
+                                    style={{
+                                        position: 'absolute',
+                                        left: cx - length / 2,
+                                        top: cy - 1,
+                                        width: length + 1.5, // Slight overlap to prevent gaps
+                                        height: 2,
+                                        backgroundColor: '#D4AF37',
+                                        transform: [{ rotate: `${angle}deg` }],
+                                        zIndex: 1
+                                    }}
+                                />
+                            );
+                        })}
 
-                {/* Draw Points */}
-                {recentData.map((point, i) => {
-                    const { x, y } = getCoordinates(i, point.rating, recentData.length);
-                    return (
-                        <View key={`point-${i}`} style={{ position: 'absolute', left: x - 4, top: y - 4, zIndex: 2 }}>
-                            <View className="w-2 h-2 bg-background border-2 border-primary rounded-full" />
-                            {/* Date Label */}
-                            <Text style={{ position: 'absolute', top: 12, left: -20, width: 50, textAlign: 'center', fontSize: 9, color: '#AAA' }}>
-                                {new Date(point.date).getMonth() + 1}/{new Date(point.date).getDate()}
-                            </Text>
-                            {/* Rating Label (Top of point) */}
-                            <Text style={{ position: 'absolute', top: -16, left: -20, width: 50, textAlign: 'center', fontSize: 10, color: '#D4AF37', fontWeight: 'bold' }}>
-                                {point.rating}
-                            </Text>
-                        </View>
-                    );
-                })}
-
-
+                        {/* Draw Points */}
+                        {recentData.map((point, i) => {
+                            const { x, y } = getCoordinates(i, point.rating, recentData.length);
+                            return (
+                                <View key={`point-${i}`} style={{ position: 'absolute', left: x - 4, top: y - 4, zIndex: 2 }}>
+                                    <View className="w-2 h-2 bg-background border-2 border-primary rounded-full" />
+                                    {/* Date Label */}
+                                    <Text style={{ position: 'absolute', top: 12, left: -20, width: 50, textAlign: 'center', fontSize: 9, color: '#AAA' }}>
+                                        {new Date(point.date).getMonth() + 1}/{new Date(point.date).getDate()}
+                                    </Text>
+                                    {/* Rating Label (Top of point) */}
+                                    <Text style={{ position: 'absolute', top: -16, left: -20, width: 50, textAlign: 'center', fontSize: 10, color: '#D4AF37', fontWeight: 'bold' }}>
+                                        {point.rating}
+                                    </Text>
+                                </View>
+                            );
+                        })}
+                    </>
+                )}
             </View>
         </View>
     );

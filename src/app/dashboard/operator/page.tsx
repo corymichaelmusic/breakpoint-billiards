@@ -241,6 +241,31 @@ export default async function OperatorDashboard() {
                         <p className="text-sm text-gray-500">Contact an administrator to get access to your organization.</p>
                     </div>
                 )}
+
+                {/* Tournament Section */}
+                <h2 className="text-xl font-bold text-white mb-8 border-b border-transparent pb-4 mt-16">Tournaments</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+                    <Link href="/dashboard/tournaments">
+                        <div className="card-glass hover-effect h-full flex flex-col justify-between p-10 cursor-pointer group bg-gradient-to-br from-surface to-surface-hover/50">
+                            <div>
+                                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary font-sans text-2xl border border-primary/20 mb-6 group-hover:scale-110 transition-transform">
+                                    🏆
+                                </div>
+                                <h3 className="text-2xl font-bold text-white mb-2 group-hover:text-primary transition-colors">
+                                    Manage Tournaments
+                                </h3>
+                                <p className="text-sm text-gray-400">
+                                    Run single and double elimination events with automated brackets and Fargo handicaps.
+                                </p>
+                            </div>
+                            <div className="mt-8">
+                                <span className="text-sm font-semibold text-[#D4AF37] group-hover:underline">
+                                    Open Dashboard &rarr;
+                                </span>
+                            </div>
+                        </div>
+                    </Link>
+                </div>
             </div>
         </main>
     );

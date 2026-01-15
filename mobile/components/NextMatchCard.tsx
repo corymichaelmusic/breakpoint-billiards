@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, Alert } from "react-native";
-import { Link, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { useState, useEffect } from "react";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { createClient } from "@supabase/supabase-js";

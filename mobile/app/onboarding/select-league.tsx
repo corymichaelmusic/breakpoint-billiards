@@ -166,7 +166,7 @@ export default function SelectLeagueScreen() {
                     style={{ width: 180, height: 40, marginBottom: 16 }}
                     resizeMode="contain"
                 />
-                <Text className="text-white text-2xl font-bold mb-2">Select a Session</Text>
+                <Text className="text-white text-2xl font-bold mb-2" numberOfLines={1} adjustsFontSizeToFit>Select a Session</Text>
                 <Text className="text-gray-400 text-center">
                     Join an active session to start tracking your stats.
                 </Text>
@@ -218,7 +218,7 @@ export default function SelectLeagueScreen() {
                     )}
                     ListEmptyComponent={
                         <View className="items-center justify-center py-10">
-                            <Text className="text-gray-400">No sessions currently in setup mode found.</Text>
+                            <Text className="text-gray-400">No sessions available at this time</Text>
                         </View>
                     }
                 />

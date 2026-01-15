@@ -1,0 +1,6 @@
+# We want to use .gitignore for most things
+.gitignore
+
+# BUT we want to explicitly INCLUDE .env files for the build context
+!mobile/.env
+!.env

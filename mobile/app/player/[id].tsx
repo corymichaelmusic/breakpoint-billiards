@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { getBreakpointLevel } from "../../utils/rating";
+import NextMatchCard from "../../components/NextMatchCard";
 
 export default function PlayerDetailScreen() {
     const { id } = useLocalSearchParams();
@@ -71,7 +72,10 @@ export default function PlayerDetailScreen() {
                 .from("matches")
                 .select(`
                     *,
-                    leagues(name, parent_league:parent_league_id(name))
+                    leagues(name, parent_league:parent_league_id(name)),
+                    player1:player1_id(full_name),
+                    player2:player2_id(full_name),
+                    games (winner_id, is_break_and_run, is_9_on_snap, game_type)
                 `)
                 .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
                 .or(`player1_id.eq.${id},player2_id.eq.${id}`)
@@ -191,65 +195,60 @@ export default function PlayerDetailScreen() {
                     {matches.length > 0 ? (
                         matches.map((match) => {
                             const isP1 = match.player1_id === userId;
-                            const played8 = (match.points_8ball_p1 || 0) > 0 || (match.points_8ball_p2 || 0) > 0;
-                            const played9 = (match.points_9ball_p1 || 0) > 0 || (match.points_9ball_p2 || 0) > 0;
 
-                            const my8 = isP1 ? match.points_8ball_p1 : match.points_8ball_p2;
-                            const opp8 = isP1 ? match.points_8ball_p2 : match.points_8ball_p1;
-                            const win8 = my8 > opp8;
+                            // Calculate Scores
+                            const scores = {
+                                p1_8: match.points_8ball_p1 || 0,
+                                p2_8: match.points_8ball_p2 || 0,
+                                p1_9: match.points_9ball_p1 || 0,
+                                p2_9: match.points_9ball_p2 || 0,
+                                isPlayer1: isP1
+                            };
 
-                            const my9 = isP1 ? match.points_9ball_p1 : match.points_9ball_p2;
-                            const opp9 = isP1 ? match.points_9ball_p2 : match.points_9ball_p1;
-                            const win9 = my9 > opp9;
+                            // Calculate Special Stats
+                            let p1_8br = 0, p2_8br = 0;
+                            let p1_9br = 0, p2_9br = 0;
+                            let p1_snap = 0, p2_snap = 0;
+
+                            if (match.games) {
+                                match.games.forEach((g: any) => {
+                                    if (g.is_break_and_run) {
+                                        if (g.game_type === '8ball') {
+                                            if (g.winner_id === match.player1_id) p1_8br++;
+                                            else if (g.winner_id === match.player2_id) p2_8br++;
+                                        } else if (g.game_type === '9ball') {
+                                            if (g.winner_id === match.player1_id) p1_9br++;
+                                            else if (g.winner_id === match.player2_id) p2_9br++;
+                                        }
+                                    }
+                                    if (g.is_9_on_snap) {
+                                        if (g.winner_id === match.player1_id) p1_snap++;
+                                        else if (g.winner_id === match.player2_id) p2_snap++;
+                                    }
+                                });
+                            }
+
+                            const specialStats = {
+                                p1_8br, p2_8br,
+                                p1_9br, p2_9br,
+                                p1_snap, p2_snap
+                            };
 
                             return (
-                                <View
+                                <NextMatchCard
                                     key={match.id}
-                                    className="bg-surface p-4 rounded-lg border border-border mb-4"
-                                >
-                                    <View className="flex-row justify-between items-start mb-4">
-                                        <View>
-                                            <Text className="text-gray-400 text-xs uppercase mb-1">{match.leagues?.parent_league?.name || 'League'}</Text>
-                                            <Text className="text-white font-bold text-lg">
-                                                {new Date(match.scheduled_date).toLocaleDateString()}
-                                            </Text>
-                                        </View>
-                                    </View>
-
-                                    {/* 8-Ball Result */}
-                                    {played8 && (
-                                        <View className="flex-row items-center justify-between mb-2">
-                                            <View className="flex-row items-center gap-2">
-                                                <Text className="text-gray-300 font-bold text-sm w-12">8-Ball</Text>
-                                                <View className={`px-2 py-0.5 rounded min-w-[50px] items-center ${win8 ? 'bg-green-900/30 border border-green-700' : 'bg-red-900/30 border border-red-700'}`}>
-                                                    <Text className={`font-bold text-[10px] uppercase ${win8 ? 'text-green-500' : 'text-red-500'}`} style={{ includeFontPadding: false }} numberOfLines={1}>
-                                                        {win8 ? 'Won  ' : 'Lost  '}
-                                                    </Text>
-                                                </View>
-                                            </View>
-                                            <Text className="text-white font-bold text-base min-w-[30px] text-right" style={{ includeFontPadding: false }}>
-                                                {my8} - {opp8}
-                                            </Text>
-                                        </View>
-                                    )}
-
-                                    {/* 9-Ball Result */}
-                                    {played9 && (
-                                        <View className="flex-row items-center justify-between">
-                                            <View className="flex-row items-center gap-2">
-                                                <Text className="text-gray-300 font-bold text-sm w-12">9-Ball</Text>
-                                                <View className={`px-2 py-0.5 rounded min-w-[50px] items-center ${win9 ? 'bg-green-900/30 border border-green-700' : 'bg-red-900/30 border border-red-700'}`}>
-                                                    <Text className={`font-bold text-[10px] uppercase ${win9 ? 'text-green-500' : 'text-red-500'}`} style={{ includeFontPadding: false }} numberOfLines={1}>
-                                                        {win9 ? 'Won  ' : 'Lost  '}
-                                                    </Text>
-                                                </View>
-                                            </View>
-                                            <Text className="text-white font-bold text-base min-w-[30px] text-right" style={{ includeFontPadding: false }}>
-                                                {my9} - {opp9}
-                                            </Text>
-                                        </View>
-                                    )}
-                                </View>
+                                    matchId={match.id}
+                                    opponentName={isP1 ? (match.player2?.full_name || profile?.full_name) : (match.player1?.full_name || profile?.full_name)}
+                                    date={new Date(match.scheduled_date).toLocaleDateString()}
+                                    leagueName={match.leagues?.parent_league?.name}
+                                    sessionName={match.leagues?.name}
+                                    status="finalized" // History is always finalized or past
+                                    player1Id={match.player1_id}
+                                    player2Id={match.player2_id}
+                                    scores={scores}
+                                    specialStats={specialStats}
+                                    label={`Week ${match.week_number}`}
+                                />
                             );
                         })
                     ) : (

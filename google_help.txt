@@ -1,0 +1,16 @@
+TROUBLESHOOTING: Finding Google OAuth Settings
+
+1. Open this URL: https://console.cloud.google.com/apis/credentials
+   (Make sure you are logged in to the correct Google Account)
+
+2. Check the "Project" dropdown in the top-left corner (next to the Google Cloud logo).
+   - Ensure "Breakpoint Billiards" (or your specific project name) is selected.
+
+3. Look for the list "OAuth 2.0 Client IDs".
+   - You should see "Android Client" or similar.
+   - Click the Pencil Icon (Edit) on the right side of that row.
+
+4. Scroll down to "SHA-1 Certificate fingerprint".
+   - Click "ADD FINGERPRINT".
+   - Paste the new SHA1 into the box.
+   - Click SAVE.

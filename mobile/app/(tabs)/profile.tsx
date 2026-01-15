@@ -2,7 +2,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator, Dimensions, TextInput,
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import QRCode from 'react-native-qrcode-svg';
@@ -16,6 +16,7 @@ const { width } = Dimensions.get('window');
 export default function ProfileScreen() {
     const router = useRouter();
     const { signOut, userId, getToken } = useAuth();
+    const { user } = useUser();
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [profile, setProfile] = useState<any>(null);
@@ -136,11 +137,17 @@ export default function ProfileScreen() {
             console.log("Attempting upload to Production:", API_URL);
 
             // 3. Native File Upload
+            // Get Token specifically for the backend API (not Supabase)
+            const token = await getToken();
+
             const uploadResponse = await FileSystem.uploadAsync(API_URL, manipResult.uri, {
                 fieldName: 'file',
                 httpMethod: 'POST',
                 // FileSystemUploadType.MULTIPART = 1
                 uploadType: 1,
+                headers: {
+                    Authorization: `Bearer ${token}`
+                },
                 parameters: {
                     userId: userId
                 }
@@ -161,6 +168,19 @@ export default function ProfileScreen() {
 
             // Notify other components (Header) to refresh
             DeviceEventEmitter.emit('refreshProfile');
+
+            // 4. SYNC TO CLERK (Fix for Web App mismatch)
+            if (user) {
+                try {
+                    console.log("Syncing avatar to Clerk...");
+                    const base64 = await FileSystem.readAsStringAsync(manipResult.uri, { encoding: 'base64' });
+                    await user.setProfileImage({ file: `data:image/jpeg;base64,${base64}` });
+                    console.log("Clerk Avatar Sync Success");
+                } catch (clerkError) {
+                    console.error("Clerk Sync Failed:", clerkError);
+                    // Don't alert user, as the main upload succeeded
+                }
+            }
 
             Alert.alert("Success", "Avatar updated!");
 

@@ -140,13 +140,13 @@ export default function Header() {
 
                 {/* Right: Logo */}
                 <View>
-                    <TouchableOpacity onPress={() => router.replace('/(tabs)')}>
+                    <View>
                         <Image
                             source={require('../assets/header-logo.png')}
                             style={{ width: 120, height: 35 }}
                             resizeMode="contain"
                         />
-                    </TouchableOpacity>
+                    </View>
                 </View>
             </View>
         </SafeAreaView>

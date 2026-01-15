@@ -1,6 +1,6 @@
 import { View, Text, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Link, useFocusEffect, useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "../../lib/supabase";
@@ -450,18 +450,7 @@ export default function HomeScreen() {
               <Text className="text-black font-bold uppercase tracking-wider text-sm text-center w-full" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>Find a Session</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={async () => {
-              try {
-                await signOut();
-                const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-                await AsyncStorage.clear();
-                const SecureStore = require('expo-secure-store');
-                await SecureStore.deleteItemAsync('__clerk_client_jwt');
-                router.replace("/login");
-              } catch (e) { console.error(e) }
-            }} className="px-4 py-2">
-              <Text className="text-red-500 font-bold text-xs uppercase">Debug: Force Sign Out</Text>
-            </TouchableOpacity>
+
           </View>
         ) : (
           <>
@@ -568,11 +557,16 @@ export default function HomeScreen() {
             )}
 
             <View className="mb-8 items-center gap-4">
-              <Link href="/(tabs)/matches" asChild>
-                <TouchableOpacity className="bg-secondary px-6 py-3 rounded-full border border-border w-full items-center">
-                  <Text className="text-white font-bold uppercase text-xs tracking-widest text-center w-full" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>Session Schedule</Text>
-                </TouchableOpacity>
-              </Link>
+              <TouchableOpacity
+                onPress={() => router.push("/(tabs)/matches")}
+                className="bg-secondary px-6 py-3 rounded-full border border-border w-full items-center"
+              >
+                <Text className="text-white font-bold uppercase text-xs tracking-widest text-center w-full" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>Session Schedule</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => router.push('/onboarding/select-league')} className="px-6 py-3 rounded-full border border-gray-700 w-full items-center active:bg-white/5">
+                <Text className="text-gray-400 font-bold uppercase text-xs tracking-widest text-center w-full" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>Join New Session</Text>
+              </TouchableOpacity>
             </View>
           </>
         )}

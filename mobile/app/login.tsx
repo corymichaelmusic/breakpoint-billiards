@@ -1,28 +1,39 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, Image, Alert, ActivityIndicator, TextInput, TouchableWithoutFeedback, Keyboard, Platform, DeviceEventEmitter, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Alert, ActivityIndicator, TextInput, TouchableWithoutFeedback, Keyboard, DeviceEventEmitter } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOAuth, useAuth, useUser, useSignIn, useSignUp } from '@clerk/clerk-expo';
-import * as Linking from 'expo-linking';
 import { useRouter, useSegments } from 'expo-router';
 import { createClient } from "@supabase/supabase-js";
-import { supabase } from '../lib/supabase';
 import * as WebBrowser from "expo-web-browser";
-import { useWarmUpBrowser } from "../hooks/useWarmUpBrowser";
 
 // WebBrowser.maybeCompleteAuthSession(); // Removed: Handled in _layout.tsx
 
 export default function Login() {
-    // useWarmUpBrowser();
+    const { signOut } = useAuth();
+
     useEffect(() => {
         console.log("[Login] Component MOUNTED (Effect)");
+
+        // Force cleanup of any stale sessions on mount
+        const cleanup = async () => {
+            try {
+                await signOut();
+                console.log("[Login] Forced signOut on mount complete");
+            } catch (e) {
+                console.log("[Login] Force signOut ignored:", e);
+            }
+        };
+        cleanup();
+
         return () => console.log("[Login] Component UNMOUNTED");
     }, []);
 
     const { signIn, setActive, isLoaded } = useSignIn();
     const { signUp, setActive: setActiveSignUp, isLoaded: isSignUpLoaded } = useSignUp();
-    const { startOAuthFlow } = useOAuth({ strategy: "oauth_google" });
-    const { getToken, isSignedIn, userId } = useAuth();
-    const { user } = useUser();
+    const { startOAuthFlow: startGoogleFlow } = useOAuth({ strategy: "oauth_google" });
+    const { startOAuthFlow: startAppleFlow } = useOAuth({ strategy: "oauth_apple" });
+    const { getToken, userId } = useAuth();
+    // const { user } = useUser(); // useAuth provides basic user info, useUser provides full user object. useUser() is better for email check.
 
     const router = useRouter();
     const segments = useSegments();
@@ -31,15 +42,16 @@ export default function Login() {
     const [password, setPassword] = useState("");
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
+    const [phoneNumber, setPhoneNumber] = useState("");
     const [loading, setLoading] = useState(false);
     const [mode, setMode] = useState<"signin" | "signup">("signin");
 
     const [pendingVerification, setPendingVerification] = useState(false);
-
     const [code, setCode] = useState("");
 
+    const [signInPendingVerification, setSignInPendingVerification] = useState(false);
+
     // Helper to sync user to Supabase
-    // This is critical because Webhooks might not fire in local dev.
     const syncToSupabase = async (id: string, email: string) => {
         try {
             console.log("Syncing user to Supabase...", id, email);
@@ -56,7 +68,6 @@ export default function Login() {
                 { global: { headers: authHeader } }
             );
 
-            // Construct Full Name from inputs or fallback to email handle
             let fullName = email.split('@')[0];
             if (firstName && lastName) {
                 fullName = `${firstName.trim()} ${lastName.trim()}`;
@@ -67,9 +78,9 @@ export default function Login() {
             const { error } = await supabase.from('profiles').upsert({
                 id: id,
                 email: email,
-                role: 'player', // Default role
+                role: 'player',
                 full_name: fullName,
-                nickname: null // Default to null so Header uses full_name
+                nickname: null
             });
 
             if (error) {
@@ -97,7 +108,6 @@ export default function Login() {
             if (completeSignUp.status === 'complete') {
                 await setActiveSignUp({ session: completeSignUp.createdSessionId });
 
-                // Explicitly Sync for New User
                 if (completeSignUp.createdUserId) {
                     try {
                         await new Promise(r => setTimeout(r, 500));
@@ -107,7 +117,7 @@ export default function Login() {
                     }
                 }
 
-                router.replace("/");
+                router.replace("/(tabs)");
             } else {
                 console.error(JSON.stringify(completeSignUp, null, 2));
                 Alert.alert("Verification Failed", "Code verification incomplete.");
@@ -123,8 +133,8 @@ export default function Login() {
     const onSignUpPress = async () => {
         if (!isSignUpLoaded) return;
 
-        if (!firstName.trim() || !lastName.trim()) {
-            Alert.alert("Missing Information", "Please enter your First and Last name.");
+        if (!firstName.trim() || !lastName.trim() || !phoneNumber.trim()) {
+            Alert.alert("Missing Information", "Please enter your Name and Phone Number.");
             return;
         }
 
@@ -135,9 +145,9 @@ export default function Login() {
                 password,
                 firstName: firstName.trim(),
                 lastName: lastName.trim(),
+                phoneNumber: phoneNumber.trim()
             });
 
-            // Prepare validation on Clerk side
             await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
 
             setPendingVerification(true);
@@ -158,47 +168,91 @@ export default function Login() {
                 identifier: emailAddress.trim(),
                 password,
             });
-            console.log("[Login] setActive starting...");
-            await setActive({ session: completeSignIn.createdSessionId });
-            console.log("[Login] setActive complete. Letting Layout handle redirect.");
-            // router.replace("/"); // REMOVED: potentially causing race condition with _layout.tsx
+
+            console.log("[Login] Result:", JSON.stringify(completeSignIn, null, 2));
+
+            if (completeSignIn.status === 'complete') {
+                console.log("[Login] Status is COMPLETE. Setting Active Session:", completeSignIn.createdSessionId);
+                await setActive({ session: completeSignIn.createdSessionId });
+            } else {
+                console.warn("[Login] Status is NOT COMPLETE:", completeSignIn.status);
+                Alert.alert("Sign In Failed", `Status: ${completeSignIn.status}`);
+            }
         } catch (err: any) {
             console.log(JSON.stringify(err, null, 2));
-            Alert.alert("Login Failed", err.errors ? err.errors[0].message : "Something went wrong");
+
+            if (err.errors && err.errors[0]?.message?.includes("Session already exists")) {
+                Alert.alert(
+                    "Session Conflict",
+                    "A previous session was found. We are clearing it now. Please try signing in again.",
+                    [{
+                        text: "OK",
+                        onPress: async () => {
+                            try {
+                                setLoading(true); // Keep loading state while signing out
+                                await signOut();
+                                const SecureStore = require('expo-secure-store');
+                                await SecureStore.deleteItemAsync('__clerk_client_jwt');
+                            } catch (e) {
+                                console.log("Error during conflict resolution signout:", e);
+                            } finally {
+                                setLoading(false);
+                            }
+                        }
+                    }]
+                );
+            } else {
+                const genericMessage = err.message || JSON.stringify(err);
+                Alert.alert("Login Failed", err.errors ? err.errors[0].message : genericMessage);
+            }
         } finally {
             setLoading(false);
         }
     };
 
-    const onGoogleSignInPress = async () => {
-        try {
-            console.log("OAuth Start. Auto-Redirect.");
-            const result = await startOAuthFlow();
-            const { createdSessionId, setActive, signIn, signUp } = result;
+    const handleOAuthResult = async (result: any) => {
+        const { createdSessionId, setActive, signIn, signUp } = result;
 
-            if (createdSessionId && setActive) {
-                await setActive({ session: createdSessionId });
+        if (createdSessionId && setActive) {
+            await setActive({ session: createdSessionId });
 
-                const newUserId = (signUp as any)?.createdUserId || (signIn as any)?.createdUserId;
+            const newUserId = (signUp as any)?.createdUserId || (signIn as any)?.createdUserId;
 
-                if (newUserId) {
-                    let email = "oauth_user";
-                    if (signUp?.emailAddress) email = signUp.emailAddress;
-                    else if (signIn?.identifier) email = signIn.identifier;
-                    else if (user?.primaryEmailAddress?.emailAddress) email = user.primaryEmailAddress.emailAddress;
+            if (newUserId) {
+                let email = "oauth_user";
+                if (signUp?.emailAddress) email = signUp.emailAddress;
+                else if (signIn?.identifier) email = signIn.identifier;
 
-                    try {
-                        console.log("OAuth Sync Start for:", newUserId);
-                        await new Promise(r => setTimeout(r, 1000));
-                        await syncToSupabase(newUserId, email);
-                    } catch (e: any) {
-                        console.error("OAuth Sync Error", e);
-                    }
+                try {
+                    console.log("OAuth Sync Start for:", newUserId);
+                    await new Promise(r => setTimeout(r, 1000));
+                    await syncToSupabase(newUserId, email);
+                } catch (e: any) {
+                    console.error("OAuth Sync Error", e);
                 }
             }
+        }
+    };
+
+    const onGoogleSignInPress = async () => {
+        try {
+            console.log("Google OAuth Start. Auto-Redirect.");
+            const result = await startGoogleFlow();
+            await handleOAuthResult(result);
         } catch (err) {
-            console.error("OAuth error", err);
+            console.error("Google OAuth error", err);
             Alert.alert("Google Sign In Error", "Failed to sign in with Google");
+        }
+    };
+
+    const onAppleSignInPress = async () => {
+        try {
+            console.log("Apple OAuth Start. Auto-Redirect.");
+            const result = await startAppleFlow();
+            await handleOAuthResult(result);
+        } catch (err) {
+            console.error("Apple OAuth error", err);
+            Alert.alert("Apple Sign In Error", "Failed to sign in with Apple");
         }
     };
 
@@ -230,20 +284,30 @@ export default function Login() {
                                 </View>
 
                                 {mode === "signup" && (
-                                    <View className="flex-row gap-2 mb-4">
+                                    <View className="flex-col gap-4 mb-4">
+                                        <View className="flex-row gap-2">
+                                            <TextInput
+                                                value={firstName}
+                                                placeholder="First Name"
+                                                placeholderTextColor="#666"
+                                                onChangeText={setFirstName}
+                                                className="flex-1 bg-surface border border-border rounded-lg p-4 text-foreground text-base"
+                                            />
+                                            <TextInput
+                                                value={lastName}
+                                                placeholder="Last Name"
+                                                placeholderTextColor="#666"
+                                                onChangeText={setLastName}
+                                                className="flex-1 bg-surface border border-border rounded-lg p-4 text-foreground text-base"
+                                            />
+                                        </View>
                                         <TextInput
-                                            value={firstName}
-                                            placeholder="First Name"
+                                            value={phoneNumber}
+                                            placeholder="Mobile Number"
                                             placeholderTextColor="#666"
-                                            onChangeText={setFirstName}
-                                            className="flex-1 bg-surface border border-border rounded-lg p-4 text-foreground text-base"
-                                        />
-                                        <TextInput
-                                            value={lastName}
-                                            placeholder="Last Name"
-                                            placeholderTextColor="#666"
-                                            onChangeText={setLastName}
-                                            className="flex-1 bg-surface border border-border rounded-lg p-4 text-foreground text-base"
+                                            keyboardType="phone-pad"
+                                            onChangeText={setPhoneNumber}
+                                            className="w-full bg-surface border border-border rounded-lg p-4 text-foreground text-base"
                                         />
                                     </View>
                                 )}
@@ -251,7 +315,7 @@ export default function Login() {
                                 <TextInput
                                     autoCapitalize="none"
                                     value={emailAddress}
-                                    placeholder="Email Address"
+                                    placeholder={mode === "signin" ? "Email Address or Phone Number" : "Email Address"}
                                     placeholderTextColor="#666"
                                     onChangeText={(emailAddress) => setEmailAddress(emailAddress)}
                                     className="w-full bg-surface border border-border rounded-lg p-4 mb-4 text-foreground text-base"
@@ -288,7 +352,7 @@ export default function Login() {
                                 <TouchableOpacity
                                     onPress={onGoogleSignInPress}
                                     disabled={loading}
-                                    className="w-full bg-surface border border-border rounded-lg p-4 justify-center mb-6"
+                                    className="w-full bg-surface border border-border rounded-lg p-4 justify-center mb-2"
                                 >
                                     <Text
                                         className="text-white font-bold text-base text-center w-full"
@@ -297,6 +361,21 @@ export default function Login() {
                                         adjustsFontSizeToFit
                                     >
                                         Sign in with Google
+                                    </Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    onPress={onAppleSignInPress}
+                                    disabled={loading}
+                                    className="w-full bg-white border border-white rounded-lg p-4 justify-center mb-6"
+                                >
+                                    <Text
+                                        className="text-black font-bold text-base text-center w-full"
+                                        style={{ includeFontPadding: false }}
+                                        numberOfLines={1}
+                                        adjustsFontSizeToFit
+                                    >
+                                        Sign in with Apple
                                     </Text>
                                 </TouchableOpacity>
 
@@ -354,3 +433,4 @@ export default function Login() {
         </SafeAreaView>
     );
 }
+

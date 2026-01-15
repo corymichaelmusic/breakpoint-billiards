@@ -1,10 +1,8 @@
 import Link from "next/link";
-import { Suspense } from "react";
-import { UserButton, SignedIn, SignedOut } from "@clerk/nextjs";
 import styles from "./Navbar.module.css";
 import Image from "next/image";
 
-import DashboardLink from "./DashboardLink";
+import NavbarUserActions from "./NavbarUserActions";
 
 import { createClient } from "@/utils/supabase/server";
 import { auth } from "@clerk/nextjs/server";
@@ -70,34 +68,7 @@ export default async function Navbar() {
                 </Link>
 
                 {/* Right Side Links (pushed right) */}
-                <div className={styles.links} style={{ marginLeft: "auto", display: "flex", alignItems: "center" }}>
-                    <SignedIn>
-                        {role && (
-                            <span style={{
-                                marginRight: "1rem",
-                                fontSize: "0.8rem",
-                                fontWeight: "bold",
-                                padding: "0.25rem 0.75rem",
-                                borderRadius: "1rem",
-                                background: "var(--surface)",
-                                border: "1px solid var(--border)",
-                                color: "var(--foreground)"
-                            }}>
-                                {role.toUpperCase()}
-                            </span>
-                        )}
-
-                        <Suspense fallback={null}>
-                            <DashboardLink className={styles.link} role={role || ""} />
-                        </Suspense>
-                        <UserButton afterSignOutUrl="/" />
-                    </SignedIn>
-                    <SignedOut>
-                        <Link href="/sign-in" className="btn btn-primary">
-                            Sign In
-                        </Link>
-                    </SignedOut>
-                </div>
+                <NavbarUserActions role={role} />
             </div>
         </nav>
     );

@@ -3,7 +3,7 @@
     "name": "Breakpoint Billiards",
     "slug": "breakpoint-billiards",
     "scheme": "breakpoint-billiards",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -14,7 +14,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.corymichael.breakpointbilliards",
+      "bundleIdentifier": "com.breakpoint.billiards",
+      "buildNumber": "13",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -24,7 +25,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.corymichael.breakpointbilliards",
+      "package": "com.breakpoint.billiards",
+      "versionCode": 12,
       "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false
     },
