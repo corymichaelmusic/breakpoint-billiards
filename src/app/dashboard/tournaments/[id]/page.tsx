@@ -45,7 +45,7 @@ export default async function TournamentManagerPage({ params }: PageProps) {
         .order("created_at", { ascending: true });
 
     // 3. Fetch Participants (for standings/list)
-    const { data: participants } = await supabase
+    const { data: participantsRaw } = await supabase
         .from("tournament_participants")
         .select(`
             seed,
@@ -53,6 +53,12 @@ export default async function TournamentManagerPage({ params }: PageProps) {
         `)
         .eq("tournament_id", id)
         .order("seed", { ascending: true });
+
+    // Transform participants: Supabase returns player as array, we need single object
+    const participants = participantsRaw?.map(p => ({
+        seed: p.seed,
+        player: Array.isArray(p.player) ? p.player[0] : p.player
+    })) || [];
 
     const tableConfig = tournament.table_config || [];
 
