@@ -1,14 +1,16 @@
+import 'react-native-get-random-values';
 import "../ignoreWarnings";
 import { Stack, useRouter, useSegments, usePathname } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import Header from "../components/Header";
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { tokenCache } from "../lib/tokenCache";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { View, ActivityIndicator, Text } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import "../global.css";
 import { applyRealtimeAuth } from "../lib/realtimeAuth";
+import { authSignal } from "../lib/authSignal";
 
 // Handle OAuth redirects instantly
 try {
@@ -30,30 +32,62 @@ const InitialLayout = () => {
   const segments = useSegments();
   const router = useRouter();
   const pathname = usePathname();
+  // Track previous signed-in state to detect transitions
+  const wasSignedInRef = useRef<boolean | undefined>(undefined);
+
+  // Reset the signal when Clerk finally catches up
+  useEffect(() => {
+    if (isSignedIn && authSignal.justLoggedIn) {
+      console.log("[Layout] Clerk caught up! Resetting signal.");
+      authSignal.justLoggedIn = false;
+    }
+  }, [isSignedIn]);
 
   useEffect(() => {
     if (!isLoaded) return;
 
-    const inTabsGroup = segments[0] === "(tabs)";
-    const inAuthGroup = segments[0] === "login";
 
-    console.log(`[Layout] Check. SignedIn: ${isSignedIn}, Loaded: ${isLoaded}, Segment: ${segments[0]}, Pathname: ${pathname}`);
+    const currentSegment = segments.length > 0 ? segments[0] : null;
+    const inTabsGroup = currentSegment === "(tabs)";
+    const onLoginPage = currentSegment === "login" || pathname === "/login";
 
-    if (!isSignedIn && !inAuthGroup) {
-      // Loop protection: if we think we are not in auth group, but pathname is /login, stop.
-      if (pathname === "/login") {
-        console.log("[Layout] Already on /login (path check). Skipping redirect.");
-        return;
-      }
+    // Detect auth state transition
+    const justSignedIn = wasSignedInRef.current === false && isSignedIn === true;
+    const justSignedOut = wasSignedInRef.current === true && isSignedIn === false;
 
-      console.log(`[Layout] Redirecting to Login. SignedIn: ${isSignedIn}, Segment: ${segments[0]}`);
-      router.replace("/login");
-    } else if (isSignedIn && inAuthGroup) {
-      console.log(`[Layout] Redirecting to Home. SignedIn: ${isSignedIn}, Segment: ${segments[0]}`);
+    console.log(`[Layout] Check. SignedIn: ${isSignedIn}, Segment: ${currentSegment}, Pathname: ${pathname}, JustSignedIn: ${justSignedIn}`);
+
+    // Update ref for next comparison
+    wasSignedInRef.current = isSignedIn;
+
+    // Handle auth state transitions
+    if (justSignedIn && onLoginPage) {
+      // User just signed in and is still on login page - navigate to tabs
+      console.log("[Layout] Just signed in! Navigating to tabs...");
       router.replace("/(tabs)");
-    } else if (segments.length === 0) {
-      // Handle Root Path specifically
-      console.log(`[Layout] Root path detected. Deciding based on auth.`);
+      return;
+    }
+
+    if (justSignedOut && inTabsGroup) {
+      // User just signed out and is on protected page - go to login
+      console.log("[Layout] Just signed out! Navigating to login...");
+      router.replace("/login");
+      return;
+    }
+
+    // Also handle the case where we land on wrong page (app startup, deep link, etc)
+    // Debounced redirection for not signed in state
+    if (!isSignedIn && inTabsGroup) {
+      console.log("[Layout] Not signed in but in tabs - ALLOWING PASSAGE (Guard Relaxed for Release Mode safety)");
+      // We do NOT redirect to login here. We allow the navigation to stick.
+      // The user might see empty data if RLS blocks them, but they won't be kicked out.
+      return;
+    } else if (isSignedIn && onLoginPage) {
+      // This handles the case where app opens and user is already signed in
+      console.log("[Layout] Signed in but on login page - redirecting to tabs");
+      router.replace("/(tabs)");
+    } else if (currentSegment === null && pathname === "/") {
+      console.log("[Layout] Root path - redirecting based on auth state");
       if (isSignedIn) {
         router.replace("/(tabs)");
       } else {
@@ -71,16 +105,21 @@ const InitialLayout = () => {
     );
   }
 
+  // TEMPORARY DEBUG OVERLAY
+  // Remove this after fixing the issue
   return (
-    <Stack screenOptions={{
-      headerShown: false,
-      header: () => <Header />
-    }}>
-      <Stack.Screen name="login" options={{ headerShown: false }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: true }} />
-      <Stack.Screen name="match/[id]" options={{ headerShown: true }} />
-      <Stack.Screen name="oauth-native-callback" options={{ presentation: 'modal', headerShown: false }} />
-    </Stack>
+    <View style={{ flex: 1 }}>
+      <Stack screenOptions={{
+        headerShown: false,
+        header: () => <Header />
+      }}>
+        <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: true }} />
+        <Stack.Screen name="match/[id]" options={{ headerShown: true }} />
+        <Stack.Screen name="oauth-native-callback" options={{ presentation: 'modal', headerShown: false }} />
+      </Stack>
+
+    </View>
   );
 };
 

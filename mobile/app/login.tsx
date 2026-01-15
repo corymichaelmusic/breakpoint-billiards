@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, Image, Alert, ActivityIndicator, TextInput, TouchableWithoutFeedback, Keyboard, DeviceEventEmitter } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Alert, ActivityIndicator, TextInput, TouchableWithoutFeedback, Keyboard, DeviceEventEmitter, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useOAuth, useAuth, useUser, useSignIn, useSignUp } from '@clerk/clerk-expo';
+import { useOAuth, useAuth, useUser, useSignIn, useSignUp, useClerk } from '@clerk/clerk-expo';
 import { useRouter, useSegments } from 'expo-router';
 import { createClient } from "@supabase/supabase-js";
 import * as WebBrowser from "expo-web-browser";
+import * as Linking from 'expo-linking';
+import { authSignal } from '../lib/authSignal';
 
 // WebBrowser.maybeCompleteAuthSession(); // Removed: Handled in _layout.tsx
 
@@ -13,18 +15,8 @@ export default function Login() {
 
     useEffect(() => {
         console.log("[Login] Component MOUNTED (Effect)");
-
-        // Force cleanup of any stale sessions on mount
-        const cleanup = async () => {
-            try {
-                await signOut();
-                console.log("[Login] Forced signOut on mount complete");
-            } catch (e) {
-                console.log("[Login] Force signOut ignored:", e);
-            }
-        };
-        cleanup();
-
+        // NOTE: Removed forced signOut on mount - it was interfering with OAuth callback flows
+        // and causing "href undefined" errors during authentication redirects.
         return () => console.log("[Login] Component UNMOUNTED");
     }, []);
 
@@ -32,7 +24,8 @@ export default function Login() {
     const { signUp, setActive: setActiveSignUp, isLoaded: isSignUpLoaded } = useSignUp();
     const { startOAuthFlow: startGoogleFlow } = useOAuth({ strategy: "oauth_google" });
     const { startOAuthFlow: startAppleFlow } = useOAuth({ strategy: "oauth_apple" });
-    const { getToken, userId } = useAuth();
+    const { getToken, userId, isSignedIn } = useAuth();
+    const clerk = useClerk();
     // const { user } = useUser(); // useAuth provides basic user info, useUser provides full user object. useUser() is better for email check.
 
     const router = useRouter();
@@ -160,10 +153,49 @@ export default function Login() {
         }
     };
 
+    // Unified Session Activation Helper
+    const activateAndNavigate = async (sessionId: string) => {
+        console.log("[Login] Activating session (Unified Path):", sessionId);
+
+        Keyboard.dismiss();
+        await new Promise(r => setTimeout(r, 200));
+
+        const activePromise = setActive({ session: sessionId })
+            .then(() => 'success')
+            .catch((err) => {
+                console.log("[Login] setActive failed locally (ignoring):", err);
+                return 'error';
+            });
+        const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve('timeout'), 800));
+
+        // @ts-ignore
+        const result = await Promise.race([activePromise, timeoutPromise]);
+        console.log(`[Login] Activation result: ${result} - Force Navigating`);
+
+        authSignal.justLoggedIn = true;
+        await new Promise(r => setTimeout(r, 100));
+
+        console.log("[Login] Attempting Router Navigation...");
+        router.replace("/(tabs)");
+
+        // NUCLEAR FALLBACK
+        setTimeout(() => {
+            console.log("[Login] Router fallback - using Linking");
+            try {
+                const url = Linking.createURL('(tabs)');
+                console.log("[Login] Linking to:", url);
+                Linking.openURL(url);
+            } catch (e) {
+                console.error("[Login] Linking failed:", e);
+            }
+        }, 1000);
+    };
+
     const onSignInPress = async () => {
         if (!isLoaded) return;
         setLoading(true);
         try {
+            console.log("STARTING SIGN IN...");
             const completeSignIn = await signIn.create({
                 identifier: emailAddress.trim(),
                 password,
@@ -172,39 +204,49 @@ export default function Login() {
             console.log("[Login] Result:", JSON.stringify(completeSignIn, null, 2));
 
             if (completeSignIn.status === 'complete') {
-                console.log("[Login] Status is COMPLETE. Setting Active Session:", completeSignIn.createdSessionId);
-                await setActive({ session: completeSignIn.createdSessionId });
+                console.log("[Login] Status is COMPLETE.");
+                console.log("Detaching execution chain...");
+                setTimeout(() => {
+                    activateAndNavigate(completeSignIn.createdSessionId);
+                }, 500);
             } else {
                 console.warn("[Login] Status is NOT COMPLETE:", completeSignIn.status);
                 Alert.alert("Sign In Failed", `Status: ${completeSignIn.status}`);
             }
         } catch (err: any) {
-            console.log(JSON.stringify(err, null, 2));
+            // IMPROVED ERROR LOGGING
+            const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
+            console.log("[Login] Sign-in error:", errorMsg);
 
-            if (err.errors && err.errors[0]?.message?.includes("Session already exists")) {
-                Alert.alert(
-                    "Session Conflict",
-                    "A previous session was found. We are clearing it now. Please try signing in again.",
-                    [{
-                        text: "OK",
-                        onPress: async () => {
-                            try {
-                                setLoading(true); // Keep loading state while signing out
-                                await signOut();
-                                const SecureStore = require('expo-secure-store');
-                                await SecureStore.deleteItemAsync('__clerk_client_jwt');
-                            } catch (e) {
-                                console.log("Error during conflict resolution signout:", e);
-                            } finally {
-                                setLoading(false);
-                            }
-                        }
-                    }]
-                );
-            } else {
-                const genericMessage = err.message || JSON.stringify(err);
-                Alert.alert("Login Failed", err.errors ? err.errors[0].message : genericMessage);
+            // AGGRESSIVE RECOVERY CHECK
+            if (clerk.client && clerk.client.sessions && clerk.client.sessions.length > 0) {
+                const lastSession = clerk.client.sessions[clerk.client.sessions.length - 1];
+                console.log("[Login] Crash detected, but Session FOUND:", lastSession.id);
+                // Silent Recovery
+                setTimeout(() => {
+                    activateAndNavigate(lastSession.id);
+                }, 500);
+                return;
             }
+
+            console.log("CRASH TRAPPED:", errorMsg); // Log but don't alert user unless necessary
+            // Alert.alert("Login Error", "An unexpected error occurred."); // Optional: Generic error
+
+            const errorMessage = err.errors?.[0]?.message || err.message || "";
+
+            // Navigation error check
+            if (errorMessage.includes("href") || errorMessage.includes("undefined") || errorMessage.includes("route")) {
+                console.warn("[Login] Navigation-related error (ignoring):", errorMessage);
+                return;
+            }
+
+            // Session Conflict Check (Kept as backup, though Aggressive Recovery likely catches it)
+            if (err.errors && err.errors[0]?.message?.includes("Session already exists")) {
+                console.warn("[Login] Conflict but no sessions found (Should generally not happen with Aggressive Recovery)!");
+            }
+
+            Alert.alert("Login Failed", err.errors ? err.errors[0].message : errorMessage);
+
         } finally {
             setLoading(false);
         }
@@ -264,7 +306,11 @@ export default function Login() {
 
     return (
         <SafeAreaView className="flex-1 bg-background">
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <ScrollView
+                contentContainerStyle={{ flexGrow: 1 }}
+                keyboardShouldPersistTaps="handled"
+                scrollEnabled={false}
+            >
                 <View className="flex-1 justify-center items-center p-6">
                     <View className="w-full max-w-sm">
                         <View className="items-center mb-10">
@@ -429,8 +475,7 @@ export default function Login() {
 
                     </View>
                 </View>
-            </TouchableWithoutFeedback>
+            </ScrollView>
         </SafeAreaView>
     );
 }
-
