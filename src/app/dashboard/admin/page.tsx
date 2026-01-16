@@ -88,7 +88,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     // Fetch Deletion Requests
     const { data: deletionRequests } = await adminSupabase
         .from("deletion_requests")
-        .select("*, profiles(full_name, email)")
+        .select("*, profiles:profiles!deletion_requests_user_id_fkey(full_name, email)")
         .eq("status", "pending")
         .order("requested_at", { ascending: false });
 
