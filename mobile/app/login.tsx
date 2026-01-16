@@ -127,20 +127,24 @@ export default function Login() {
     const onSignUpPress = async () => {
         if (!isSignUpLoaded) return;
 
-        if (!firstName.trim() || !lastName.trim() || !phoneNumber.trim()) {
-            Alert.alert("Missing Information", "Please enter your Name and Phone Number.");
+        if (!firstName.trim() || !lastName.trim()) {
+            Alert.alert("Missing Information", "Please enter your First and Last Name.");
             return;
         }
 
         setLoading(true);
         try {
-            await signUp.create({
+            const signUpParams: any = {
                 emailAddress: emailAddress.trim(),
                 password,
                 firstName: firstName.trim(),
                 lastName: lastName.trim(),
-                phoneNumber: phoneNumber.trim()
-            });
+            };
+            // Only include phone number if provided (it's optional)
+            if (phoneNumber.trim()) {
+                signUpParams.phoneNumber = phoneNumber.trim();
+            }
+            await signUp.create(signUpParams);
 
             await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
 
@@ -405,7 +409,7 @@ export default function Login() {
                                         </View>
                                         <TextInput
                                             value={phoneNumber}
-                                            placeholder="Mobile Number"
+                                            placeholder="Mobile Number (optional)"
                                             placeholderTextColor="#666"
                                             keyboardType="phone-pad"
                                             onChangeText={setPhoneNumber}
@@ -417,7 +421,7 @@ export default function Login() {
                                 <TextInput
                                     autoCapitalize="none"
                                     value={emailAddress}
-                                    placeholder={mode === "signin" ? "Email Address or Phone Number" : "Email Address"}
+                                    placeholder="Email Address"
                                     placeholderTextColor="#666"
                                     onChangeText={(emailAddress) => setEmailAddress(emailAddress)}
                                     className="w-full bg-surface border border-border rounded-lg p-4 mb-4 text-foreground text-base"

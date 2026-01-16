@@ -13,6 +13,7 @@ import DeleteApplicationButton from "@/components/DeleteApplicationButton";
 import SessionFeeToggle from "@/components/SessionFeeToggle";
 import AssignLeagueButton from "@/components/AssignLeagueButton";
 import PreregistrationManager from "@/components/PreregistrationManager";
+import DeletionRequestManager from "@/components/DeletionRequestManager";
 
 // Force dynamic rendering to ensure fresh data on each request
 export const dynamic = 'force-dynamic';
@@ -84,6 +85,13 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
         .select("*")
         .order("created_at", { ascending: false });
 
+    // Fetch Deletion Requests
+    const { data: deletionRequests } = await adminSupabase
+        .from("deletion_requests")
+        .select("*, profiles(full_name, email)")
+        .eq("status", "pending")
+        .order("requested_at", { ascending: false });
+
     // Fetch users based on filter
     let query = adminSupabase
         .from("profiles")
@@ -109,6 +117,11 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                         <p className="text-sm text-gray-500 mt-1">System Overview & Management</p>
                     </div>
                 </div>
+
+                {/* Account Deletion Requests */}
+                {deletionRequests && deletionRequests.length > 0 && (
+                    <DeletionRequestManager requests={deletionRequests as any[]} />
+                )}
 
                 {/* Operator Applications */}
                 <div className="card-glass mb-16 border-primary/30">

@@ -3,7 +3,7 @@
 import { createAdminClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 
 // Helper to verify admin
 async function verifyAdmin() {
@@ -295,6 +295,143 @@ export async function assignOperatorToLeague(operatorId: string, leagueId: strin
         }
         console.error("Error assigning operator:", error);
         return { error: "Failed to assign operator." };
+    }
+
+    revalidatePath("/dashboard/admin");
+    return { success: true };
+}
+
+// ============================================
+// ACCOUNT DELETION ACTIONS
+// ============================================
+
+// Player-facing: Request account deletion
+export async function requestAccountDeletion(reason?: string) {
+    const supabase = await createClient();
+    const { userId } = await auth();
+
+    if (!userId) return { error: "Unauthorized" };
+
+    // Check if there's already a pending request
+    const { data: existingRequest } = await supabase
+        .from("deletion_requests")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("status", "pending")
+        .single();
+
+    if (existingRequest) {
+        return { error: "You already have a pending deletion request." };
+    }
+
+    const { error } = await supabase
+        .from("deletion_requests")
+        .insert({
+            user_id: userId,
+            reason: reason || null,
+            status: 'pending'
+        });
+
+    if (error) {
+        console.error("Error creating deletion request:", error);
+        return { error: "Failed to submit deletion request." };
+    }
+
+    return { success: true };
+}
+
+// Player-facing: Cancel own deletion request
+export async function cancelDeletionRequest() {
+    const supabase = await createClient();
+    const { userId } = await auth();
+
+    if (!userId) return { error: "Unauthorized" };
+
+    const { error } = await supabase
+        .from("deletion_requests")
+        .update({ status: 'cancelled' })
+        .eq("user_id", userId)
+        .eq("status", "pending");
+
+    if (error) {
+        console.error("Error cancelling deletion request:", error);
+        return { error: "Failed to cancel deletion request." };
+    }
+
+    return { success: true };
+}
+
+// Admin-facing: Process account deletion
+export async function processAccountDeletion(deletionRequestId: string) {
+    const { supabase, error: authError } = await verifyAdmin();
+    if (authError || !supabase) return { error: authError };
+
+    const { userId: adminId } = await auth();
+
+    // 1. Get the deletion request and user info
+    const adminSupabase = createAdminClient();
+    const { data: request, error: fetchError } = await adminSupabase
+        .from("deletion_requests")
+        .select("id, user_id, status")
+        .eq("id", deletionRequestId)
+        .single();
+
+    if (fetchError || !request) {
+        console.error("Error fetching deletion request:", fetchError);
+        return { error: "Deletion request not found." };
+    }
+
+    if (request.status !== 'pending') {
+        return { error: "This request has already been processed." };
+    }
+
+    const targetUserId = request.user_id;
+
+    // 2. Delete user from Clerk
+    try {
+        const clerk = await clerkClient();
+        await clerk.users.deleteUser(targetUserId);
+        console.log(`Deleted user ${targetUserId} from Clerk`);
+    } catch (clerkError: any) {
+        // If user doesn't exist in Clerk, continue with anonymization
+        if (clerkError?.status !== 404) {
+            console.error("Error deleting user from Clerk:", clerkError);
+            return { error: "Failed to delete user from Clerk. Please try again." };
+        }
+        console.log(`User ${targetUserId} not found in Clerk, continuing with anonymization`);
+    }
+
+    // 3. Anonymize profile in Supabase
+    const { error: anonymizeError } = await adminSupabase
+        .from("profiles")
+        .update({
+            email: '*',
+            phone: '*',
+            full_name: '*',
+            avatar_url: null,
+            is_active: false,
+            deleted_at: new Date().toISOString()
+        })
+        .eq("id", targetUserId);
+
+    if (anonymizeError) {
+        console.error("Error anonymizing profile:", anonymizeError);
+        return { error: "Failed to anonymize profile data." };
+    }
+
+    // 4. Mark deletion request as processed
+    const { error: updateError } = await adminSupabase
+        .from("deletion_requests")
+        .update({
+            status: 'processed',
+            processed_at: new Date().toISOString(),
+            processed_by: adminId
+        })
+        .eq("id", deletionRequestId);
+
+    if (updateError) {
+        console.error("Error updating deletion request:", updateError);
+        // Don't return error since the main deletion was successful
     }
 
     revalidatePath("/dashboard/admin");

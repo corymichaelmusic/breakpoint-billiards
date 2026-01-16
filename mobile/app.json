@@ -18,7 +18,9 @@
       "buildNumber": "28",
       "usesAppleSignIn": true,
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Breakpoint Billiards uses your camera to let you take a new profile photo.",
+        "NSPhotoLibraryUsageDescription": "Breakpoint Billiards uses your photo library to let you select an existing photo for your profile."
       }
     },
     "android": {

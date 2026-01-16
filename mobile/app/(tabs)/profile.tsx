@@ -365,9 +365,55 @@ export default function ProfileScreen() {
 
             </ScrollView>
 
-            <View className="p-6 bg-background border-t border-white/5">
+            <View className="p-6 bg-background border-t border-white/5 gap-3">
                 <TouchableOpacity onPress={() => signOut()} className="bg-red-500/10 border border-red-500/50 py-4 rounded-lg items-center active:bg-red-500/20">
                     <Text className="text-red-500 font-bold uppercase tracking-widest" style={{ includeFontPadding: false }}>Sign Out </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    onPress={() => {
+                        Alert.alert(
+                            "Delete Account",
+                            "Your account will be scheduled for deletion within 24 hours. This action cannot be undone. All your data will be permanently removed.",
+                            [
+                                { text: "Cancel", style: "cancel" },
+                                {
+                                    text: "Delete My Account",
+                                    style: "destructive",
+                                    onPress: async () => {
+                                        try {
+                                            const token = await getToken();
+                                            const response = await fetch('https://breakpoint-billiards.vercel.app/api/request-deletion', {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                    'Authorization': `Bearer ${token}`
+                                                }
+                                            });
+
+                                            const result = await response.json();
+
+                                            if (result.success) {
+                                                Alert.alert(
+                                                    "Request Submitted",
+                                                    "Your account deletion request has been submitted. Your account will be deleted within 24 hours.",
+                                                    [{ text: "OK", onPress: () => signOut() }]
+                                                );
+                                            } else {
+                                                Alert.alert("Error", result.error || "Failed to submit deletion request.");
+                                            }
+                                        } catch (e: any) {
+                                            console.error("Deletion request error:", e);
+                                            Alert.alert("Error", "Failed to submit deletion request. Please try again.");
+                                        }
+                                    }
+                                }
+                            ]
+                        );
+                    }}
+                    className="bg-transparent border border-gray-600 py-3 rounded-lg items-center active:bg-gray-800"
+                >
+                    <Text className="text-gray-400 text-sm uppercase tracking-widest" style={{ includeFontPadding: false }}>Delete My Account</Text>
                 </TouchableOpacity>
             </View>
         </SafeAreaView >
