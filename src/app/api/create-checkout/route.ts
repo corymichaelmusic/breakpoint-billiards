@@ -43,10 +43,10 @@ export async function POST(req: Request) {
             const { matchId } = body;
             if (!matchId) return NextResponse.json({ error: 'Match ID required' }, { status: 400 });
 
-            // Verify Match
+            // Verify Match and get league info for match fee
             const { data: match, error: matchError } = await supabase
                 .from('matches')
-                .select('id, player1_id, player2_id, payment_status_p1, payment_status_p2')
+                .select('id, league_id, player1_id, player2_id, payment_status_p1, payment_status_p2')
                 .eq('id', matchId)
                 .single();
 
@@ -60,6 +60,20 @@ export async function POST(req: Request) {
                 return NextResponse.json({ error: 'Already paid' }, { status: 400 });
             }
 
+            // Fetch match fee from the session/league
+            let matchFeeAmount = 20; // Default $20
+            if (match.league_id) {
+                const { data: league } = await supabase
+                    .from('leagues')
+                    .select('match_fee')
+                    .eq('id', match.league_id)
+                    .single();
+
+                if (league && league.match_fee !== null && league.match_fee !== undefined) {
+                    matchFeeAmount = league.match_fee;
+                }
+            }
+
             metadata.match_id = matchId;
             metadata.role = isP1 ? 'player1' : 'player2';
             successUrl = `${baseUrl}/payment/success?match_id=${matchId}${sourceParam}`;
@@ -69,7 +83,7 @@ export async function POST(req: Request) {
                 price_data: {
                     currency: 'usd',
                     product_data: { name: 'League Match Fee' },
-                    unit_amount: 2000,
+                    unit_amount: matchFeeAmount * 100, // Convert dollars to cents
                 },
                 quantity: 1,
             });

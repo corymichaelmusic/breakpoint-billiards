@@ -223,10 +223,10 @@ export default function NextMatchCard({
         if (!isPaid(myPaymentStatus)) {
             Alert.alert(
                 "Match Fee Required",
-                "You must pay the $20 match fee before playing.",
+                "You must pay the match fee before playing.",
                 [
                     { text: "Cancel", style: "cancel" },
-                    { text: "Pay Now ($20)", onPress: handlePayFee }
+                    { text: "Pay Now", onPress: handlePayFee }
                 ]
             );
             return;

@@ -15,6 +15,7 @@ interface LeagueSettingsFormProps {
         schedule_day: string | null;
         type: string;
         session_fee?: number;
+        match_fee?: number;
         start_date?: string;
         bounty_val_8_run?: number;
         bounty_val_9_run?: number;
@@ -41,6 +42,7 @@ export default function LeagueSettingsForm({ league, isAdmin = false }: LeagueSe
 
         // Session specific
         const session_fee = formData.get("session_fee") ? Number(formData.get("session_fee")) : undefined;
+        const match_fee = formData.get("match_fee") ? Number(formData.get("match_fee")) : undefined;
         const start_date = formData.get("start_date") as string | undefined;
 
         // Bounty
@@ -52,7 +54,7 @@ export default function LeagueSettingsForm({ league, isAdmin = false }: LeagueSe
         try {
             console.log("Submitting form for league:", league.id);
             const res = await updateLeagueDetails(league.id, {
-                name, location, city, state, schedule_day, session_fee, start_date,
+                name, location, city, state, schedule_day, session_fee, match_fee, start_date,
                 bounty_val_8_run, bounty_val_9_run, bounty_val_9_snap, bounty_val_shutout
             });
             console.log("Result:", res);
@@ -240,6 +242,20 @@ export default function LeagueSettingsForm({ league, isAdmin = false }: LeagueSe
                         />
                         <p style={{ fontSize: "0.8rem", color: "#666", marginTop: "0.25rem" }}>
                             Fixed by Admin
+                        </p>
+                    </div>
+                    <div>
+                        <label className="label">Match Fee ($)</label>
+                        <input
+                            type="number"
+                            name="match_fee"
+                            defaultValue={league.match_fee ?? 20}
+                            min="0"
+                            step="1"
+                            className="input"
+                        />
+                        <p style={{ fontSize: "0.8rem", color: "#666", marginTop: "0.25rem" }}>
+                            Per-match fee for players
                         </p>
                     </div>
                     <div>
