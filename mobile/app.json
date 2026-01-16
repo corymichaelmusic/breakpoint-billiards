@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.breakpoint.billiards",
-      "buildNumber": "28",
+      "buildNumber": "29",
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -29,7 +29,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.breakpoint.billiards",
-      "versionCode": 17,
+      "versionCode": 18,
       "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false
     },

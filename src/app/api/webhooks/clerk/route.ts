@@ -1,7 +1,7 @@
 import { Webhook } from 'svix'
 import { headers } from 'next/headers'
 import { WebhookEvent } from '@clerk/nextjs/server'
-import { createClient } from '@/utils/supabase/server'
+import { createAdminClient } from '@/utils/supabase/admin'
 
 export async function POST(req: Request) {
     // You can find this in the Clerk Dashboard -> Webhooks -> choose the webhook
@@ -56,22 +56,54 @@ export async function POST(req: Request) {
         // @ts-ignore
         const phone = phone_numbers && phone_numbers.length > 0 ? phone_numbers[0].phone_number : null;
 
-        const supabase = await createClient()
+        const supabase = createAdminClient()
 
-        const { error } = await supabase
+        // Check if a profile with this email already exists (possibly with a different Clerk user ID)
+        const { data: existingProfile } = await supabase
             .from('profiles')
-            .upsert({
-                id: id,
-                email: email,
-                full_name: fullName,
-                avatar_url: image_url,
-                phone: phone,
-                updated_at: new Date().toISOString(),
-            })
+            .select('id')
+            .eq('email', email)
+            .neq('id', id)
+            .single();
 
-        if (error) {
-            console.error('Error upserting profile:', error)
-            return new Response('Error upserting profile', { status: 500 })
+        if (existingProfile) {
+            // An existing profile with this email but different ID exists
+            // This can happen if user deleted their Clerk account and re-registered with the same email
+            // Update the old profile's ID to the new Clerk user ID
+            console.log(`Migrating profile from old ID ${existingProfile.id} to new ID ${id}`);
+
+            const { error: updateError } = await supabase
+                .from('profiles')
+                .update({
+                    id: id,
+                    full_name: fullName,
+                    avatar_url: image_url,
+                    phone: phone,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('id', existingProfile.id);
+
+            if (updateError) {
+                console.error('Error migrating profile:', updateError);
+                return new Response('Error migrating profile', { status: 500 });
+            }
+        } else {
+            // No existing profile with this email, do a normal upsert
+            const { error } = await supabase
+                .from('profiles')
+                .upsert({
+                    id: id,
+                    email: email,
+                    full_name: fullName,
+                    avatar_url: image_url,
+                    phone: phone,
+                    updated_at: new Date().toISOString(),
+                })
+
+            if (error) {
+                console.error('Error upserting profile:', error)
+                return new Response('Error upserting profile', { status: 500 })
+            }
         }
     }
 

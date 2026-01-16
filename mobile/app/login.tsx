@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, Image, Alert, ActivityIndicator, TextInput, TouchableWithoutFeedback, Keyboard, DeviceEventEmitter, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Alert, ActivityIndicator, TextInput, TouchableWithoutFeedback, Keyboard, DeviceEventEmitter, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOAuth, useAuth, useUser, useSignIn, useSignUp, useClerk } from '@clerk/clerk-expo';
 import { useRouter, useSegments } from 'expo-router';
@@ -470,20 +470,22 @@ export default function Login() {
                                     </Text>
                                 </TouchableOpacity>
 
-                                <TouchableOpacity
-                                    onPress={onAppleSignInPress}
-                                    disabled={loading}
-                                    className="w-full bg-white border border-white rounded-lg p-4 justify-center mb-6"
-                                >
-                                    <Text
-                                        className="text-black font-bold text-base text-center w-full"
-                                        style={{ includeFontPadding: false }}
-                                        numberOfLines={1}
-                                        adjustsFontSizeToFit
+                                {Platform.OS === 'ios' && (
+                                    <TouchableOpacity
+                                        onPress={onAppleSignInPress}
+                                        disabled={loading}
+                                        className="w-full bg-white border border-white rounded-lg p-4 justify-center mb-6"
                                     >
-                                        Sign in with Apple
-                                    </Text>
-                                </TouchableOpacity>
+                                        <Text
+                                            className="text-black font-bold text-base text-center w-full"
+                                            style={{ includeFontPadding: false }}
+                                            numberOfLines={1}
+                                            adjustsFontSizeToFit
+                                        >
+                                            Sign in with Apple
+                                        </Text>
+                                    </TouchableOpacity>
+                                )}
 
                                 <TouchableOpacity onPress={toggleMode} className="items-center">
                                     <Text className="text-gray-500 text-sm">
