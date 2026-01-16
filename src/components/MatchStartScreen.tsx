@@ -72,10 +72,10 @@ export default function MatchStartScreen({ match, races, onSelectGame, backLink,
                 <div className={styles.gameSelection}>
                     <h3>Select Game Type</h3>
                     <div className={styles.options}>
-                        <button
-                            className={`${styles.option} ${match.is_forfeit ? styles.disabled : ''}`}
-                            onClick={() => !match.is_forfeit && handleGameClick('8ball')}
-                            style={match.is_forfeit ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                        <div
+                            className={`${styles.option} ${(match.is_forfeit || match.status_8ball === 'finalized') ? styles.disabled : ''}`}
+                            onClick={() => !match.is_forfeit && match.status_8ball !== 'finalized' && handleGameClick('8ball')}
+                            style={(match.is_forfeit || match.status_8ball === 'finalized') ? { opacity: 0.8, cursor: 'default' } : { cursor: 'pointer' }}
                         >
                             <span className={styles.optionTitle}>8-Ball</span>
                             <span className={styles.status}>
@@ -92,12 +92,12 @@ export default function MatchStartScreen({ match, races, onSelectGame, backLink,
                                     ) :
                                     match.status_8ball === 'in_progress' ? 'In Progress' : 'Start Match'}
                             </span>
-                        </button>
+                        </div>
 
-                        <button
-                            className={`${styles.option} ${match.is_forfeit ? styles.disabled : ''}`}
-                            onClick={() => !match.is_forfeit && handleGameClick('9ball')}
-                            style={match.is_forfeit ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                        <div
+                            className={`${styles.option} ${(match.is_forfeit || match.status_9ball === 'finalized') ? styles.disabled : ''}`}
+                            onClick={() => !match.is_forfeit && match.status_9ball !== 'finalized' && handleGameClick('9ball')}
+                            style={(match.is_forfeit || match.status_9ball === 'finalized') ? { opacity: 0.8, cursor: 'default' } : { cursor: 'pointer' }}
                         >
                             <span className={styles.optionTitle}>9-Ball</span>
                             <span className={styles.status}>
@@ -114,7 +114,7 @@ export default function MatchStartScreen({ match, races, onSelectGame, backLink,
                                     ) :
                                     match.status_9ball === 'in_progress' ? 'In Progress' : 'Start Match'}
                             </span>
-                        </button>
+                        </div>
                     </div>
                 </div>
 
