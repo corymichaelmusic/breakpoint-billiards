@@ -22,27 +22,22 @@ export async function POST(req: Request) {
         const body = await req.json();
         const { type, source } = body;
 
-        // Use custom scheme for mobile, https for web
-        const appUrlBase = (source === 'mobile')
-            ? 'breakpoint-billiards://'
-            : (process.env.NEXT_PUBLIC_APP_URL || 'https://breakpoint.app');
+        // Always use the web URL as base - for mobile, we'll pass a source param
+        // and the web page will redirect to the app using deep links
+        const webBaseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://breakpoint.app';
+        const isMobile = source === 'mobile';
 
         const supabase = await createClient();
 
         let lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
         let metadata: any = { type, player_id: userId };
 
-        // Construct URLs based on base
-        // Note: For mobile scheme, we don't need leading slash if base ends with //
-        // But for https, we do.
-        // Actually, NEXT_PUBLIC_APP_URL usually doesn't have trailing slash.
-        // scheme:// has 2 slashes.
-        // Let's normalize.
-
-        const baseUrl = appUrlBase.endsWith('/') ? appUrlBase.slice(0, -1) : appUrlBase;
+        // Construct URLs - for mobile, add source param so web page knows to redirect to app
+        const baseUrl = webBaseUrl.endsWith('/') ? webBaseUrl.slice(0, -1) : webBaseUrl;
+        const sourceParam = isMobile ? '&source=mobile' : '';
 
         let successUrl = `${baseUrl}/payment/success`;
-        let cancelUrl = `${baseUrl}/dashboard`;
+        let cancelUrl = isMobile ? `${baseUrl}/dashboard?source=mobile` : `${baseUrl}/dashboard`;
 
         if (type === 'match_fee') {
             const { matchId } = body;
@@ -67,8 +62,8 @@ export async function POST(req: Request) {
 
             metadata.match_id = matchId;
             metadata.role = isP1 ? 'player1' : 'player2';
-            successUrl = `${baseUrl}/payment/success?match_id=${matchId}`;
-            cancelUrl = `${baseUrl}/match/${matchId}`;
+            successUrl = `${baseUrl}/payment/success?match_id=${matchId}${sourceParam}`;
+            cancelUrl = isMobile ? `${baseUrl}/dashboard?source=mobile` : `${baseUrl}/match/${matchId}`;
 
             lineItems.push({
                 price_data: {

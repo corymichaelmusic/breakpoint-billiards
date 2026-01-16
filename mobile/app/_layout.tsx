@@ -6,7 +6,7 @@ import Header from "../components/Header";
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { tokenCache } from "../lib/tokenCache";
 import { useEffect, useRef } from "react";
-import { View, ActivityIndicator, Text } from "react-native";
+import { View, ActivityIndicator, Text, StatusBar, Platform } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import "../global.css";
 import { applyRealtimeAuth } from "../lib/realtimeAuth";
@@ -129,6 +129,11 @@ export default function Layout() {
   return (
     // 2. TOKEN CACHE REMOVED
     <SafeAreaProvider>
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor="#121212"
+        translucent={Platform.OS === 'android'}
+      />
       <ClerkProvider
         publishableKey={publishableKey}
         tokenCache={tokenCache}

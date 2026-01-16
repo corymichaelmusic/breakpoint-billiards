@@ -14,7 +14,11 @@ import SessionFeeToggle from "@/components/SessionFeeToggle";
 import AssignLeagueButton from "@/components/AssignLeagueButton";
 import PreregistrationManager from "@/components/PreregistrationManager";
 
+// Force dynamic rendering to ensure fresh data on each request
+export const dynamic = 'force-dynamic';
+
 export default async function AdminDashboard({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+
     const { userId } = await auth();
     if (!userId) redirect("/sign-in");
 

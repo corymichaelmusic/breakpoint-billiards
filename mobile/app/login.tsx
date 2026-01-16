@@ -6,6 +6,7 @@ import { useRouter, useSegments } from 'expo-router';
 import { createClient } from "@supabase/supabase-js";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from 'expo-linking';
+import * as AuthSession from 'expo-auth-session';
 import { authSignal } from '../lib/authSignal';
 
 // WebBrowser.maybeCompleteAuthSession(); // Removed: Handled in _layout.tsx
@@ -255,46 +256,101 @@ export default function Login() {
     const handleOAuthResult = async (result: any) => {
         const { createdSessionId, setActive, signIn, signUp } = result;
 
-        if (createdSessionId && setActive) {
-            await setActive({ session: createdSessionId });
+        if (createdSessionId) {
+            console.log("[OAuth] Session created:", createdSessionId);
 
+            // Sync to Supabase (can run in background)
             const newUserId = (signUp as any)?.createdUserId || (signIn as any)?.createdUserId;
-
             if (newUserId) {
                 let email = "oauth_user";
                 if (signUp?.emailAddress) email = signUp.emailAddress;
                 else if (signIn?.identifier) email = signIn.identifier;
 
-                try {
-                    console.log("OAuth Sync Start for:", newUserId);
-                    await new Promise(r => setTimeout(r, 1000));
-                    await syncToSupabase(newUserId, email);
-                } catch (e: any) {
-                    console.error("OAuth Sync Error", e);
-                }
+                // Fire and forget sync
+                syncToSupabase(newUserId, email).catch(e => console.error("OAuth Sync Error", e));
             }
+
+            // Use the same detached pattern as email sign-in
+            console.log("[OAuth] Detaching execution chain...");
+            setTimeout(() => {
+                activateAndNavigate(createdSessionId);
+            }, 500);
+        } else {
+            console.log("[OAuth] No session created, signIn/signUp status:", signIn?.status, signUp?.status);
         }
     };
 
     const onGoogleSignInPress = async () => {
         try {
-            console.log("Google OAuth Start. Auto-Redirect.");
-            const result = await startGoogleFlow();
+            const redirectUrl = AuthSession.makeRedirectUri({
+                scheme: 'breakpoint-billiards',
+                path: 'oauth-native-callback'
+            });
+            console.log("Google OAuth Start. Redirect URL:", redirectUrl);
+            const result = await startGoogleFlow({ redirectUrl });
             await handleOAuthResult(result);
-        } catch (err) {
+        } catch (err: any) {
             console.error("Google OAuth error", err);
+
+            // AGGRESSIVE RECOVERY CHECK (same as email sign-in)
+            if (clerk.client && clerk.client.sessions && clerk.client.sessions.length > 0) {
+                const lastSession = clerk.client.sessions[clerk.client.sessions.length - 1];
+                console.log("[Google OAuth] Crash detected, but Session FOUND:", lastSession.id);
+                setTimeout(() => {
+                    activateAndNavigate(lastSession.id);
+                }, 500);
+                return;
+            }
+
+            // Navigation error check
+            const errorMessage = err?.errors?.[0]?.message || err?.message || "";
+            if (errorMessage.includes("href") || errorMessage.includes("undefined") || errorMessage.includes("route")) {
+                console.warn("[Google OAuth] Navigation-related error (ignoring):", errorMessage);
+                return;
+            }
+
             Alert.alert("Google Sign In Error", "Failed to sign in with Google");
         }
     };
 
     const onAppleSignInPress = async () => {
         try {
-            console.log("Apple OAuth Start. Auto-Redirect.");
-            const result = await startAppleFlow();
+            // Create the redirect URL using the app's scheme
+            const redirectUrl = AuthSession.makeRedirectUri({
+                scheme: 'breakpoint-billiards',
+                path: 'oauth-native-callback'
+            });
+            console.log("Apple OAuth Start. Redirect URL:", redirectUrl);
+
+            const result = await startAppleFlow({ redirectUrl });
+            console.log("Apple OAuth Result:", JSON.stringify(result, null, 2));
             await handleOAuthResult(result);
-        } catch (err) {
+        } catch (err: any) {
             console.error("Apple OAuth error", err);
-            Alert.alert("Apple Sign In Error", "Failed to sign in with Apple");
+
+            // AGGRESSIVE RECOVERY CHECK (same as email sign-in)
+            if (clerk.client && clerk.client.sessions && clerk.client.sessions.length > 0) {
+                const lastSession = clerk.client.sessions[clerk.client.sessions.length - 1];
+                console.log("[Apple OAuth] Crash detected, but Session FOUND:", lastSession.id);
+                setTimeout(() => {
+                    activateAndNavigate(lastSession.id);
+                }, 500);
+                return;
+            }
+
+            // Navigation error check
+            const errorMessage = err?.errors?.[0]?.longMessage
+                || err?.errors?.[0]?.message
+                || err?.message
+                || JSON.stringify(err);
+
+            if (errorMessage.includes("href") || errorMessage.includes("undefined") || errorMessage.includes("route")) {
+                console.warn("[Apple OAuth] Navigation-related error (ignoring):", errorMessage);
+                return;
+            }
+
+            console.error("Apple OAuth error details:", errorMessage);
+            Alert.alert("Apple Sign In Error", errorMessage);
         }
     };
 
