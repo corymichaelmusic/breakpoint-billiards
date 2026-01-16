@@ -98,7 +98,7 @@ export default function DeletionRequestManager({ requests }: DeletionRequestMana
                                 <button
                                     onClick={() => handleProcess(request.id, userName)}
                                     disabled={processingId === request.id}
-                                    className="btn w-full bg-red-600 hover:bg-red-700 text-white font-bold text-sm py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="btn w-full !bg-[#dc2626] hover:!bg-[#b91c1c] text-white font-bold text-sm py-3 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {processingId === request.id ? 'Processing...' : 'Process Deletion'}
                                 </button>
