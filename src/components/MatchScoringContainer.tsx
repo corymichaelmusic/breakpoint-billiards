@@ -164,11 +164,13 @@ export default function MatchScoringContainer({ match, games, races, leagueId, r
         <div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
                 <div style={{ fontWeight: 'bold', fontFamily: 'monospace', fontSize: '1.1rem', color: '#888' }}>
-                    {match.started_at
-                        ? new Date(match.started_at).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
-                        : match.scheduled_date
-                            ? new Date(match.scheduled_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-                            : 'Date TBD'
+                    {match.submitted_at
+                        ? new Date(match.submitted_at).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+                        : match.started_at
+                            ? new Date(match.started_at).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+                            : match.scheduled_date
+                                ? new Date(match.scheduled_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                                : 'Date TBD'
                     }
                 </div>
             </div>
