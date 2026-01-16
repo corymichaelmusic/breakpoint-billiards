@@ -60,18 +60,16 @@ export async function POST(req: Request) {
                 return NextResponse.json({ error: 'Already paid' }, { status: 400 });
             }
 
-            // Fetch match fee from the session/league
+            // Fetch global match fee from system settings
             let matchFeeAmount = 20; // Default $20
-            if (match.league_id) {
-                const { data: league } = await supabase
-                    .from('leagues')
-                    .select('match_fee')
-                    .eq('id', match.league_id)
-                    .single();
+            const { data: matchFeeSetting } = await supabase
+                .from('system_settings')
+                .select('value')
+                .eq('key', 'default_match_fee')
+                .single();
 
-                if (league && league.match_fee !== null && league.match_fee !== undefined) {
-                    matchFeeAmount = league.match_fee;
-                }
+            if (matchFeeSetting && matchFeeSetting.value) {
+                matchFeeAmount = Number(matchFeeSetting.value);
             }
 
             metadata.match_id = matchId;

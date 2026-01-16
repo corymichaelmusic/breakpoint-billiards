@@ -6,10 +6,11 @@ import { updateSystemSetting } from '@/app/actions/admin-actions';
 interface FinancialSettingsFormProps {
     sessionFee: string;
     creationFee: string;
+    matchFee: string;
     leaderboardLimit: string;
 }
 
-export default function FinancialSettingsForm({ sessionFee, creationFee, leaderboardLimit }: FinancialSettingsFormProps) {
+export default function FinancialSettingsForm({ sessionFee, creationFee, matchFee, leaderboardLimit }: FinancialSettingsFormProps) {
     const [loading, setLoading] = useState(false);
 
     const handleUpdate = async (formData: FormData) => {
@@ -63,6 +64,29 @@ export default function FinancialSettingsForm({ sessionFee, creationFee, leaderb
                         defaultValue={creationFee}
                         type="number"
                         step="0.01"
+                        required
+                        className="input"
+                        style={{ maxWidth: "120px" }}
+                    />
+                    <button type="submit" className="btn btn-primary" disabled={loading}>
+                        {loading ? "Saving..." : "Update Fee"}
+                    </button>
+                </form>
+            </div>
+
+            <div className="card">
+                <h3 style={{ fontSize: "1.1rem", marginBottom: "0.5rem", color: "var(--primary)" }}>Match Fee ($)</h3>
+                <p style={{ fontSize: "0.9rem", color: "#888", marginBottom: "1.5rem" }}>
+                    Per-match fee players pay before playing.
+                </p>
+                <form action={handleUpdate} style={{ display: "flex", gap: "1rem" }}>
+                    <input type="hidden" name="key" value="default_match_fee" />
+                    <input
+                        name="value"
+                        defaultValue={matchFee}
+                        type="number"
+                        step="1"
+                        min="0"
                         required
                         className="input"
                         style={{ maxWidth: "120px" }}

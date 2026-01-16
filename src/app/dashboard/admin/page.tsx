@@ -43,10 +43,11 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     const { data: settings } = await supabase
         .from("system_settings")
         .select("key, value")
-        .in("key", ["default_session_fee", "default_creation_fee", "leaderboard_limit"]);
+        .in("key", ["default_session_fee", "default_creation_fee", "default_match_fee", "leaderboard_limit"]);
 
     const sessionFee = settings?.find(s => s.key === "default_session_fee")?.value || "25";
     const creationFee = settings?.find(s => s.key === "default_creation_fee")?.value || "100";
+    const matchFee = settings?.find(s => s.key === "default_match_fee")?.value || "20";
     const leaderboardLimit = settings?.find(s => s.key === "leaderboard_limit")?.value || "25";
 
     // Application View Logic
@@ -306,7 +307,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                 {/* Financial Settings */}
                 <div className="card-glass mb-16 border-primary/30">
                     <h2 className="text-xl font-bold text-white mb-6 border-b border-transparent pb-4">Financial Settings</h2>
-                    <FinancialSettingsForm sessionFee={sessionFee} creationFee={creationFee} leaderboardLimit={leaderboardLimit} />
+                    <FinancialSettingsForm sessionFee={sessionFee} creationFee={creationFee} matchFee={matchFee} leaderboardLimit={leaderboardLimit} />
                 </div>
 
                 <div className="h-5"></div>
