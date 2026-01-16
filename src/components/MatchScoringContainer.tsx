@@ -141,8 +141,17 @@ export default function MatchScoringContainer({ match, games, races, leagueId, r
                     >
                         ← Back to Match
                     </button>
-                    <div style={{ fontWeight: 'bold', fontFamily: 'monospace', fontSize: '1.1rem' }}>
-                        {formatTime(elapsedTime)}
+                    <div style={{ fontWeight: 'bold', fontFamily: 'monospace', fontSize: '1.1rem', color: '#888' }}>
+                        {(() => {
+                            const endedAt = viewingGame === '8ball' ? match.ended_at_8ball : match.ended_at_9ball;
+                            const startedAt = viewingGame === '8ball' ? match.started_at_8ball : match.started_at_9ball;
+                            if (endedAt) {
+                                return new Date(endedAt).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                            } else if (startedAt) {
+                                return new Date(startedAt).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                            }
+                            return '';
+                        })()}
                     </div>
                 </div>
                 <GameScoring
