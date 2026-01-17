@@ -32,12 +32,7 @@ export default function Header() {
 
                 const authHeader = token ? { Authorization: `Bearer ${token}` } : undefined;
                 const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-                    global: { headers: authHeader },
-                    auth: {
-                        persistSession: false,
-                        autoRefreshToken: false,
-                        detectSessionInUrl: false
-                    }
+                    global: { headers: authHeader }
                 });
 
                 const { data, error } = await supabase
