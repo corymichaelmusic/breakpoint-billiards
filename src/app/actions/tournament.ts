@@ -1,13 +1,15 @@
 'use server';
 
 import { createClient } from "@/utils/supabase/server";
+import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function deleteTournament(tournamentId: string) {
-    const supabase = await createClient();
+    const { userId } = await auth();
+    if (!userId) throw new Error('Unauthorized');
 
-    // Verify auth? RLS handles it, but good to check.
+    const supabase = await createClient();
 
     const { error } = await supabase
         .from('tournaments')
@@ -23,6 +25,9 @@ export async function deleteTournament(tournamentId: string) {
 }
 
 export async function archiveTournament(tournamentId: string) {
+    const { userId } = await auth();
+    if (!userId) throw new Error('Unauthorized');
+
     const supabase = await createClient();
 
     const { error } = await supabase
@@ -39,6 +44,9 @@ export async function archiveTournament(tournamentId: string) {
 }
 
 export async function advanceMatch(matchId: string, winnerId: string, score1: number, score2: number) {
+    const { userId } = await auth();
+    if (!userId) throw new Error('Unauthorized');
+
     const supabase = await createClient();
 
     // 1. Fetch Match Details & Tournament Info
@@ -174,6 +182,9 @@ export async function advanceMatch(matchId: string, winnerId: string, score1: nu
 }
 
 export async function assignTable(matchId: string, tableName: string) {
+    const { userId } = await auth();
+    if (!userId) throw new Error('Unauthorized');
+
     const supabase = await createClient();
 
     // 1. Get Tournament ID for revalidation

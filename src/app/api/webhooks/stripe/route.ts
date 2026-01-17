@@ -40,7 +40,6 @@ export async function POST(req: Request) {
                 const supabase = createAdminClient();
 
                 if (metadata.type === 'match_fee' && metadata.match_id && metadata.role) {
-                    console.log(`Processing Match Fee: Match ${metadata.match_id}, Role ${metadata.role}`);
 
                     // Verify Match Exists
                     const { data: match } = await supabase.from('matches').select('id').eq('id', metadata.match_id).single();
@@ -65,10 +64,9 @@ export async function POST(req: Request) {
                         console.error('Failed to update match payment status:', error);
                         return NextResponse.json({ error: 'Database update failed' }, { status: 500 });
                     }
-                    console.log('Match payment status updated successfully.');
+                    // Payment processed successfully
 
                 } else if (metadata.type === 'session_creation' && metadata.league_id) {
-                    console.log(`Processing Session Creation Fee: League ${metadata.league_id}`);
 
                     // Verify Exists
                     const { count } = await supabase.from('leagues').select('*', { count: 'exact', head: true }).eq('id', metadata.league_id);
@@ -85,10 +83,9 @@ export async function POST(req: Request) {
                         console.error('Failed to update session creation status:', error);
                         return NextResponse.json({ error: 'Database update failed' }, { status: 500 });
                     }
-                    console.log('Session creation status updated to paid.');
+                    // Session creation fee processed successfully
 
                 } else if (metadata.type === 'player_session_fee' && metadata.session_id && metadata.player_id) {
-                    console.log(`Processing Player Session Fee: Player ${metadata.player_id} in Session ${metadata.session_id}`);
 
                     // Verify Exists
                     const { count } = await supabase.from('league_players').select('*', { count: 'exact', head: true })
@@ -109,7 +106,7 @@ export async function POST(req: Request) {
                         console.error('Failed to update player session fee:', error);
                         return NextResponse.json({ error: 'Database update failed' }, { status: 500 });
                     }
-                    console.log('Player session fee update successful.');
+                    // Player session fee processed successfully
                 }
             }
         }
