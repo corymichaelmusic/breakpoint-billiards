@@ -48,7 +48,7 @@ export default async function PayFeePage({ params }: { params: Promise<{ id: str
 
                     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                         <button className="btn btn-primary" style={{ width: "100%", fontSize: "1.2rem", padding: "1rem" }}>
-                            Pay Now via Polar
+                            Pay Now via Stripe
                         </button>
 
                         <Link

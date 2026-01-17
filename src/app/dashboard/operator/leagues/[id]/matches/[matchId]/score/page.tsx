@@ -62,7 +62,7 @@ export default async function ScoreMatchPage({ params }: { params: Promise<{ id:
                         A match fee of <strong className="text-white">$20.00</strong> is required to start scoring.
                     </p>
                     <button className="btn btn-primary w-full py-3 text-lg font-bold">
-                        Pay $20.00 with Polar
+                        Pay $20.00 with Stripe
                     </button>
                     <div className="mt-4 text-sm text-gray-500">
                         Please pay to unlock the scorecard.

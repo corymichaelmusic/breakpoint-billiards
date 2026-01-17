@@ -501,42 +501,32 @@ export async function deleteLeague(leagueId: string) {
     const { auth } = await import("@clerk/nextjs/server");
     const { userId } = await auth();
 
+    if (!userId) return { error: "Unauthorized" };
+
     // Fetch league to check type
     const { data: league } = await supabase.from("leagues").select("type, operator_id").eq("id", leagueId).single();
 
     if (!league) return { error: "League not found" };
 
-    // If it's a top-level League, ONLY Admin can delete
-    // Hardcoded Admin ID for now as requested
-    const ADMIN_ID = "user_2qM5WUMW9oc8aohN8s6FQUX6Xe9"; // Replace with actual Admin ID if known, or use a role check
-    // Actually, let's just check if it's a 'league' type and block it for now unless we know the admin ID.
-    // The user said "only the administrator (me) should be able to delete the league".
-    // I will assume the current user IS the admin if they are trying to delete it, BUT I need to implement the restriction.
-    // Since I don't have a robust role system yet, I'll rely on the type check.
-
-    if (league.type === 'league') {
-        // Ideally check if userId === ADMIN_ID
-        // For now, let's just allow it if it's the operator, BUT warn them? 
-        // User said: "only the administrator (me) should be able to delete the league".
-        // I'll implement a hard block for now and assume the user will ask me to override it or I'll add a specific check.
-        // Wait, the user IS the operator in this context usually.
-        // Let's allow 'session' deletion by operator, but block 'league' deletion.
-
-        // If I am the operator, I CANNOT delete my own League Organization.
-        return { error: "Only Administrators can delete a League Organization." };
-    }
-
-    if (!userId) return { error: "Unauthorized" };
-
-    // Check if user is admin
+    // Check if user is admin via database role
     const { data: profile } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", userId)
         .single();
 
-    if (profile?.role !== 'admin') {
-        return { error: "Only administrators can delete leagues." };
+    const isAdmin = profile?.role === 'admin';
+
+    // If it's a top-level League Organization, ONLY Admin can delete
+    if (league.type === 'league') {
+        if (!isAdmin) {
+            return { error: "Only Administrators can delete a League Organization." };
+        }
+    } else {
+        // For sessions: allow operator or admin
+        if (league.operator_id !== userId && !isAdmin) {
+            return { error: "Only the operator or an administrator can delete this session." };
+        }
     }
 
     // Delete the league (cascading deletes should handle related data if configured, 
