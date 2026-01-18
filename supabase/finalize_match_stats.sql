@@ -1,12 +1,16 @@
--- Drop the old function signature with UUID for winner_id to prevent overloading ambiguity
-drop function if exists finalize_match_stats(uuid, text, uuid, numeric, numeric, integer, integer, integer, integer, integer, integer, integer, integer, integer, integer, integer, integer, integer, integer);
+-- Finalize Match Stats - SECURE VERSION
+-- This version calculates BBRS deltas SERVER-SIDE using calculate_bbrs_delta()
+-- The mobile app no longer sends pre-calculated deltas
 
-create or replace function finalize_match_stats(
+-- Drop ALL existing function signatures (exact signatures from database)
+DROP FUNCTION IF EXISTS public.finalize_match_stats(p_match_id uuid, p_game_type text, p_winner_id uuid, p_p1_delta numeric, p_p2_delta numeric, p_p1_racks_won integer, p_p1_racks_lost integer, p_p2_racks_won integer, p_p2_racks_lost integer);
+DROP FUNCTION IF EXISTS public.finalize_match_stats(p_match_id uuid, p_game_type text, p_winner_id text, p_p1_delta numeric, p_p2_delta numeric, p_p1_racks_won integer, p_p1_racks_lost integer, p_p2_racks_won integer, p_p2_racks_lost integer, p_p1_break_runs integer, p_p1_rack_runs integer, p_p1_snaps integer, p_p1_early_8s integer, p_p2_break_runs integer, p_p2_rack_runs integer, p_p2_snaps integer, p_p2_early_8s integer);
+
+CREATE OR REPLACE FUNCTION finalize_match_stats(
     p_match_id uuid,
     p_game_type text,
     p_winner_id text,
-    p_p1_delta numeric,
-    p_p2_delta numeric,
+    -- REMOVED: p_p1_delta and p_p2_delta - now calculated server-side
     p_p1_racks_won int,
     p_p1_racks_lost int,
     p_p2_racks_won int,
@@ -25,65 +29,107 @@ create or replace function finalize_match_stats(
     p_p2_win_zips int default 0,
     p_p2_early_8s int default 0
 )
-returns void
-language plpgsql
-security definer
-as $$
-declare
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
     v_player1_id text;
     v_player2_id text;
     v_league_id uuid;
-begin
+    v_p1_rating numeric;
+    v_p2_rating numeric;
+    v_p1_racks_played int;
+    v_p2_racks_played int;
+    v_p1_delta numeric;
+    v_p2_delta numeric;
+BEGIN
     -- 1. Get Match Info
-    select player1_id, player2_id, league_id into v_player1_id, v_player2_id, v_league_id
-    from matches
-    where id = p_match_id;
+    SELECT player1_id, player2_id, league_id INTO v_player1_id, v_player2_id, v_league_id
+    FROM matches
+    WHERE id = p_match_id;
 
-    -- 2. Update Match Status
-    if p_game_type = '8ball' then
-        update matches 
-        set status_8ball = 'finalized', 
-            winner_id_8ball = p_winner_id 
-        where id = p_match_id;
-    else
-        update matches 
-        set status_9ball = 'finalized', 
-            winner_id_9ball = p_winner_id 
-        where id = p_match_id;
-    end if;
+    -- 2. Get Player Ratings and Racks Played from league_players
+    SELECT breakpoint_rating, breakpoint_racks_played 
+    INTO v_p1_rating, v_p1_racks_played
+    FROM league_players 
+    WHERE league_id = v_league_id AND player_id = v_player1_id;
+    
+    SELECT breakpoint_rating, breakpoint_racks_played 
+    INTO v_p2_rating, v_p2_racks_played
+    FROM league_players 
+    WHERE league_id = v_league_id AND player_id = v_player2_id;
+    
+    -- Default to 500 if not found
+    v_p1_rating := COALESCE(v_p1_rating, 500);
+    v_p2_rating := COALESCE(v_p2_rating, 500);
+    v_p1_racks_played := COALESCE(v_p1_racks_played, 0);
+    v_p2_racks_played := COALESCE(v_p2_racks_played, 0);
+
+    -- 3. Calculate BBRS Deltas SERVER-SIDE (the secret sauce!)
+    v_p1_delta := calculate_bbrs_delta(
+        v_p1_rating,           -- p_player_rating
+        v_p2_rating,           -- p_opponent_rating
+        p_p1_racks_won,        -- p_player_score
+        p_p1_racks_lost,       -- p_opponent_score
+        v_p1_racks_played,     -- p_player_racks_played
+        TRUE                   -- p_is_league
+    );
+    
+    v_p2_delta := calculate_bbrs_delta(
+        v_p2_rating,           -- p_player_rating
+        v_p1_rating,           -- p_opponent_rating
+        p_p2_racks_won,        -- p_player_score
+        p_p2_racks_lost,       -- p_opponent_score
+        v_p2_racks_played,     -- p_player_racks_played
+        TRUE                   -- p_is_league
+    );
+
+    -- 4. Update Match Status
+    IF p_game_type = '8ball' THEN
+        UPDATE matches 
+        SET status_8ball = 'finalized', 
+            winner_id_8ball = p_winner_id,
+            submitted_at = NOW()
+        WHERE id = p_match_id;
+    ELSE
+        UPDATE matches 
+        SET status_9ball = 'finalized', 
+            winner_id_9ball = p_winner_id,
+            submitted_at = NOW()
+        WHERE id = p_match_id;
+    END IF;
 
     -- Check for Shutout Condition (Both sets finalized and won by same player)
-    -- We need to check the status of the match AFTER the update in step 2.
-    -- Re-fetch match status to see if both are now finalized.
-    declare
+    DECLARE
         v_status_8ball text;
         v_status_9ball text;
         v_winner_8ball text;
         v_winner_9ball text;
         v_is_shutout boolean := false;
-    begin
-        select status_8ball, status_9ball, winner_id_8ball, winner_id_9ball
-        into v_status_8ball, v_status_9ball, v_winner_8ball, v_winner_9ball
-        from matches
-        where id = p_match_id;
+    BEGIN
+        SELECT status_8ball, status_9ball, winner_id_8ball, winner_id_9ball
+        INTO v_status_8ball, v_status_9ball, v_winner_8ball, v_winner_9ball
+        FROM matches
+        WHERE id = p_match_id;
 
-        if v_status_8ball = 'finalized' and v_status_9ball = 'finalized' then
-            if v_winner_8ball = v_winner_9ball then
+        IF v_status_8ball = 'finalized' AND v_status_9ball = 'finalized' THEN
+            IF v_winner_8ball = v_winner_9ball THEN
                 v_is_shutout := true;
-            end if;
-        end if;
+            END IF;
+        END IF;
 
-        -- 3. Update Player 1 Stats
-        update league_players
-        set 
-            breakpoint_rating = breakpoint_rating + p_p1_delta,
+        -- 5. Update Player 1 Stats
+        UPDATE league_players
+        SET 
+            breakpoint_rating = breakpoint_rating + v_p1_delta,
             breakpoint_racks_won = breakpoint_racks_won + p_p1_racks_won,
             breakpoint_racks_lost = breakpoint_racks_lost + p_p1_racks_lost,
-            matches_won = matches_won + (case when v_player1_id = p_winner_id then 1 else 0 end),
-            matches_lost = matches_lost + (case when v_player1_id != p_winner_id then 1 else 0 end),
+            matches_won = matches_won + (CASE WHEN v_player1_id = p_winner_id THEN 1 ELSE 0 END),
+            matches_lost = matches_lost + (CASE WHEN v_player1_id != p_winner_id THEN 1 ELSE 0 END),
             breakpoint_racks_played = breakpoint_racks_played + (p_p1_racks_won + p_p1_racks_lost),
             matches_played = matches_played + 1,
-            shutouts = shutouts + (case when v_is_shutout and v_player1_id = v_winner_8ball then 1 else 0 end),
+            shutouts = shutouts + (CASE WHEN v_is_shutout AND v_player1_id = v_winner_8ball THEN 1 ELSE 0 END),
             
             -- Granular Updates
             total_break_and_runs = total_break_and_runs + p_p1_break_runs,
@@ -93,31 +139,31 @@ begin
             total_early_8 = total_early_8 + p_p1_early_8s,
             
             -- Split Updates
-            total_break_and_runs_8ball = total_break_and_runs_8ball + (case when p_game_type = '8ball' then p_p1_break_runs else 0 end),
-            total_break_and_runs_9ball = total_break_and_runs_9ball + (case when p_game_type = '9ball' then p_p1_break_runs else 0 end),
-            total_rack_and_runs_8ball = total_rack_and_runs_8ball + (case when p_game_type = '8ball' then p_p1_rack_runs else 0 end),
-            total_rack_and_runs_9ball = total_rack_and_runs_9ball + (case when p_game_type = '9ball' then p_p1_rack_runs else 0 end),
-            total_win_zip_8ball = total_win_zip_8ball + (case when p_game_type = '8ball' then p_p1_win_zips else 0 end),
-            total_win_zip_9ball = total_win_zip_9ball + (case when p_game_type = '9ball' then p_p1_win_zips else 0 end)
+            total_break_and_runs_8ball = total_break_and_runs_8ball + (CASE WHEN p_game_type = '8ball' THEN p_p1_break_runs ELSE 0 END),
+            total_break_and_runs_9ball = total_break_and_runs_9ball + (CASE WHEN p_game_type = '9ball' THEN p_p1_break_runs ELSE 0 END),
+            total_rack_and_runs_8ball = total_rack_and_runs_8ball + (CASE WHEN p_game_type = '8ball' THEN p_p1_rack_runs ELSE 0 END),
+            total_rack_and_runs_9ball = total_rack_and_runs_9ball + (CASE WHEN p_game_type = '9ball' THEN p_p1_rack_runs ELSE 0 END),
+            total_win_zip_8ball = total_win_zip_8ball + (CASE WHEN p_game_type = '8ball' THEN p_p1_win_zips ELSE 0 END),
+            total_win_zip_9ball = total_win_zip_9ball + (CASE WHEN p_game_type = '9ball' THEN p_p1_win_zips ELSE 0 END)
             
-        where league_id = v_league_id and player_id = v_player1_id;
+        WHERE league_id = v_league_id AND player_id = v_player1_id;
 
         -- Update Global Profile Rating (Player 1)
-        update profiles
-        set breakpoint_rating = breakpoint_rating + p_p1_delta
-        where id = v_player1_id;
+        UPDATE profiles
+        SET breakpoint_rating = breakpoint_rating + v_p1_delta
+        WHERE id = v_player1_id;
 
-        -- 4. Update Player 2 Stats
-        update league_players
-        set 
-            breakpoint_rating = breakpoint_rating + p_p2_delta,
+        -- 6. Update Player 2 Stats
+        UPDATE league_players
+        SET 
+            breakpoint_rating = breakpoint_rating + v_p2_delta,
             breakpoint_racks_won = breakpoint_racks_won + p_p2_racks_won,
             breakpoint_racks_lost = breakpoint_racks_lost + p_p2_racks_lost,
-            matches_won = matches_won + (case when v_player2_id = p_winner_id then 1 else 0 end),
-            matches_lost = matches_lost + (case when v_player2_id != p_winner_id then 1 else 0 end),
+            matches_won = matches_won + (CASE WHEN v_player2_id = p_winner_id THEN 1 ELSE 0 END),
+            matches_lost = matches_lost + (CASE WHEN v_player2_id != p_winner_id THEN 1 ELSE 0 END),
             breakpoint_racks_played = breakpoint_racks_played + (p_p2_racks_won + p_p2_racks_lost),
             matches_played = matches_played + 1,
-            shutouts = shutouts + (case when v_is_shutout and v_player2_id = v_winner_8ball then 1 else 0 end),
+            shutouts = shutouts + (CASE WHEN v_is_shutout AND v_player2_id = v_winner_8ball THEN 1 ELSE 0 END),
             
             -- Granular Updates
             total_break_and_runs = total_break_and_runs + p_p2_break_runs,
@@ -127,20 +173,22 @@ begin
             total_early_8 = total_early_8 + p_p2_early_8s,
             
             -- Split Updates
-            total_break_and_runs_8ball = total_break_and_runs_8ball + (case when p_game_type = '8ball' then p_p2_break_runs else 0 end),
-            total_break_and_runs_9ball = total_break_and_runs_9ball + (case when p_game_type = '9ball' then p_p2_break_runs else 0 end),
-            total_rack_and_runs_8ball = total_rack_and_runs_8ball + (case when p_game_type = '8ball' then p_p2_rack_runs else 0 end),
-            total_rack_and_runs_9ball = total_rack_and_runs_9ball + (case when p_game_type = '9ball' then p_p2_rack_runs else 0 end),
-            total_win_zip_8ball = total_win_zip_8ball + (case when p_game_type = '8ball' then p_p2_win_zips else 0 end),
-            total_win_zip_9ball = total_win_zip_9ball + (case when p_game_type = '9ball' then p_p2_win_zips else 0 end)
+            total_break_and_runs_8ball = total_break_and_runs_8ball + (CASE WHEN p_game_type = '8ball' THEN p_p2_break_runs ELSE 0 END),
+            total_break_and_runs_9ball = total_break_and_runs_9ball + (CASE WHEN p_game_type = '9ball' THEN p_p2_break_runs ELSE 0 END),
+            total_rack_and_runs_8ball = total_rack_and_runs_8ball + (CASE WHEN p_game_type = '8ball' THEN p_p2_rack_runs ELSE 0 END),
+            total_rack_and_runs_9ball = total_rack_and_runs_9ball + (CASE WHEN p_game_type = '9ball' THEN p_p2_rack_runs ELSE 0 END),
+            total_win_zip_8ball = total_win_zip_8ball + (CASE WHEN p_game_type = '8ball' THEN p_p2_win_zips ELSE 0 END),
+            total_win_zip_9ball = total_win_zip_9ball + (CASE WHEN p_game_type = '9ball' THEN p_p2_win_zips ELSE 0 END)
             
-        where league_id = v_league_id and player_id = v_player2_id;
-    end;
+        WHERE league_id = v_league_id AND player_id = v_player2_id;
+    END;
 
     -- Update Global Profile Rating (Player 2)
-    update profiles
-    set breakpoint_rating = breakpoint_rating + p_p2_delta
-    where id = v_player2_id;
+    UPDATE profiles
+    SET breakpoint_rating = breakpoint_rating + v_p2_delta
+    WHERE id = v_player2_id;
 
-end;
+END;
 $$;
+
+COMMENT ON FUNCTION finalize_match_stats IS 'Finalizes match with server-side BBRS calculation. Deltas computed internally.';

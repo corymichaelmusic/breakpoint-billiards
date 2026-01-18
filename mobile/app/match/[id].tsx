@@ -10,15 +10,15 @@ import EightBallScorer from '../../components/EightBallScorer'; // 8-ball scorer
 import NineBallScorer from '../../components/NineBallScorer'; // 9-ball scorer
 import { supabase } from '../../lib/supabase';
 import { applyRealtimeAuth } from '../../lib/realtimeAuth'; // Import singleton
-import * as BBRS from '../../utils/bbrs'; // Import BBRS logic
 import { calculateRace, getBreakpointLevel } from '../../utils/rating'; // Import race calc
 import { useMatchBroadcast } from '../../hooks/useMatchBroadcast';
 
-// Helper for BBRS defaults/normalization
-const getRating = (p: any, type: 'start' | 'current' = 'current') => {
-    // Ideally we fetch from profile or league_player snapshot
-    // If we have 'match.player1.rating' set in fetch, use it.
-    return p?.rating || BBRS.BBRS_INITIAL_RATING;
+// Default initial rating (used for display only - calculations happen server-side)
+const INITIAL_RATING = 500;
+
+// Helper for rating display defaults
+const getRating = (p: any) => {
+    return p?.rating || INITIAL_RATING;
 };
 
 export default function MatchScreen() {
@@ -119,14 +119,14 @@ export default function MatchScreen() {
             if (matchData.player1) {
                 matchData.player1.id = matchData.player1_id; // Ensure ID is present
                 matchData.player1.racks = lp1?.breakpoint_racks_played || 0;
-                matchData.player1.rating = matchData.player1.fargo_rating || matchData.player1.breakpoint_rating || BBRS.BBRS_INITIAL_RATING;
+                matchData.player1.rating = matchData.player1.fargo_rating || matchData.player1.breakpoint_rating || INITIAL_RATING;
             }
 
             // Enrich Player 2
             if (matchData.player2) {
                 matchData.player2.id = matchData.player2_id; // Ensure ID is present
                 matchData.player2.racks = lp2?.breakpoint_racks_played || 0;
-                matchData.player2.rating = matchData.player2.fargo_rating || matchData.player2.breakpoint_rating || BBRS.BBRS_INITIAL_RATING;
+                matchData.player2.rating = matchData.player2.fargo_rating || matchData.player2.breakpoint_rating || INITIAL_RATING;
             }
 
             setMatch(matchData);
@@ -209,30 +209,8 @@ export default function MatchScreen() {
                 { global: { headers: authHeader } }
             );
 
-            // 1. Calculate BBRS Metrics
+            // Insert Game (BBRS calculations now happen server-side during finalization)
             const isP1Win = winnerId === match.player1.id;
-            const p1Rating = match.player1.rating;
-            const p2Rating = match.player2.rating;
-
-            const expectedP1 = BBRS.calculateExpectedWinProb(p1Rating, p2Rating);
-            const expectedP2 = 1 - expectedP1;
-
-            const k1 = BBRS.getBaseKFactor(match.player1.racks);
-            const k2 = BBRS.getBaseKFactor(match.player2.racks);
-
-            const actualP1 = isP1Win ? 1 : 0;
-            const actualP2 = isP1Win ? 0 : 1;
-
-            const deltaBaseP1 = BBRS.calculateBaseDelta(actualP1 as 0 | 1, expectedP1, k1);
-            const deltaBaseP2 = BBRS.calculateBaseDelta(actualP2 as 0 | 1, expectedP2, k2);
-
-            const scaleP1 = BBRS.calculateOpponentScaling(p1Rating, p2Rating);
-            const scaleP2 = BBRS.calculateOpponentScaling(p2Rating, p1Rating);
-
-            const deltaScaledP1 = deltaBaseP1 * scaleP1;
-            const deltaScaledP2 = deltaBaseP2 * scaleP2;
-
-            // 2. Insert Game
             const gameData = {
                 match_id: match.id,
                 game_number: games.length + 1,
@@ -242,12 +220,7 @@ export default function MatchScreen() {
                 is_rack_and_run: outcome === 'rack_run',
                 is_early_8: outcome === 'early_8',
                 is_scratch_8: outcome === 'scratch_8',
-                is_9_on_snap: outcome === '9_snap',
-                bbrs_expected_win_prob: expectedP1,
-                bbrs_player1_rating_start: p1Rating,
-                bbrs_player2_rating_start: p2Rating,
-                bbrs_delta_base: deltaBaseP1,
-                bbrs_delta_scaled: deltaScaledP1
+                is_9_on_snap: outcome === '9_snap'
             };
 
             const { data: insertedGame, error: insertError } = await supabaseAuthenticated
@@ -345,11 +318,9 @@ export default function MatchScreen() {
                             { global: { headers: authHeader } }
                         );
 
-                        // 1. Calculate Stats Locally
+                        // Calculate Stats Locally (BBRS deltas computed server-side)
                         const p1Id = match.player1.id;
                         const p2Id = match.player2.id;
-                        const p1Rating = match.player1.rating || 500;
-                        const p2Rating = match.player2.rating || 500;
 
                         // Filter games for current type
                         const relevantGames = games.filter(g => g.game_type === activeGameType);
@@ -360,52 +331,34 @@ export default function MatchScreen() {
                         const p1BreakRuns = relevantGames.filter(g => g.winner_id === p1Id && g.is_break_and_run).length;
                         const p1RackRuns = relevantGames.filter(g => g.winner_id === p1Id && g.is_rack_and_run).length;
                         const p1Snaps = relevantGames.filter(g => g.winner_id === p1Id && g.is_9_on_snap).length;
-
                         const p1Early8s = relevantGames.filter(g => g.winner_id === p1Id && g.is_early_8).length;
 
                         const p2BreakRuns = relevantGames.filter(g => g.winner_id === p2Id && g.is_break_and_run).length;
                         const p2RackRuns = relevantGames.filter(g => g.winner_id === p2Id && g.is_rack_and_run).length;
                         const p2Snaps = relevantGames.filter(g => g.winner_id === p2Id && g.is_9_on_snap).length;
-
                         const p2Early8s = relevantGames.filter(g => g.winner_id === p2Id && g.is_early_8).length;
 
-                        // Determine Match Winner (Restored)
+                        // Determine Match Winner
                         const winnerId = p1WonRacks > p2WonRacks ? p1Id : p2Id;
 
-                        // Calculate Deltas
-                        // Note: BBRS expects TOTAL props for racksPlayed to determine K-Factor. 
-                        // We use the player's current total racks (fetched earlier) + current set?
-                        // Actually, let's use their *start of match* racks played (from DB) for K-factor?
-                        // Or just pass the current stored `racks_played`.
-                        const p1RacksTotal = match.player1.racks_played || 0;
-                        const p2RacksTotal = match.player2.racks_played || 0;
-
-                        const p1Delta = BBRS.calculateSetRatingChange(p1Rating, p2Rating, p1WonRacks, p2WonRacks, p1RacksTotal, true);
-                        const p2Delta = BBRS.calculateSetRatingChange(p2Rating, p1Rating, p2WonRacks, p1WonRacks, p2RacksTotal, true);
-
-                        // 2. Call RPC to Finalize and Update Stats
+                        // Call RPC to Finalize (BBRS deltas computed server-side)
                         const { error } = await supabaseAuthenticated.rpc('finalize_match_stats', {
                             p_match_id: id,
                             p_game_type: activeGameType,
                             p_winner_id: winnerId,
-                            p_p1_delta: p1Delta,
-                            p_p2_delta: p2Delta,
+                            // REMOVED: p_p1_delta, p_p2_delta - now calculated server-side
                             p_p1_racks_won: p1WonRacks,
                             p_p1_racks_lost: p2WonRacks,
                             p_p2_racks_won: p2WonRacks,
                             p_p2_racks_lost: p1WonRacks,
-
                             // Granular Stats
                             p_p1_break_runs: p1BreakRuns,
                             p_p1_rack_runs: p1RackRuns,
                             p_p1_snaps: p1Snaps,
-
                             p_p1_early_8s: p1Early8s,
-
                             p_p2_break_runs: p2BreakRuns,
                             p_p2_rack_runs: p2RackRuns,
                             p_p2_snaps: p2Snaps,
-
                             p_p2_early_8s: p2Early8s
                         });
 
