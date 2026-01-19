@@ -259,8 +259,11 @@ export async function deleteLeague(leagueId: string) {
     const { supabase, error: authError } = await verifyAdmin();
     if (authError || !supabase) return { error: authError };
 
+    // Use admin client to bypass RLS
+    const adminSupabase = createAdminClient();
+
     // First, delete related records from league_operators junction table
-    const { error: operatorsError } = await supabase
+    const { error: operatorsError } = await adminSupabase
         .from("league_operators")
         .delete()
         .eq("league_id", leagueId);
@@ -270,14 +273,25 @@ export async function deleteLeague(leagueId: string) {
         // Continue anyway, it might not have any operators
     }
 
-    const { error } = await supabase
+    // Delete league_players records
+    const { error: playersError } = await adminSupabase
+        .from("league_players")
+        .delete()
+        .eq("league_id", leagueId);
+
+    if (playersError) {
+        console.error("Error deleting league players:", playersError);
+        // Continue anyway
+    }
+
+    const { error } = await adminSupabase
         .from("leagues")
         .delete()
         .eq("id", leagueId);
 
     if (error) {
         console.error("Error deleting league:", error);
-        return { error: "Failed to delete league." };
+        return { error: "Failed to delete league. " + error.message };
     }
 
     revalidatePath("/dashboard/admin");
