@@ -361,6 +361,49 @@ export async function cancelDeletionRequest() {
     return { success: true };
 }
 
+// Admin-facing: Cancel a deletion request
+export async function adminCancelDeletionRequest(deletionRequestId: string) {
+    const { supabase, error: authError } = await verifyAdmin();
+    if (authError || !supabase) return { error: authError };
+
+    const { userId: adminId } = await auth();
+
+    const adminSupabase = createAdminClient();
+
+    // Verify the request exists and is pending
+    const { data: request, error: fetchError } = await adminSupabase
+        .from("deletion_requests")
+        .select("id, status")
+        .eq("id", deletionRequestId)
+        .single();
+
+    if (fetchError || !request) {
+        console.error("Error fetching deletion request:", fetchError);
+        return { error: "Deletion request not found." };
+    }
+
+    if (request.status !== 'pending') {
+        return { error: "This request has already been processed or cancelled." };
+    }
+
+    const { error } = await adminSupabase
+        .from("deletion_requests")
+        .update({
+            status: 'cancelled',
+            processed_at: new Date().toISOString(),
+            processed_by: adminId
+        })
+        .eq("id", deletionRequestId);
+
+    if (error) {
+        console.error("Error cancelling deletion request:", error);
+        return { error: "Failed to cancel deletion request." };
+    }
+
+    revalidatePath("/dashboard/admin");
+    return { success: true };
+}
+
 // Admin-facing: Process account deletion
 export async function processAccountDeletion(deletionRequestId: string) {
     const { supabase, error: authError } = await verifyAdmin();

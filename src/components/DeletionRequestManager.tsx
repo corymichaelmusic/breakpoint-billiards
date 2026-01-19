@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { processAccountDeletion } from "@/app/actions/admin-actions";
+import { processAccountDeletion, adminCancelDeletionRequest } from "@/app/actions/admin-actions";
 
 interface DeletionRequest {
     id: string;
@@ -21,7 +21,9 @@ interface DeletionRequestManagerProps {
 
 export default function DeletionRequestManager({ requests }: DeletionRequestManagerProps) {
     const [processingId, setProcessingId] = useState<string | null>(null);
+    const [cancellingId, setCancellingId] = useState<string | null>(null);
     const [processedIds, setProcessedIds] = useState<Set<string>>(new Set());
+    const [cancelledIds, setCancelledIds] = useState<Set<string>>(new Set());
 
     const handleProcess = async (requestId: string, userName: string) => {
         if (!confirm(`Are you sure you want to permanently delete ${userName}'s account? This will:\n\n• Delete them from Clerk\n• Anonymize their profile data\n• This action cannot be undone.`)) {
@@ -46,7 +48,30 @@ export default function DeletionRequestManager({ requests }: DeletionRequestMana
         }
     };
 
-    const pendingRequests = requests.filter(r => r.status === 'pending' && !processedIds.has(r.id));
+    const handleCancel = async (requestId: string, userName: string) => {
+        if (!confirm(`Cancel ${userName}'s account deletion request? They will remain an active user.`)) {
+            return;
+        }
+
+        setCancellingId(requestId);
+
+        try {
+            const result = await adminCancelDeletionRequest(requestId);
+
+            if (result.error) {
+                alert(result.error);
+            } else {
+                setCancelledIds(prev => new Set([...prev, requestId]));
+            }
+        } catch (e) {
+            console.error("Error cancelling deletion:", e);
+            alert("Failed to cancel deletion request.");
+        } finally {
+            setCancellingId(null);
+        }
+    };
+
+    const pendingRequests = requests.filter(r => r.status === 'pending' && !processedIds.has(r.id) && !cancelledIds.has(r.id));
 
     if (pendingRequests.length === 0) {
         return null;
@@ -96,8 +121,15 @@ export default function DeletionRequestManager({ requests }: DeletionRequestMana
                             </div>
                             <div className="flex flex-col gap-3 min-w-[160px]">
                                 <button
+                                    onClick={() => handleCancel(request.id, userName)}
+                                    disabled={cancellingId === request.id || processingId === request.id}
+                                    className="btn w-full !bg-gray-600 hover:!bg-gray-500 text-white font-bold text-sm py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {cancellingId === request.id ? 'Cancelling...' : 'Cancel Request'}
+                                </button>
+                                <button
                                     onClick={() => handleProcess(request.id, userName)}
-                                    disabled={processingId === request.id}
+                                    disabled={processingId === request.id || cancellingId === request.id}
                                     className="btn w-full !bg-[#dc2626] hover:!bg-[#b91c1c] text-white font-bold text-sm py-3 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {processingId === request.id ? 'Processing...' : 'Process Deletion'}
