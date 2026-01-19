@@ -71,7 +71,7 @@ export default function ManagePlayersList({ sessionId, players, isSessionActive 
                             <div style={{ width: '1.2rem', height: '1.2rem' }} /> /* Spacer */
                         )}
                         <div>
-                            <div style={{ fontWeight: 'bold' }}>{player.name}</div>
+                            <div style={{ fontWeight: 'bold', color: 'white' }}>{player.name}</div>
                             <div style={{ fontSize: '0.9rem', color: '#888' }}>{player.email}</div>
                         </div>
                     </div>
