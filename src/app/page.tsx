@@ -185,14 +185,14 @@ export default async function Home() {
 
           <div className="flex flex-wrap justify-center gap-8">
             {/* iOS Store Button */}
-            <div className="relative w-48 h-16 cursor-pointer hover:scale-105 transition-transform duration-300">
+            <a href="https://apps.apple.com/us/app/breakpoint-billiards/id6757766853" target="_blank" rel="noopener noreferrer" className="relative w-48 h-16 cursor-pointer hover:scale-105 transition-transform duration-300 block">
               <Image
                 src="/app-store-badge.png"
                 alt="Download on the App Store"
                 fill
                 className="object-contain"
               />
-            </div>
+            </a>
 
             {/* Android Store Button */}
             <div className="relative w-48 h-16 cursor-pointer hover:scale-105 transition-transform duration-300">
