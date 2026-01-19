@@ -27,12 +27,12 @@ export default function SessionFeeToggle({ sessionId, initialStatus }: SessionFe
         }
     };
 
-    const getBadgeStyle = (s: string) => {
+    const getInlineStyle = (s: string): React.CSSProperties => {
         switch (s) {
-            case 'paid': return 'bg-[#22c55e]/20 text-[#4ade80] border-[#22c55e]/30';
-            case 'unpaid': return 'bg-error/20 text-[#ef4444] border-[#ef4444]/50';
-            case 'waived': return 'bg-[#D4AF37]/10 !text-[#D4AF37] !border-[#D4AF37]/50';
-            default: return 'bg-[#D4AF37]/10 border-[#D4AF37]/50';
+            case 'paid': return { backgroundColor: 'rgba(34, 197, 94, 0.2)', color: '#4ade80', borderColor: 'rgba(34, 197, 94, 0.3)' };
+            case 'unpaid': return { backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.5)' };
+            case 'waived': return { backgroundColor: 'rgba(212, 175, 55, 0.1)', color: '#D4AF37', borderColor: 'rgba(212, 175, 55, 0.5)' };
+            default: return { backgroundColor: 'rgba(212, 175, 55, 0.1)', color: '#D4AF37', borderColor: 'rgba(212, 175, 55, 0.5)' };
         }
     };
 
@@ -41,8 +41,8 @@ export default function SessionFeeToggle({ sessionId, initialStatus }: SessionFe
             {/* Badge */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`text-[10px] px-2 py-0.5 rounded border font-semibold uppercase tracking-wide cursor-pointer hover:opacity-80 transition-opacity ${getBadgeStyle(status)}`}
-                style={(status === 'waived' || !['paid', 'unpaid'].includes(status)) ? { color: '#D4AF37', borderColor: '#D4AF37' } : {}}
+                className="text-[10px] px-2 py-0.5 rounded border font-semibold uppercase tracking-wide cursor-pointer hover:opacity-80 transition-opacity"
+                style={getInlineStyle(status)}
             >
                 Fee: {status || 'unpaid'}
             </button>
