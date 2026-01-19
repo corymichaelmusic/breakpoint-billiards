@@ -442,14 +442,14 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                                     const { approvePlayer } = await import("@/app/actions/league-actions");
                                                     await approvePlayer(id, request.player_id);
                                                 }} className="flex-1">
-                                                    <button className="btn w-full bg-success text-black text-xs py-1 hover:bg-success/90">Approve</button>
+                                                    <button className="btn w-full text-xs py-1" style={{ backgroundColor: '#22c55e', color: 'white' }}>Approve</button>
                                                 </form>
                                                 <form action={async () => {
                                                     'use server';
                                                     const { rejectPlayer } = await import("@/app/actions/league-actions");
                                                     await rejectPlayer(id, request.player_id);
                                                 }} className="flex-1">
-                                                    <button className="btn w-full bg-error/10 text-error border border-error text-xs py-1 hover:bg-error hover:text-white">Reject</button>
+                                                    <button className="btn w-full text-xs py-1" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid #ef4444' }}>Reject</button>
                                                 </form>
                                             </div>
                                         </div>
