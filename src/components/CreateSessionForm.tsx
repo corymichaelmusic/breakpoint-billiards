@@ -69,6 +69,7 @@ export default function CreateSessionForm({ leagueId }: { leagueId: string }) {
                         name="startDate"
                         type="date"
                         className="input"
+                        style={{ colorScheme: 'dark', accentColor: '#D4AF37' }}
                     />
                 </div>
             </div>
