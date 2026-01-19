@@ -92,6 +92,7 @@ export default function GenerateScheduleForm({
                         onChange={(e) => setStartDate(e.target.value)}
                         required
                         className="input w-full text-sm bg-black/50 border-gray-700"
+                        style={{ colorScheme: 'dark', accentColor: '#D4AF37' }}
                     />
                 </div>
                 <div className="space-y-1">
@@ -118,6 +119,7 @@ export default function GenerateScheduleForm({
                         value={newSkipDate}
                         onChange={(e) => setNewSkipDate(e.target.value)}
                         className="input flex-1 text-sm bg-black/50 border-gray-700"
+                        style={{ colorScheme: 'dark', accentColor: '#D4AF37' }}
                     />
                     <button
                         type="button"
