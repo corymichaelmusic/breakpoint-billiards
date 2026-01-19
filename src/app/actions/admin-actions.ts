@@ -153,7 +153,10 @@ export async function updateSessionFeeStatus(sessionId: string, status: 'paid' |
     const { supabase, error: authError } = await verifyAdmin();
     if (authError || !supabase) return { error: authError };
 
-    const { error } = await supabase
+    // Use admin client to bypass RLS
+    const adminSupabase = createAdminClient();
+
+    const { error } = await adminSupabase
         .from("leagues")
         .update({ creation_fee_status: status })
         .eq("id", sessionId);

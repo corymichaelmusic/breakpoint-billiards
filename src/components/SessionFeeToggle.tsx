@@ -32,7 +32,7 @@ export default function SessionFeeToggle({ sessionId, initialStatus }: SessionFe
             case 'paid': return 'bg-[#22c55e]/20 text-[#4ade80] border-[#22c55e]/30';
             case 'unpaid': return 'bg-error/20 text-[#ef4444] border-[#ef4444]/50';
             case 'waived': return 'bg-[#D4AF37]/10 !text-[#D4AF37] !border-[#D4AF37]/50';
-            default: return 'bg-surface text-gray-400 border-gray-600';
+            default: return 'bg-[#D4AF37]/10 border-[#D4AF37]/50';
         }
     };
 
@@ -42,9 +42,9 @@ export default function SessionFeeToggle({ sessionId, initialStatus }: SessionFe
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className={`text-[10px] px-2 py-0.5 rounded border font-semibold uppercase tracking-wide cursor-pointer hover:opacity-80 transition-opacity ${getBadgeStyle(status)}`}
-                style={status === 'waived' ? { color: '#D4AF37', borderColor: '#D4AF37' } : {}}
+                style={(status === 'waived' || !['paid', 'unpaid'].includes(status)) ? { color: '#D4AF37', borderColor: '#D4AF37' } : {}}
             >
-                Fee: {status}
+                Fee: {status || 'unpaid'}
             </button>
 
             {/* Dropdown */}
