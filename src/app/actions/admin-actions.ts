@@ -108,7 +108,7 @@ export async function createLeagueForOperator(operatorId: string, name: string, 
         return { error: "Operator already has a League Organization." };
     }
 
-    const { error } = await supabase
+    const { data: newLeague, error } = await supabase
         .from("leagues")
         .insert({
             name,
@@ -119,11 +119,27 @@ export async function createLeagueForOperator(operatorId: string, name: string, 
             operator_id: operatorId,
             status: 'setup',
             type: 'league'
-        });
+        })
+        .select('id')
+        .single();
 
-    if (error) {
+    if (error || !newLeague) {
         console.error("Error creating league:", error);
         return { error: "Failed to create league." };
+    }
+
+    // Also add operator to league_operators junction table so it appears in their dashboard
+    const { error: assignError } = await supabase
+        .from("league_operators")
+        .insert({
+            league_id: newLeague.id,
+            user_id: operatorId,
+            role: 'admin'
+        });
+
+    if (assignError) {
+        console.error("Error assigning operator to league:", assignError);
+        // League was created, but assignment failed - log but don't fail the whole operation
     }
 
     revalidatePath("/dashboard/admin");
