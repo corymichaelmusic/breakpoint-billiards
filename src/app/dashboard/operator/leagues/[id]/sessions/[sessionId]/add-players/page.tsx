@@ -131,7 +131,7 @@ export default async function AddPlayersPage({ params }: { params: Promise<{ id:
                                 return (
                                     <div key={req.player_id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "1rem", borderBottom: "1px solid var(--border)" }}>
                                         <div>
-                                            <div style={{ fontWeight: "bold" }}>{profile?.full_name || "Unknown"}</div>
+                                            <div style={{ fontWeight: "bold", color: "white" }}>{profile?.full_name || "Unknown"}</div>
                                             <div style={{ fontSize: "0.9rem", color: "#888" }}>{profile?.email}</div>
                                         </div>
                                         <div style={{ display: "flex", gap: "0.5rem" }}>
