@@ -66,11 +66,19 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
 
     const { data: applications } = await applicationsQuery;
 
-    // Fetch Approved Operators (to assign leagues)
-    const { data: approvedOperators } = await supabase
+    // Fetch Approved Operators and Admins (to assign leagues)
+    const { data: approvedOperatorsRaw } = await supabase
         .from("profiles")
         .select("*")
         .eq("operator_status", "approved");
+
+    const { data: admins } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("role", "admin");
+
+    // Combine operators and admins, avoiding duplicates
+    const approvedOperators = [...(approvedOperatorsRaw || []), ...(admins || []).filter(admin => !approvedOperatorsRaw?.some(op => op.id === admin.id))];
 
     // Fetch All Leagues (to see who has one)
     const { data: leagues } = await adminSupabase
@@ -354,7 +362,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                                             <Link href={`/dashboard/admin/players/${player.id}`} className="btn bg-[#D4AF37] text-black hover:bg-[#b0902c] border-transparent font-bold text-xs px-4 py-2 uppercase tracking-wide">
                                                 View
                                             </Link>
-                                            {player.role === 'operator' && (
+                                            {(player.role === 'operator' || player.role === 'admin') && (
                                                 <AssignLeagueButton operatorId={player.id} availableLeagues={leagues || []} />
                                             )}
                                             <PlayerActions playerId={player.id} isActive={player.is_active !== false} />
