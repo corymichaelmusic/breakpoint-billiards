@@ -97,8 +97,11 @@ export async function createLeagueForOperator(operatorId: string, name: string, 
     const { supabase, error: authError } = await verifyAdmin();
     if (authError || !supabase) return { error: authError };
 
+    // Use admin client to bypass RLS
+    const adminSupabase = createAdminClient();
+
     // Check if operator already has a league
-    const { count } = await supabase
+    const { count } = await adminSupabase
         .from("leagues")
         .select("*", { count: 'exact', head: true })
         .eq("operator_id", operatorId)
@@ -108,7 +111,7 @@ export async function createLeagueForOperator(operatorId: string, name: string, 
         return { error: "Operator already has a League Organization." };
     }
 
-    const { data: newLeague, error } = await supabase
+    const { data: newLeague, error } = await adminSupabase
         .from("leagues")
         .insert({
             name,
@@ -129,7 +132,7 @@ export async function createLeagueForOperator(operatorId: string, name: string, 
     }
 
     // Also add operator to league_operators junction table so it appears in their dashboard
-    const { error: assignError } = await supabase
+    const { error: assignError } = await adminSupabase
         .from("league_operators")
         .insert({
             league_id: newLeague.id,
@@ -139,7 +142,7 @@ export async function createLeagueForOperator(operatorId: string, name: string, 
 
     if (assignError) {
         console.error("Error assigning operator to league:", assignError);
-        // League was created, but assignment failed - log but don't fail the whole operation
+        return { error: "League created but failed to assign operator: " + assignError.message };
     }
 
     revalidatePath("/dashboard/admin");
