@@ -14,11 +14,11 @@ export default async function NewSessionPage({ params }: { params: Promise<{ id:
         <main>
             <Navbar />
             <div className="container" style={{ marginTop: "4rem", maxWidth: "600px" }}>
-                <Link href="/dashboard/operator" className="text-primary hover:text-primary/80" style={{ marginBottom: "1rem", display: "inline-block" }}>
+                <Link href="/dashboard/operator" style={{ marginBottom: "1rem", display: "inline-block", color: "#D4AF37" }}>
                     &larr; Back to Dashboard
                 </Link>
                 <div className="card">
-                    <h1 className="text-primary" style={{ marginBottom: "2rem" }}>Start New Session</h1>
+                    <h1 style={{ marginBottom: "2rem", color: "#D4AF37" }}>Start New Session</h1>
                     <CreateSessionForm leagueId={id} />
                 </div>
             </div>
