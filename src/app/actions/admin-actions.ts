@@ -259,6 +259,17 @@ export async function deleteLeague(leagueId: string) {
     const { supabase, error: authError } = await verifyAdmin();
     if (authError || !supabase) return { error: authError };
 
+    // First, delete related records from league_operators junction table
+    const { error: operatorsError } = await supabase
+        .from("league_operators")
+        .delete()
+        .eq("league_id", leagueId);
+
+    if (operatorsError) {
+        console.error("Error deleting league operators:", operatorsError);
+        // Continue anyway, it might not have any operators
+    }
+
     const { error } = await supabase
         .from("leagues")
         .delete()
