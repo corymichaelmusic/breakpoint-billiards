@@ -431,7 +431,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                     <div className="space-y-8">
                         {hasPending && !isCompleted && (
                             <div className="card-glass p-6 border-primary/30">
-                                <h3 className="text-lg font-bold text-primary mb-4">Pending Requests</h3>
+                                <h3 className="text-lg font-bold mb-4" style={{ color: '#D4AF37' }}>Pending Requests</h3>
                                 <div className="grid gap-2">
                                     {pendingRequests.map((request) => (
                                         <div key={request.id} className="bg-surface/50 p-3 rounded border border-border text-sm">
