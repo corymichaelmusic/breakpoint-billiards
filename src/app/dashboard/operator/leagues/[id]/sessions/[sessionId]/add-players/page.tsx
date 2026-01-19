@@ -87,12 +87,12 @@ export default async function AddPlayersPage({ params }: { params: Promise<{ id:
             <Navbar />
             <div className="container" style={{ marginTop: "4rem", maxWidth: "800px" }}>
                 <div style={{ marginBottom: '1rem' }}>
-                    <Link href={`/dashboard/operator/leagues/${sessionId}`} className="btn-ghost">
+                    <Link href={`/dashboard/operator/leagues/${sessionId}`} className="btn-ghost" style={{ color: '#D4AF37' }}>
                         &larr; Back to Session
                     </Link>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: "1rem" }}>
-                    <h1>Manage Players for {session?.name}</h1>
+                    <h1 style={{ color: '#D4AF37' }}>Manage Players for {session?.name}</h1>
                     {session.status !== 'setup' && (
                         <form action={async () => {
                             'use server';
