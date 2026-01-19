@@ -111,7 +111,7 @@ export default function GenerateScheduleForm({
 
             {/* Skip Dates Section */}
             <div className="mb-6 border-t border-gray-800 pt-4">
-                <label className="text-xs text-primary font-bold mb-2 block">Skip Weeks (Holidays/No-Play)</label>
+                <label className="text-xs font-bold mb-2 block" style={{ color: '#D4AF37' }}>Skip Weeks (Holidays/No-Play)</label>
                 <div className="flex gap-2 mb-2">
                     <input
                         type="date"
@@ -123,6 +123,7 @@ export default function GenerateScheduleForm({
                         type="button"
                         onClick={handleAddSkipDate}
                         className="btn bg-surface border border-border hover:bg-surface-hover text-xs px-3"
+                        style={{ color: '#D4AF37' }}
                     >
                         Add Skip Date
                     </button>
@@ -153,7 +154,8 @@ export default function GenerateScheduleForm({
             <button
                 type="submit"
                 disabled={creationFeeStatus === 'unpaid' || loading}
-                className={`btn w-full ${creationFeeStatus === 'unpaid' ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'btn-primary'} flex justify-center items-center gap-2`}
+                className={`btn w-full ${creationFeeStatus === 'unpaid' ? 'bg-gray-700 cursor-not-allowed' : 'btn-primary'} flex justify-center items-center gap-2`}
+                style={creationFeeStatus === 'unpaid' ? { color: '#D4AF37' } : {}}
             >
                 {loading && <span className="animate-spin h-3 w-3 border-2 border-black border-t-transparent rounded-full" />}
                 {creationFeeStatus === 'unpaid' ? 'Pay Fee to Generate Schedule' : 'Generate Schedule'}

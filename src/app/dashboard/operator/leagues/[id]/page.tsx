@@ -316,7 +316,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                     )}
 
                                     {isSetup && (
-                                        <Link href={`/dashboard/operator/leagues/${league.parent_league_id}/sessions/${id}/add-players`} className="btn w-full bg-surface border border-border text-center block hover:bg-surface-hover">
+                                        <Link href={`/dashboard/operator/leagues/${league.parent_league_id}/sessions/${id}/add-players`} className="btn w-full bg-surface border border-border text-center block hover:bg-surface-hover" style={{ color: '#D4AF37' }}>
                                             Manage / Invite Players
                                         </Link>
                                     )}
