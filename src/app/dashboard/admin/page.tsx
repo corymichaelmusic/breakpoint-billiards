@@ -14,6 +14,7 @@ import SessionFeeToggle from "@/components/SessionFeeToggle";
 import AssignLeagueButton from "@/components/AssignLeagueButton";
 import PreregistrationManager from "@/components/PreregistrationManager";
 import DeletionRequestManager from "@/components/DeletionRequestManager";
+import DeleteSessionButton from "@/components/DeleteSessionButton";
 
 // Force dynamic rendering to ensure fresh data on each request
 export const dynamic = 'force-dynamic';
@@ -404,11 +405,14 @@ async function SuspenseSessions({ leagueId }: { leagueId: string }) {
                     <div className="flex items-center gap-2">
                         <span className="font-medium text-white">{s.name}</span>
                         <span className={`text-[10px] px-1.5 rounded uppercase font-bold
-                            ${s.status === 'active' ? 'bg-[#22c55e]/20 text-[#4ade80]' : 'bg-gray-800 text-gray-500'}`}>
+                            ${s.status === 'active' ? 'bg-[#22c55e]/20 text-[#4ade80]' :
+                                s.status === 'inactive' ? 'bg-yellow-500/20 text-yellow-500' :
+                                    'bg-gray-800 text-gray-500'}`}>
                             {s.status}
                         </span>
                         <SessionFeeToggle sessionId={s.id} initialStatus={s.creation_fee_status} />
                     </div>
+                    <DeleteSessionButton sessionId={s.id} sessionName={s.name} />
                 </div>
             ))}
         </div>

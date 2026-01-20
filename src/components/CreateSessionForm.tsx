@@ -4,7 +4,18 @@ import { createSession } from "@/app/actions/league-actions";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export default function CreateSessionForm({ leagueId }: { leagueId: string }) {
+export default function CreateSessionForm({
+    leagueId,
+    defaultBounties = { bounty8Run: 0, bounty9Run: 0, bounty9Snap: 0, bountyShutout: 0 }
+}: {
+    leagueId: string,
+    defaultBounties?: {
+        bounty8Run: number,
+        bounty9Run: number,
+        bounty9Snap: number,
+        bountyShutout: number
+    }
+}) {
     const router = useRouter();
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
@@ -16,7 +27,14 @@ export default function CreateSessionForm({ leagueId }: { leagueId: string }) {
         const name = formData.get("name") as string;
         const startDate = formData.get("startDate") as string || null;
 
-        const res = await createSession(leagueId, name, startDate);
+        const bounties = {
+            bounty8Run: Number(formData.get("bounty8Run") || 0),
+            bounty9Run: Number(formData.get("bounty9Run") || 0),
+            bounty9Snap: Number(formData.get("bounty9Snap") || 0),
+            bountyShutout: Number(formData.get("bountyShutout") || 0)
+        };
+
+        const res = await createSession(leagueId, name, startDate, bounties);
 
         if (res?.error) {
             setError(res.error);
@@ -72,6 +90,55 @@ export default function CreateSessionForm({ leagueId }: { leagueId: string }) {
                         style={{ colorScheme: 'dark', accentColor: '#D4AF37' }}
                     />
                 </div>
+            </div>
+
+            <div style={{ marginBottom: "1.5rem" }}>
+                <h3 className="text-white font-bold mb-4" style={{ color: "#D4AF37" }}>Bounty Configuration</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                    <div>
+                        <label className="label">8-Ball Break & Run (Points)</label>
+                        <input
+                            name="bounty8Run"
+                            type="number"
+                            defaultValue={defaultBounties.bounty8Run}
+                            min="0"
+                            className="input"
+                        />
+                    </div>
+                    <div>
+                        <label className="label">9-Ball Break & Run (Points)</label>
+                        <input
+                            name="bounty9Run"
+                            type="number"
+                            defaultValue={defaultBounties.bounty9Run}
+                            min="0"
+                            className="input"
+                        />
+                    </div>
+                    <div>
+                        <label className="label">9-Ball On the Snap (Points)</label>
+                        <input
+                            name="bounty9Snap"
+                            type="number"
+                            defaultValue={defaultBounties.bounty9Snap}
+                            min="0"
+                            className="input"
+                        />
+                    </div>
+                    <div>
+                        <label className="label">Shutout (Points)</label>
+                        <input
+                            name="bountyShutout"
+                            type="number"
+                            defaultValue={defaultBounties.bountyShutout}
+                            min="0"
+                            className="input"
+                        />
+                    </div>
+                </div>
+                <p className="text-xs text-gray-400 mt-2">
+                    Default values are loaded from the parent league organization settings.
+                </p>
             </div>
 
             <button type="submit" className="btn btn-primary" style={{ width: "100%" }} disabled={loading}>

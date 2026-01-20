@@ -3,7 +3,17 @@
 import { createAdminClient } from "@/utils/supabase/admin";
 import { revalidatePath } from "next/cache";
 
-export async function createSession(parentLeagueId: string, name: string, startDate: string | null = null) {
+export async function createSession(
+    parentLeagueId: string,
+    name: string,
+    startDate: string | null = null,
+    bounties: {
+        bounty8Run?: number,
+        bounty9Run?: number,
+        bounty9Snap?: number,
+        bountyShutout?: number
+    } = {}
+) {
     const supabase = createAdminClient();
     const { auth } = await import("@clerk/nextjs/server");
     const { userId } = await auth();
@@ -59,7 +69,11 @@ export async function createSession(parentLeagueId: string, name: string, startD
             creation_fee_status: 'unpaid', // Default to unpaid
             session_fee: sessionFee,
             creation_fee: creationFee,
-            start_date: startDate
+            start_date: startDate,
+            bounty_val_8_run: bounties.bounty8Run || 0,
+            bounty_val_9_run: bounties.bounty9Run || 0,
+            bounty_val_9_snap: bounties.bounty9Snap || 0,
+            bounty_val_shutout: bounties.bountyShutout || 0
         })
         .select("id")
         .single();
