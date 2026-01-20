@@ -85,6 +85,7 @@ BEGIN
             breakpoint_rating = breakpoint_rating - COALESCE(v_delta_p1, 0),
             breakpoint_racks_won = breakpoint_racks_won - COALESCE(v_score_p1, 0),
             breakpoint_racks_lost = breakpoint_racks_lost - COALESCE(v_score_p2, 0),
+            breakpoint_racks_played = breakpoint_racks_played - (COALESCE(v_score_p1, 0) + COALESCE(v_score_p2, 0)),
             matches_won = matches_won - (CASE WHEN v_player1_id = v_winner_id THEN 1 ELSE 0 END),
             matches_lost = matches_lost - (CASE WHEN v_player1_id != v_winner_id THEN 1 ELSE 0 END),
             matches_played = matches_played - 1, 
@@ -106,7 +107,8 @@ BEGIN
         SET 
             breakpoint_rating = breakpoint_rating - COALESCE(v_delta_p2, 0),
             breakpoint_racks_won = breakpoint_racks_won - COALESCE(v_score_p2, 0),
-            breakpoint_racks_lost = breakpoint_racks_lost - COALESCE(v_score_p1, 0), -- P2 Lost = P1 Won (Score P1)
+            breakpoint_racks_lost = breakpoint_racks_lost - COALESCE(v_score_p1, 0), 
+            breakpoint_racks_played = breakpoint_racks_played - (COALESCE(v_score_p1, 0) + COALESCE(v_score_p2, 0)),
             matches_won = matches_won - (CASE WHEN v_player2_id = v_winner_id THEN 1 ELSE 0 END),
             matches_lost = matches_lost - (CASE WHEN v_player2_id != v_winner_id THEN 1 ELSE 0 END),
             matches_played = matches_played - 1,
@@ -178,6 +180,7 @@ BEGIN
             breakpoint_rating = breakpoint_rating - COALESCE(v_delta_p1, 0),
             breakpoint_racks_won = breakpoint_racks_won - COALESCE(v_score_p1, 0),
             breakpoint_racks_lost = breakpoint_racks_lost - COALESCE(v_score_p2, 0),
+            breakpoint_racks_played = breakpoint_racks_played - (COALESCE(v_score_p1, 0) + COALESCE(v_score_p2, 0)),
             matches_won = matches_won - (CASE WHEN v_player1_id = v_winner_id THEN 1 ELSE 0 END),
             matches_lost = matches_lost - (CASE WHEN v_player1_id != v_winner_id THEN 1 ELSE 0 END),
             matches_played = matches_played - 1,
@@ -196,6 +199,7 @@ BEGIN
             breakpoint_rating = breakpoint_rating - COALESCE(v_delta_p2, 0),
             breakpoint_racks_won = breakpoint_racks_won - COALESCE(v_score_p2, 0),
             breakpoint_racks_lost = breakpoint_racks_lost - COALESCE(v_score_p1, 0),
+            breakpoint_racks_played = breakpoint_racks_played - (COALESCE(v_score_p1, 0) + COALESCE(v_score_p2, 0)),
             matches_won = matches_won - (CASE WHEN v_player2_id = v_winner_id THEN 1 ELSE 0 END),
             matches_lost = matches_lost - (CASE WHEN v_player2_id != v_winner_id THEN 1 ELSE 0 END),
             matches_played = matches_played - 1,
