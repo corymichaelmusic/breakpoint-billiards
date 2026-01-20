@@ -80,8 +80,8 @@ async function run() {
     try {
         // Specific players from the latest debug output
         const players = [
-            'user_38V0g7fCDSUhqvq7RiwpoDkI6W0',
-            'user_38GKAWlAxWgwMuoirhNpUxHRwWM'
+            'user_38V3jc7BblMLNW8oU6JLpYvbFY8',
+            'user_38V7Vlzg7uLY2ssFDXn1VE8he51'
         ];
 
         for (const pid of players) {
