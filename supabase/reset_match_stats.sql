@@ -18,11 +18,11 @@ DECLARE
     v_delta_p1 numeric;
     v_delta_p2 numeric;
     
-    -- Scores stored in matches table (implies Racks Won)
-    v_score_p1 int;
-    v_score_p2 int;
+    -- Computed Scores from GAMES table (Source of Truth)
+    v_real_score_p1 int;
+    v_real_score_p2 int;
     
-    -- Granular Stats (Computed from GAMES table for accuracy)
+    -- Granular Stats (Computed from GAMES table)
     v_br_p1 int;
     v_br_p2 int;
     v_rr_p1 int;
@@ -53,22 +53,23 @@ BEGIN
             RETURN; 
         END IF;
 
-        -- Fetch 8-ball specific data stored in matches
-        SELECT delta_8ball_p1, delta_8ball_p2, winner_id_8ball,
-               score_8ball_p1, score_8ball_p2
-        INTO v_delta_p1, v_delta_p2, v_winner_id,
-             v_score_p1, v_score_p2
+        -- Fetch Deltas (must trust matches table for this) directly
+        SELECT delta_8ball_p1, delta_8ball_p2, winner_id_8ball
+        INTO v_delta_p1, v_delta_p2, v_winner_id
         FROM matches WHERE id = p_match_id;
         
-        -- COMPUTING GRANULAR STATS FROM GAMES TABLE (Before Deletion)
+        -- COMPUTING SCORES AND STATS FROM GAMES TABLE (Before Deletion)
         SELECT 
+            COUNT(*) FILTER (WHERE winner_id = v_player1_id) as wins1,
+            COUNT(*) FILTER (WHERE winner_id = v_player2_id) as wins2,
             COUNT(*) FILTER (WHERE winner_id = v_player1_id AND is_break_and_run) as br1,
             COUNT(*) FILTER (WHERE winner_id = v_player2_id AND is_break_and_run) as br2,
             COUNT(*) FILTER (WHERE winner_id = v_player1_id AND is_rack_and_run) as rr1,
             COUNT(*) FILTER (WHERE winner_id = v_player2_id AND is_rack_and_run) as rr2,
             COUNT(*) FILTER (WHERE winner_id = v_player1_id AND is_early_8) as early1,
             COUNT(*) FILTER (WHERE winner_id = v_player2_id AND is_early_8) as early2
-        INTO v_br_p1, v_br_p2, v_rr_p1, v_rr_p2, v_early_p1, v_early_p2
+        INTO v_real_score_p1, v_real_score_p2, 
+             v_br_p1, v_br_p2, v_rr_p1, v_rr_p2, v_early_p1, v_early_p2
         FROM games WHERE match_id = p_match_id AND game_type = '8ball';
 
         -- Check Shutout Reversal logic
@@ -83,20 +84,18 @@ BEGIN
         UPDATE league_players
         SET 
             breakpoint_rating = breakpoint_rating - COALESCE(v_delta_p1, 0),
-            breakpoint_racks_won = breakpoint_racks_won - COALESCE(v_score_p1, 0),
-            breakpoint_racks_lost = breakpoint_racks_lost - COALESCE(v_score_p2, 0),
-            breakpoint_racks_played = breakpoint_racks_played - (COALESCE(v_score_p1, 0) + COALESCE(v_score_p2, 0)),
+            breakpoint_racks_won = breakpoint_racks_won - COALESCE(v_real_score_p1, 0),
+            breakpoint_racks_lost = breakpoint_racks_lost - COALESCE(v_real_score_p2, 0),
+            breakpoint_racks_played = breakpoint_racks_played - (COALESCE(v_real_score_p1, 0) + COALESCE(v_real_score_p2, 0)),
             matches_won = matches_won - (CASE WHEN v_player1_id = v_winner_id THEN 1 ELSE 0 END),
             matches_lost = matches_lost - (CASE WHEN v_player1_id != v_winner_id THEN 1 ELSE 0 END),
             matches_played = matches_played - 1, 
             shutouts = shutouts - (CASE WHEN v_was_shutout AND v_player1_id = v_winner_id THEN 1 ELSE 0 END),
             
-            -- Granular (Exact Counts)
             total_break_and_runs = total_break_and_runs - COALESCE(v_br_p1, 0),
             total_rack_and_runs = total_rack_and_runs - COALESCE(v_rr_p1, 0),
             total_early_8 = total_early_8 - COALESCE(v_early_p1, 0),
             
-            -- Split Stats
             total_break_and_runs_8ball = total_break_and_runs_8ball - COALESCE(v_br_p1, 0),
             total_rack_and_runs_8ball = total_rack_and_runs_8ball - COALESCE(v_rr_p1, 0)
             
@@ -106,9 +105,9 @@ BEGIN
         UPDATE league_players
         SET 
             breakpoint_rating = breakpoint_rating - COALESCE(v_delta_p2, 0),
-            breakpoint_racks_won = breakpoint_racks_won - COALESCE(v_score_p2, 0),
-            breakpoint_racks_lost = breakpoint_racks_lost - COALESCE(v_score_p1, 0), 
-            breakpoint_racks_played = breakpoint_racks_played - (COALESCE(v_score_p1, 0) + COALESCE(v_score_p2, 0)),
+            breakpoint_racks_won = breakpoint_racks_won - COALESCE(v_real_score_p2, 0),
+            breakpoint_racks_lost = breakpoint_racks_lost - COALESCE(v_real_score_p1, 0), 
+            breakpoint_racks_played = breakpoint_racks_played - (COALESCE(v_real_score_p1, 0) + COALESCE(v_real_score_p2, 0)),
             matches_won = matches_won - (CASE WHEN v_player2_id = v_winner_id THEN 1 ELSE 0 END),
             matches_lost = matches_lost - (CASE WHEN v_player2_id != v_winner_id THEN 1 ELSE 0 END),
             matches_played = matches_played - 1,
@@ -148,22 +147,23 @@ BEGIN
             RETURN; 
         END IF;
 
-        -- Fetch 9-ball specific data
-        SELECT delta_9ball_p1, delta_9ball_p2, winner_id_9ball,
-               score_9ball_p1, score_9ball_p2
-        INTO v_delta_p1, v_delta_p2, v_winner_id,
-             v_score_p1, v_score_p2
+        -- Fetch 9-ball specific data (Deltas only)
+        SELECT delta_9ball_p1, delta_9ball_p2, winner_id_9ball
+        INTO v_delta_p1, v_delta_p2, v_winner_id
         FROM matches WHERE id = p_match_id;
         
-        -- COMPUTING GRANULAR STATS FROM GAMES TABLE (Before Deletion)
+        -- COMPUTING SCORES AND STATS FROM GAMES TABLE (Before Deletion)
         SELECT 
+            COUNT(*) FILTER (WHERE winner_id = v_player1_id) as wins1,
+            COUNT(*) FILTER (WHERE winner_id = v_player2_id) as wins2,
             COUNT(*) FILTER (WHERE winner_id = v_player1_id AND is_break_and_run) as br1,
             COUNT(*) FILTER (WHERE winner_id = v_player2_id AND is_break_and_run) as br2,
             COUNT(*) FILTER (WHERE winner_id = v_player1_id AND is_rack_and_run) as rr1,
             COUNT(*) FILTER (WHERE winner_id = v_player2_id AND is_rack_and_run) as rr2,
             COUNT(*) FILTER (WHERE winner_id = v_player1_id AND is_9_on_snap) as snap1,
             COUNT(*) FILTER (WHERE winner_id = v_player2_id AND is_9_on_snap) as snap2
-        INTO v_br_p1, v_br_p2, v_rr_p1, v_rr_p2, v_snap_p1, v_snap_p2
+        INTO v_real_score_p1, v_real_score_p2,
+             v_br_p1, v_br_p2, v_rr_p1, v_rr_p2, v_snap_p1, v_snap_p2
         FROM games WHERE match_id = p_match_id AND game_type = '9ball';
 
         -- Check Shutout Reversal (same logic: if both were finalized and winners matched)
@@ -178,9 +178,9 @@ BEGIN
         UPDATE league_players
         SET 
             breakpoint_rating = breakpoint_rating - COALESCE(v_delta_p1, 0),
-            breakpoint_racks_won = breakpoint_racks_won - COALESCE(v_score_p1, 0),
-            breakpoint_racks_lost = breakpoint_racks_lost - COALESCE(v_score_p2, 0),
-            breakpoint_racks_played = breakpoint_racks_played - (COALESCE(v_score_p1, 0) + COALESCE(v_score_p2, 0)),
+            breakpoint_racks_won = breakpoint_racks_won - COALESCE(v_real_score_p1, 0),
+            breakpoint_racks_lost = breakpoint_racks_lost - COALESCE(v_real_score_p2, 0),
+            breakpoint_racks_played = breakpoint_racks_played - (COALESCE(v_real_score_p1, 0) + COALESCE(v_real_score_p2, 0)),
             matches_won = matches_won - (CASE WHEN v_player1_id = v_winner_id THEN 1 ELSE 0 END),
             matches_lost = matches_lost - (CASE WHEN v_player1_id != v_winner_id THEN 1 ELSE 0 END),
             matches_played = matches_played - 1,
@@ -197,9 +197,9 @@ BEGIN
         UPDATE league_players
         SET 
             breakpoint_rating = breakpoint_rating - COALESCE(v_delta_p2, 0),
-            breakpoint_racks_won = breakpoint_racks_won - COALESCE(v_score_p2, 0),
-            breakpoint_racks_lost = breakpoint_racks_lost - COALESCE(v_score_p1, 0),
-            breakpoint_racks_played = breakpoint_racks_played - (COALESCE(v_score_p1, 0) + COALESCE(v_score_p2, 0)),
+            breakpoint_racks_won = breakpoint_racks_won - COALESCE(v_real_score_p2, 0),
+            breakpoint_racks_lost = breakpoint_racks_lost - COALESCE(v_real_score_p1, 0),
+            breakpoint_racks_played = breakpoint_racks_played - (COALESCE(v_real_score_p1, 0) + COALESCE(v_real_score_p2, 0)),
             matches_won = matches_won - (CASE WHEN v_player2_id = v_winner_id THEN 1 ELSE 0 END),
             matches_lost = matches_lost - (CASE WHEN v_player2_id != v_winner_id THEN 1 ELSE 0 END),
             matches_played = matches_played - 1,
