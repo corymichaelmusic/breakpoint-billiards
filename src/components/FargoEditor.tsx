@@ -11,6 +11,7 @@ interface FargoEditorProps {
 export default function FargoEditor({ playerId, currentFargo }: FargoEditorProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [tempFargo, setTempFargo] = useState(currentFargo ? String(currentFargo) : "");
+    const [displayFargo, setDisplayFargo] = useState(currentFargo);
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSave = async () => {
@@ -26,9 +27,8 @@ export default function FargoEditor({ playerId, currentFargo }: FargoEditorProps
             if (result.error) {
                 alert(result.error);
             } else {
+                setDisplayFargo(rating);
                 setIsEditing(false);
-                // Ideally we update local state or revalidate logic handles it, 
-                // but since we redirect/revalidatePath on server action, the parent page typically refreshes.
             }
         } catch (e) {
             console.error(e);
@@ -77,7 +77,7 @@ export default function FargoEditor({ playerId, currentFargo }: FargoEditorProps
 
     return (
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-            <span style={{ fontSize: "1.1rem", fontWeight: "bold", color: "white" }}>{currentFargo || 'N/A'}</span>
+            <span style={{ fontSize: "1.1rem", fontWeight: "bold", color: "white" }}>{displayFargo || 'N/A'}</span>
             <button
                 onClick={() => setIsEditing(true)}
                 className="btn"

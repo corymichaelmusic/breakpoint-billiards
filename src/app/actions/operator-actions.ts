@@ -70,5 +70,8 @@ export async function updatePlayerFargo(playerId: string, fargoRating: number) {
     }
 
     revalidatePath("/dashboard");
+    revalidatePath(`/dashboard/admin/players/${playerId}`);
+    revalidatePath("/dashboard/admin/players");
+    revalidatePath("/dashboard/operator", "layout");
     return { success: true };
 }
