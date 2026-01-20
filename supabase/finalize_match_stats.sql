@@ -116,21 +116,9 @@ BEGIN
         END IF;
     END IF;
     
-    -- 3.5 BONUS POINT LOGIC (Display Fix)
-    -- If Winner has fewer or equal points, boost them to Loser + 1
+    -- 3.5 BONUS POINT LOGIC REMOVED (Client updated to use winner_id)
     v_points_p1 := p_p1_racks_won;
     v_points_p2 := p_p2_racks_won;
-    
-    IF v_final_winner_id = v_player1_id THEN
-        IF v_points_p1 <= v_points_p2 THEN
-            v_points_p1 := v_points_p2 + 1;
-        END IF;
-    ELSE 
-        -- Winner is P2
-        IF v_points_p2 <= v_points_p1 THEN
-            v_points_p2 := v_points_p1 + 1;
-        END IF;
-    END IF;
 
 
     -- 4. Calculate BBRS Deltas (Using BBRS ratings)
