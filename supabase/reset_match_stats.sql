@@ -73,6 +73,9 @@ BEGIN
             v_was_shutout := true;
         END IF;
 
+        -- DELETE GAMES RECORDS (Critical for Mobile App Sync)
+        DELETE FROM games WHERE match_id = p_match_id AND game_type = '8ball';
+
         -- 3. Revert Player 1 Stats
         UPDATE league_players
         SET 
@@ -153,6 +156,9 @@ BEGIN
         IF v_status_8ball = 'finalized' AND v_winner_8ball = v_winner_9ball THEN
             v_was_shutout := true;
         END IF;
+
+        -- DELETE GAMES RECORDS
+        DELETE FROM games WHERE match_id = p_match_id AND game_type = '9ball';
 
         -- Revert Player 1 Stats (9-ball)
         UPDATE league_players
