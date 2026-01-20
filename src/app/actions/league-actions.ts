@@ -796,6 +796,51 @@ export async function updateLeague(leagueId: string, updates: any) {
     return { success: true };
 }
 
+
+export async function resetMatch(matchId: string, gameType: string) {
+    const supabase = createAdminClient();
+    const { auth } = await import("@clerk/nextjs/server");
+    const { userId } = await auth();
+
+    if (!userId) return { error: "Unauthorized" };
+
+    // 1. Verify ownership (Operator of the league this match belongs to)
+    const { data: match } = await supabase.from("matches").select("league_id").eq("id", matchId).single();
+    if (!match) return { error: "Match not found" };
+
+    const { data: league } = await supabase.from("leagues").select("operator_id, parent_league_id").eq("id", match.league_id).single();
+    if (!league) return { error: "League not found" };
+
+    // Check operator (or parent operator if session)
+    let operatorId = league.operator_id;
+    if (league.parent_league_id) {
+        const { data: parent } = await supabase.from("leagues").select("operator_id").eq("id", league.parent_league_id).single();
+        operatorId = parent?.operator_id;
+    }
+
+    // Check Admin
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
+    const isAdmin = profile?.role === 'admin';
+
+    if (operatorId !== userId && !isAdmin) {
+        return { error: "Unauthorized" };
+    }
+
+    // 2. Call RPC
+    const { error } = await supabase.rpc('reset_match_stats', {
+        p_match_id: matchId,
+        p_game_type: gameType
+    });
+
+    if (error) {
+        console.error("Error resetting match:", error);
+        return { error: `Failed to reset match: ${error.message}` };
+    }
+
+    revalidatePath(`/dashboard/operator/leagues/${match.league_id}`);
+    return { success: true };
+}
+
 export async function togglePlayerFee(leagueId: string, playerId: string, isPaid: boolean) {
     const supabase = createAdminClient();
     const { userId } = await import("@clerk/nextjs/server").then(mod => mod.auth());

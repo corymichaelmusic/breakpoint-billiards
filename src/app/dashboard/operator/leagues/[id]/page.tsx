@@ -10,6 +10,7 @@ import RescheduleInbox from "@/components/RescheduleInbox";
 import MatchDateManager from "@/components/MatchDateManager";
 import { createAdminClient } from "@/utils/supabase/admin";
 import GenerateScheduleForm from "@/components/GenerateScheduleForm";
+import ResetMatchButton from "@/components/ResetMatchButton";
 
 export default async function LeaguePage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -396,13 +397,15 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                                             <div className="flex items-center gap-2">
                                                                 {(effectiveStatus === 'in_progress' || effectiveStatus === 'finalized') && (
                                                                     <div className="flex flex-col gap-1 items-end min-w-[60px]">
-                                                                        <span className="text-[10px] font-mono bg-black/40 px-1.5 py-0.5 rounded text-gray-300 whitespace-nowrap">
+                                                                        <span className="text-[10px] font-mono bg-black/40 px-1.5 py-0.5 rounded text-gray-300 whitespace-nowrap flex items-center gap-2">
                                                                             <span className="text-gray-500 mr-1">8B:</span>
                                                                             <span className="text-white">{match.points_8ball_p1}-{match.points_8ball_p2}</span>
+                                                                            <ResetMatchButton matchId={match.id} gameType="8ball" isFinalized={match.status_8ball === 'finalized'} />
                                                                         </span>
-                                                                        <span className="text-[10px] font-mono bg-black/40 px-1.5 py-0.5 rounded text-gray-300 whitespace-nowrap">
+                                                                        <span className="text-[10px] font-mono bg-black/40 px-1.5 py-0.5 rounded text-gray-300 whitespace-nowrap flex items-center gap-2">
                                                                             <span className="text-gray-500 mr-1">9B:</span>
                                                                             <span className="text-white">{match.points_9ball_p1}-{match.points_9ball_p2}</span>
+                                                                            <ResetMatchButton matchId={match.id} gameType="9ball" isFinalized={match.status_9ball === 'finalized'} />
                                                                         </span>
                                                                     </div>
                                                                 )}

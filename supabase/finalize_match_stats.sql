@@ -96,13 +96,17 @@ BEGIN
         UPDATE matches 
         SET status_8ball = 'finalized', 
             winner_id_8ball = p_winner_id,
-            submitted_at = NOW()
+            submitted_at = NOW(),
+            delta_8ball_p1 = v_p1_delta,
+            delta_8ball_p2 = v_p2_delta
         WHERE id = p_match_id;
     ELSE
         UPDATE matches 
         SET status_9ball = 'finalized', 
             winner_id_9ball = p_winner_id,
-            submitted_at = NOW()
+            submitted_at = NOW(),
+            delta_9ball_p1 = v_p1_delta,
+            delta_9ball_p2 = v_p2_delta
         WHERE id = p_match_id;
     END IF;
 
