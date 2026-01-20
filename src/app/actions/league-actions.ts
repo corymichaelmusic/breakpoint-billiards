@@ -20,15 +20,15 @@ export async function createSession(parentLeagueId: string, name: string, startD
 
     if (!parent) return { error: "Parent league not found." };
 
-    // 2. Check for active sessions (limit 1 active session per league)
+    // 2. Check for active sessions (limit 3 active sessions per league)
     const { count } = await supabase
         .from("leagues")
         .select("*", { count: 'exact', head: true })
         .eq("parent_league_id", parentLeagueId)
         .in("status", ['setup', 'active']);
 
-    if (count && count > 0) {
-        return { error: "You already have an active session. Please complete it first." };
+    if (count && count >= 3) {
+        return { error: "You have reached the limit of 3 active sessions. Please complete one first." };
     }
 
     // 3. Fetch Global Fees (Session Fee & Creation Fee)

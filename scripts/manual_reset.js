@@ -18,8 +18,8 @@ const pool = new Pool({
 async function run() {
     const client = await pool.connect();
     try {
-        const matchId = '9ec68e45-6021-4166-a895-30f299e3ee72'; // ID from inspect_debug
-        const gameType = '8ball';
+        const matchId = 'f3c79c95-6bb9-42af-96b0-e43685912fc6'; // Savannah/Quinton Match
+        const gameType = '9ball';
 
         console.log(`Attempting manual reset for match ${matchId} (${gameType})...`);
 

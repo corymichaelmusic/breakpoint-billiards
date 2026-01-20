@@ -29,6 +29,11 @@ export default function HomeScreen() {
   const [nextMatch, setNextMatch] = useState<any>(null);
   const [bountyDisplay, setBountyDisplay] = useState(false);
   const [bountyAmount, setBountyAmount] = useState(0);
+  const [bountyExpanded, setBountyExpanded] = useState(false);
+  const [bountyDetails, setBountyDetails] = useState<{
+    val8: number; val9: number; valSnap: number; valShutout: number;
+    bnr8: number; bnr9: number; snaps: number; shutoutsCount: number;
+  } | null>(null);
 
   const lastFetchTime = useRef<number>(0);
   const CACHE_DURATION = 60000;
@@ -142,6 +147,7 @@ export default function HomeScreen() {
         const snaps = activeMembership.total_nine_on_snap || 0;
         const shutoutsCount = activeMembership.shutouts || 0;
         setBountyAmount((bnr8 * val8) + (bnr9 * val9) + (snaps * valSnap) + (shutoutsCount * valShutout));
+        setBountyDetails({ val8, val9, valSnap, valShutout, bnr8, bnr9, snaps, shutoutsCount });
 
         // Fetch Matches
         const { data: matchesData } = await supabaseAuthenticated
@@ -429,10 +435,44 @@ export default function HomeScreen() {
           </Text>
         )}
         {bountyDisplay && (
-          <View className="bg-green-900/40 border border-green-500/50 rounded-full px-4 py-1 mt-3 mb-1 flex-row items-center justify-center max-w-[80%]">
-            <Ionicons name="cash-outline" size={16} color="#4ade80" style={{ marginRight: 6 }} />
-            <Text className="text-green-400 font-bold text-sm tracking-wide" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>BOUNTY: ${bountyAmount}</Text>
-          </View>
+          <TouchableOpacity
+            onPress={() => setBountyExpanded(!bountyExpanded)}
+            activeOpacity={0.8}
+            className="items-center w-full"
+          >
+            <View className="bg-green-900/40 border border-green-500/50 rounded-full px-4 py-1 mt-3 mb-1 flex-row items-center justify-center max-w-[80%]">
+              <Ionicons name={bountyExpanded ? "chevron-up" : "cash-outline"} size={16} color="#4ade80" style={{ marginRight: 6 }} />
+              <Text className="text-green-400 font-bold text-sm tracking-wide" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
+                BOUNTY: ${bountyAmount}
+              </Text>
+            </View>
+
+            {bountyExpanded && bountyDetails && (
+              <View className="bg-black/40 border border-green-500/30 rounded-lg p-3 mt-1 w-[90%] max-w-sm">
+                <Text className="text-green-400 font-bold text-xs mb-2 text-center uppercase tracking-widest border-b border-green-500/30 pb-1">Bounty Breakdown</Text>
+
+                <View className="flex-row justify-between mb-1">
+                  <Text className="text-gray-400 text-xs">8-Ball B&R (${bountyDetails.val8})</Text>
+                  <Text className="text-green-400 text-xs font-bold">x{bountyDetails.bnr8} = ${bountyDetails.bnr8 * bountyDetails.val8}</Text>
+                </View>
+
+                <View className="flex-row justify-between mb-1">
+                  <Text className="text-gray-400 text-xs">9-Ball B&R (${bountyDetails.val9})</Text>
+                  <Text className="text-green-400 text-xs font-bold">x{bountyDetails.bnr9} = ${bountyDetails.bnr9 * bountyDetails.val9}</Text>
+                </View>
+
+                <View className="flex-row justify-between mb-1">
+                  <Text className="text-gray-400 text-xs">9-on-Snap (${bountyDetails.valSnap})</Text>
+                  <Text className="text-green-400 text-xs font-bold">x{bountyDetails.snaps} = ${bountyDetails.snaps * bountyDetails.valSnap}</Text>
+                </View>
+
+                <View className="flex-row justify-between">
+                  <Text className="text-gray-400 text-xs">Shutouts (${bountyDetails.valShutout})</Text>
+                  <Text className="text-green-400 text-xs font-bold">x{bountyDetails.shutoutsCount} = ${bountyDetails.shutoutsCount * bountyDetails.valShutout}</Text>
+                </View>
+              </View>
+            )}
+          </TouchableOpacity>
         )}
       </View>
 

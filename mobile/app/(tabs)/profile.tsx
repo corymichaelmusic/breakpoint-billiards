@@ -24,6 +24,12 @@ export default function ProfileScreen() {
     const [tempNickname, setTempNickname] = useState("");
     const [editingFargo, setEditingFargo] = useState(false);
     const [tempFargo, setTempFargo] = useState("");
+    // Password change state
+    const [changingPassword, setChangingPassword] = useState(false);
+    const [currentPassword, setCurrentPassword] = useState("");
+    const [newPassword, setNewPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [passwordLoading, setPasswordLoading] = useState(false);
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -254,6 +260,50 @@ export default function ProfileScreen() {
         }
     };
 
+    const handleChangePassword = async () => {
+        if (!user) {
+            Alert.alert("Error", "User not found.");
+            return;
+        }
+
+        // Validate inputs
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            Alert.alert("Missing Fields", "Please fill in all password fields.");
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            Alert.alert("Password Mismatch", "New password and confirmation do not match.");
+            return;
+        }
+
+        if (newPassword.length < 8) {
+            Alert.alert("Password Too Short", "Password must be at least 8 characters.");
+            return;
+        }
+
+        setPasswordLoading(true);
+        try {
+            await user.updatePassword({
+                currentPassword,
+                newPassword,
+            });
+
+            // Reset form and close
+            setCurrentPassword("");
+            setNewPassword("");
+            setConfirmPassword("");
+            setChangingPassword(false);
+            Alert.alert("Success", "Your password has been changed.");
+        } catch (e: any) {
+            console.error("Password change error:", e);
+            const errorMessage = e.errors?.[0]?.message || e.message || "Failed to change password.";
+            Alert.alert("Error", errorMessage);
+        } finally {
+            setPasswordLoading(false);
+        }
+    };
+
     return (
         <SafeAreaView className="flex-1 bg-background" edges={['bottom', 'left', 'right']}>
             <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
@@ -366,6 +416,75 @@ export default function ProfileScreen() {
             </ScrollView>
 
             <View className="p-6 bg-background border-t border-white/5 gap-3">
+                {/* Change Password Section - Only show if user has password enabled */}
+                {user?.passwordEnabled && (
+                    <View className="mb-2">
+                        {!changingPassword ? (
+                            <TouchableOpacity
+                                onPress={() => setChangingPassword(true)}
+                                className="bg-primary/10 border border-primary/50 py-4 rounded-lg items-center active:bg-primary/20"
+                            >
+                                <Text className="text-primary font-bold uppercase tracking-widest" style={{ includeFontPadding: false }}>
+                                    Change Password
+                                </Text>
+                            </TouchableOpacity>
+                        ) : (
+                            <View className="bg-surface border border-border rounded-xl p-4 gap-3">
+                                <Text className="text-white font-bold text-lg text-center mb-2">Change Password</Text>
+                                <TextInput
+                                    value={currentPassword}
+                                    onChangeText={setCurrentPassword}
+                                    placeholder="Current Password"
+                                    placeholderTextColor="#666"
+                                    secureTextEntry
+                                    className="bg-white/10 text-white px-4 py-3 rounded-lg"
+                                />
+                                <TextInput
+                                    value={newPassword}
+                                    onChangeText={setNewPassword}
+                                    placeholder="New Password"
+                                    placeholderTextColor="#666"
+                                    secureTextEntry
+                                    className="bg-white/10 text-white px-4 py-3 rounded-lg"
+                                />
+                                <TextInput
+                                    value={confirmPassword}
+                                    onChangeText={setConfirmPassword}
+                                    placeholder="Confirm New Password"
+                                    placeholderTextColor="#666"
+                                    secureTextEntry
+                                    className="bg-white/10 text-white px-4 py-3 rounded-lg"
+                                />
+                                <View className="flex-row gap-3 mt-2">
+                                    <TouchableOpacity
+                                        onPress={() => {
+                                            setChangingPassword(false);
+                                            setCurrentPassword("");
+                                            setNewPassword("");
+                                            setConfirmPassword("");
+                                        }}
+                                        className="flex-1 bg-gray-600/20 py-3 rounded-lg items-center"
+                                        disabled={passwordLoading}
+                                    >
+                                        <Text className="text-gray-400 font-bold">Cancel</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        onPress={handleChangePassword}
+                                        className="flex-1 bg-primary py-3 rounded-lg items-center"
+                                        disabled={passwordLoading}
+                                    >
+                                        {passwordLoading ? (
+                                            <ActivityIndicator color="#000" />
+                                        ) : (
+                                            <Text className="text-black font-bold">Update</Text>
+                                        )}
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        )}
+                    </View>
+                )}
+
                 <TouchableOpacity onPress={() => signOut()} className="bg-red-500/10 border border-red-500/50 py-4 rounded-lg items-center active:bg-red-500/20">
                     <Text className="text-red-500 font-bold uppercase tracking-widest" style={{ includeFontPadding: false }}>Sign Out </Text>
                 </TouchableOpacity>
