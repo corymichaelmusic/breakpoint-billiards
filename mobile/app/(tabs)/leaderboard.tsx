@@ -170,7 +170,7 @@ export default function LeaderboardScreen() {
                     {/* Right Header (Adaptive) */}
                     {isLargeScreen ? (
                         <View style={{ flex: 1, height: HEADER_HEIGHT }} className="flex-row items-center px-4">
-                            <Text className="flex-1 text-center text-black font-bold text-sm">MP</Text>
+                            <Text className="flex-1 text-center text-black font-bold text-sm">SP</Text>
                             <Text className="flex-1 text-center text-black font-bold text-sm">W%</Text>
                             <Text className="flex-1 text-center text-black font-bold text-sm">W-L</Text>
                             <Text className="flex-1 text-center text-black font-bold text-sm">SO</Text>
@@ -185,7 +185,7 @@ export default function LeaderboardScreen() {
                             style={{ flex: 1 }}
                         >
                             <View style={{ width: RIGHT_COL_WIDTH_FIXED, height: HEADER_HEIGHT }} className="flex-row items-center px-2">
-                                <Text className="w-12 text-center text-black font-bold text-sm">MP</Text>
+                                <Text className="w-12 text-center text-black font-bold text-sm">SP</Text>
                                 <Text className="w-14 text-center text-black font-bold text-sm">W%</Text>
                                 <Text className="w-16 text-center text-black font-bold text-sm">W-L</Text>
                                 <Text className="w-12 text-center text-black font-bold text-sm">SO</Text>
