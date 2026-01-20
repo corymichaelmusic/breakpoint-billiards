@@ -63,15 +63,29 @@ export async function updatePlayerFargo(playerId: string, fargoRating: number) {
     // Use Admin Client (bypasses RLS) for the actual update
     const adminClient = createAdminClient();
 
-    const { error } = await adminClient
+    console.log(`[updatePlayerFargo] Updating player ${playerId} to fargo_rating: ${fargoRating}`);
+
+    const { data: updateData, error } = await adminClient
         .from("profiles")
         .update({ fargo_rating: fargoRating })
-        .eq("id", playerId);
+        .eq("id", playerId)
+        .select();
 
     if (error) {
-        console.error("Error updating fargo:", error);
+        console.error("[updatePlayerFargo] Error updating fargo:", error);
         return { error: "Failed to update Fargo Rating." };
     }
+
+    console.log("[updatePlayerFargo] Update result:", updateData);
+
+    // Verify the update
+    const { data: verify } = await adminClient
+        .from("profiles")
+        .select("fargo_rating")
+        .eq("id", playerId)
+        .single();
+
+    console.log("[updatePlayerFargo] Verification query:", verify);
 
     revalidatePath("/dashboard");
     revalidatePath(`/dashboard/admin/players/${playerId}`);
