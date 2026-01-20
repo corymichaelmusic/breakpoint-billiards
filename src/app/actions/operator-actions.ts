@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin';
 import { redirect } from 'next/navigation';
 import { auth } from '@clerk/nextjs/server';
 import { revalidatePath } from 'next/cache';
@@ -59,7 +60,10 @@ export async function updatePlayerFargo(playerId: string, fargoRating: number) {
         return { error: "Unauthorized: Operator privileges required." };
     }
 
-    const { error } = await supabase
+    // Use Admin Client (bypasses RLS) for the actual update
+    const adminClient = createAdminClient();
+
+    const { error } = await adminClient
         .from("profiles")
         .update({ fargo_rating: fargoRating })
         .eq("id", playerId);
