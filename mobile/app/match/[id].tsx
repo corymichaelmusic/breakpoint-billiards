@@ -342,7 +342,7 @@ export default function MatchScreen() {
                         const winnerId = p1WonRacks > p2WonRacks ? p1Id : p2Id;
 
                         // Call RPC to Finalize (BBRS deltas computed server-side)
-                        const { error } = await supabaseAuthenticated.rpc('finalize_match_stats', {
+                        const { error } = await supabaseAuthenticated.rpc('finalize_match_stats_v2', {
                             p_match_id: id,
                             p_game_type: activeGameType,
                             p_winner_id: winnerId,
