@@ -1,11 +1,11 @@
--- Finalize Match Stats - SECURE VERSION
--- This version calculates BBRS deltas SERVER-SIDE using calculate_bbrs_delta()
--- AND Determines Winner SERVER-SIDE using get_race_target()
+-- Finalize Match Stats - SERVER SIDE WINNER + BONUS POINT DISPLAY FIX
+-- This version ensures the App displays the correct winner even without an update
+-- by artificially inflating the winner's POINTS (not SCORE) if needed.
 
 CREATE OR REPLACE FUNCTION finalize_match_stats(
     p_match_id uuid,
     p_game_type text,
-    p_winner_id text, -- Client thought this was the winner (ignored if logic differs)
+    p_winner_id text, -- Ignored
 
     p_p1_racks_won int,
     p_p1_racks_lost int,
@@ -53,6 +53,10 @@ DECLARE
     v_race_p1 int;
     v_race_p2 int;
     v_final_winner_id text;
+    
+    -- Display Points (Calculated to force Client Display)
+    v_points_p1 int;
+    v_points_p2 int;
     
     -- Shutout Logic
     v_existing_status text;
@@ -104,39 +108,45 @@ BEGIN
     ELSIF p_p2_racks_won >= v_race_p2 THEN
         v_final_winner_id := v_player2_id;
     ELSE
-        -- Fallback to invalid/partial set: Whoever has more racks. 
-        -- If tie and under race, default to reported winner or p2? 
-        -- Safer to trust client fallback if race target not met (e.g. time limit match)
-        -- BUT if client said P2 won, and P1 has more racks? 
+        -- Fallback
         IF p_p1_racks_won > p_p2_racks_won THEN
             v_final_winner_id := v_player1_id;
         ELSE
             v_final_winner_id := v_player2_id;
         END IF;
     END IF;
+    
+    -- 3.5 BONUS POINT LOGIC (Display Fix)
+    -- If Winner has fewer or equal points, boost them to Loser + 1
+    v_points_p1 := p_p1_racks_won;
+    v_points_p2 := p_p2_racks_won;
+    
+    IF v_final_winner_id = v_player1_id THEN
+        IF v_points_p1 <= v_points_p2 THEN
+            v_points_p1 := v_points_p2 + 1;
+        END IF;
+    ELSE 
+        -- Winner is P2
+        IF v_points_p2 <= v_points_p1 THEN
+            v_points_p2 := v_points_p1 + 1;
+        END IF;
+    END IF;
 
 
     -- 4. Calculate BBRS Deltas (Using BBRS ratings)
-    -- Important: We update BBRS *even if* using Fargo for handicapping.
     v_p1_delta := calculate_bbrs_delta(
-        v_p1_rating_bbrs,      -- p_player_rating
-        v_p2_rating_bbrs,      -- p_opponent_rating
-        p_p1_racks_won,        -- p_player_score
-        p_p1_racks_lost,       -- p_opponent_score
-        v_p1_racks_played,     -- p_player_racks_played
-        TRUE                   -- p_is_league
+        v_p1_rating_bbrs, v_p2_rating_bbrs,
+        p_p1_racks_won, p_p1_racks_lost,
+        v_p1_racks_played, TRUE
     );
     
     v_p2_delta := calculate_bbrs_delta(
-        v_p2_rating_bbrs,      -- p_player_rating
-        v_p1_rating_bbrs,      -- p_opponent_rating
-        p_p2_racks_won,        -- p_player_score
-        p_p2_racks_lost,       -- p_opponent_score
-        v_p2_racks_played,     -- p_player_racks_played
-        TRUE                   -- p_is_league
+        v_p2_rating_bbrs, v_p1_rating_bbrs,
+        p_p2_racks_won, p_p2_racks_lost,
+        v_p2_racks_played, TRUE
     );
 
-    -- 5. Update Match Status
+    -- 5. Update Match Status (Using Adjusted POINTS, but Real SCORE)
     IF p_game_type = '8ball' THEN
         UPDATE matches 
         SET status_8ball = 'finalized', 
@@ -144,10 +154,10 @@ BEGIN
             submitted_at = NOW(),
             delta_8ball_p1 = v_p1_delta,
             delta_8ball_p2 = v_p2_delta,
-            score_8ball_p1 = p_p1_racks_won,
-            score_8ball_p2 = p_p2_racks_won,
-            points_8ball_p1 = p_p1_racks_won,
-            points_8ball_p2 = p_p2_racks_won,
+            score_8ball_p1 = p_p1_racks_won, -- REAL SCORE
+            score_8ball_p2 = p_p2_racks_won, -- REAL SCORE
+            points_8ball_p1 = v_points_p1,   -- DISPLAY SCORE
+            points_8ball_p2 = v_points_p2,   -- DISPLAY SCORE
             p1_break_run_8ball = (p_p1_break_runs > 0),
             p2_break_run_8ball = (p_p2_break_runs > 0),
             p1_rack_run_8ball = (p_p1_rack_runs > 0),
@@ -170,10 +180,10 @@ BEGIN
             submitted_at = NOW(),
             delta_9ball_p1 = v_p1_delta,
             delta_9ball_p2 = v_p2_delta,
-            score_9ball_p1 = p_p1_racks_won,
-            score_9ball_p2 = p_p2_racks_won,
-            points_9ball_p1 = p_p1_racks_won,
-            points_9ball_p2 = p_p2_racks_won,
+            score_9ball_p1 = p_p1_racks_won, -- REAL SCORE
+            score_9ball_p2 = p_p2_racks_won, -- REAL SCORE
+            points_9ball_p1 = v_points_p1,   -- DISPLAY SCORE
+            points_9ball_p2 = v_points_p2,   -- DISPLAY SCORE
             p1_break_run_9ball = (p_p1_break_runs > 0),
             p2_break_run_9ball = (p_p2_break_runs > 0),
             p1_nine_on_snap = (p_p1_snaps > 0),
