@@ -97,15 +97,12 @@ BEGIN
     END IF;
 
     -- 3. Lookup
-    -- Access 1-based index for PL/pgSQL arrays?
-    -- v_matrix uses 1-based indexing in Postgres.
-    -- v_idx is 0-8. So add 1.
-    -- v_matrix[row][col] -> returns int[] {p1, p2}
-    v_race := v_matrix[v_idx1 + 1][v_idx2 + 1];
-
+    -- Access 1-based index for PL/pgSQL arrays
+    -- v_matrix is 3D: [row][col][p1/p2]
+    
     RETURN jsonb_build_object(
-        'p1', v_race[1],
-        'p2', v_race[2]
+        'p1', v_matrix[v_idx1 + 1][v_idx2 + 1][1],
+        'p2', v_matrix[v_idx1 + 1][v_idx2 + 1][2]
     );
 END;
 $$;
