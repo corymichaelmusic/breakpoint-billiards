@@ -338,8 +338,15 @@ export default function MatchScreen() {
                         const p2Snaps = relevantGames.filter(g => g.winner_id === p2Id && g.is_9_on_snap).length;
                         const p2Early8s = relevantGames.filter(g => g.winner_id === p2Id && g.is_early_8).length;
 
-                        // Determine Match Winner
-                        const winnerId = p1WonRacks > p2WonRacks ? p1Id : p2Id;
+                        // Determine Match Winner (Based on Race Target)
+                        const race = activeGameType === '8ball'
+                            ? calculateRace(match.player1.rating, match.player2.rating).short
+                            : calculateRace(match.player1.rating, match.player2.rating, '9ball').short;
+
+                        let winnerId = p2Id; // Default fallback
+                        if (p1WonRacks >= race.p1) winnerId = p1Id;
+                        else if (p2WonRacks >= race.p2) winnerId = p2Id;
+                        else winnerId = p1WonRacks > p2WonRacks ? p1Id : p2Id;
 
                         // Call RPC to Finalize (BBRS deltas computed server-side)
                         const { error } = await supabaseAuthenticated.rpc('finalize_match_stats', {
