@@ -117,13 +117,19 @@ BEGIN
         UPDATE profiles SET breakpoint_rating = breakpoint_rating - COALESCE(v_delta_p1, 0) WHERE id = v_player1_id;
         UPDATE profiles SET breakpoint_rating = breakpoint_rating - COALESCE(v_delta_p2, 0) WHERE id = v_player2_id;
 
-        -- 6. Reset Match Status
+        -- Reset Match Status AND Scores/Stats to prevent immediate re-finalization
         UPDATE matches
         SET status_8ball = 'scheduled',
             winner_id_8ball = NULL,
             delta_8ball_p1 = 0,
             delta_8ball_p2 = 0,
-            submitted_at = NULL -- Or maybe keep logic? No, reset implies undo.
+            submitted_at = NULL,
+            score_8ball_p1 = 0,
+            score_8ball_p2 = 0,
+            p1_break_run_8ball = false,
+            p2_break_run_8ball = false,
+            p1_rack_run_8ball = false,
+            p2_rack_run_8ball = false
         WHERE id = p_match_id;
 
     ELSIF p_game_type = '9ball' THEN
@@ -188,18 +194,19 @@ BEGIN
         UPDATE profiles SET breakpoint_rating = breakpoint_rating - COALESCE(v_delta_p1, 0) WHERE id = v_player1_id;
         UPDATE profiles SET breakpoint_rating = breakpoint_rating - COALESCE(v_delta_p2, 0) WHERE id = v_player2_id;
 
-        -- Reset Match Status
+        -- Reset Match Status AND Scores/Stats
         UPDATE matches
         SET status_9ball = 'scheduled',
             winner_id_9ball = NULL,
             delta_9ball_p1 = 0,
             delta_9ball_p2 = 0,
-            submitted_at = NULL -- If both reset, submitted_at becomes null. If one remains? 
-                                -- Matches table has ONE `submitted_at`. 
-                                -- If 8-ball is still finalized, we shouldn't null it?
-                                -- But submitted_at usually tracks "when the WHOLE THING was done"?
-                                -- Or just the last update.
-                                -- Ideally we check if the OTHER game is finalized.
+            submitted_at = NULL,
+            score_9ball_p1 = 0,
+            score_9ball_p2 = 0,
+            p1_break_run_9ball = false,
+            p2_break_run_9ball = false,
+            p1_nine_on_snap = false,
+            p2_nine_on_snap = false
         WHERE id = p_match_id;
         
         -- Fix submitted_at only if valid
