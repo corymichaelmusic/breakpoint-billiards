@@ -22,15 +22,15 @@ DECLARE
     v_score_p1 int;
     v_score_p2 int;
     
-    -- Granular Stats (Boolean in DB)
-    v_br_p1 boolean;
-    v_br_p2 boolean;
-    v_rr_p1 boolean;
-    v_rr_p2 boolean;
-    v_snap_p1 boolean;
-    v_snap_p2 boolean;
-    v_early_p1 boolean;
-    v_early_p2 boolean;
+    -- Granular Stats (Computed from GAMES table for accuracy)
+    v_br_p1 int;
+    v_br_p2 int;
+    v_rr_p1 int;
+    v_rr_p2 int;
+    v_snap_p1 int;
+    v_snap_p2 int;
+    v_early_p1 int;
+    v_early_p2 int;
     
     -- Shutout check
     v_status_8ball text;
@@ -55,25 +55,28 @@ BEGIN
 
         -- Fetch 8-ball specific data stored in matches
         SELECT delta_8ball_p1, delta_8ball_p2, winner_id_8ball,
-               score_8ball_p1, score_8ball_p2,
-               p1_break_run_8ball, p2_break_run_8ball,
-               p1_rack_run_8ball,  p2_rack_run_8ball
+               score_8ball_p1, score_8ball_p2
         INTO v_delta_p1, v_delta_p2, v_winner_id,
-             v_score_p1, v_score_p2,
-             v_br_p1, v_br_p2,
-             v_rr_p1, v_rr_p2
+             v_score_p1, v_score_p2
         FROM matches WHERE id = p_match_id;
-             
-        v_early_p1 := false; v_early_p2 := false;
         
+        -- COMPUTING GRANULAR STATS FROM GAMES TABLE (Before Deletion)
+        SELECT 
+            COUNT(*) FILTER (WHERE winner_id = v_player1_id AND is_break_and_run) as br1,
+            COUNT(*) FILTER (WHERE winner_id = v_player2_id AND is_break_and_run) as br2,
+            COUNT(*) FILTER (WHERE winner_id = v_player1_id AND is_rack_and_run) as rr1,
+            COUNT(*) FILTER (WHERE winner_id = v_player2_id AND is_rack_and_run) as rr2,
+            COUNT(*) FILTER (WHERE winner_id = v_player1_id AND is_early_8) as early1,
+            COUNT(*) FILTER (WHERE winner_id = v_player2_id AND is_early_8) as early2
+        INTO v_br_p1, v_br_p2, v_rr_p1, v_rr_p2, v_early_p1, v_early_p2
+        FROM games WHERE match_id = p_match_id AND game_type = '8ball';
+
         -- Check Shutout Reversal logic
-        -- If both WERE finalized and winners matched, it WAS a shutout.
-        -- By resetting one, we break the shutout.
         IF v_status_9ball = 'finalized' AND v_winner_8ball = v_winner_9ball THEN
             v_was_shutout := true;
         END IF;
 
-        -- DELETE GAMES RECORDS (Critical for Mobile App Sync)
+        -- DELETE GAMES RECORDS (After Computing Stats)
         DELETE FROM games WHERE match_id = p_match_id AND game_type = '8ball';
 
         -- 3. Revert Player 1 Stats
@@ -84,16 +87,17 @@ BEGIN
             breakpoint_racks_lost = breakpoint_racks_lost - COALESCE(v_score_p2, 0),
             matches_won = matches_won - (CASE WHEN v_player1_id = v_winner_id THEN 1 ELSE 0 END),
             matches_lost = matches_lost - (CASE WHEN v_player1_id != v_winner_id THEN 1 ELSE 0 END),
-            matches_played = matches_played - 1, -- Assuming finalize increments per SET (game type)
+            matches_played = matches_played - 1, 
             shutouts = shutouts - (CASE WHEN v_was_shutout AND v_player1_id = v_winner_id THEN 1 ELSE 0 END),
             
-            -- Granular (Best effort: subtract 1 if true)
-            total_break_and_runs = total_break_and_runs - (CASE WHEN v_br_p1 THEN 1 ELSE 0 END),
-            total_rack_and_runs = total_rack_and_runs - (CASE WHEN v_rr_p1 THEN 1 ELSE 0 END),
+            -- Granular (Exact Counts)
+            total_break_and_runs = total_break_and_runs - COALESCE(v_br_p1, 0),
+            total_rack_and_runs = total_rack_and_runs - COALESCE(v_rr_p1, 0),
+            total_early_8 = total_early_8 - COALESCE(v_early_p1, 0),
             
             -- Split Stats
-            total_break_and_runs_8ball = total_break_and_runs_8ball - (CASE WHEN v_br_p1 THEN 1 ELSE 0 END),
-            total_rack_and_runs_8ball = total_rack_and_runs_8ball - (CASE WHEN v_rr_p1 THEN 1 ELSE 0 END)
+            total_break_and_runs_8ball = total_break_and_runs_8ball - COALESCE(v_br_p1, 0),
+            total_rack_and_runs_8ball = total_rack_and_runs_8ball - COALESCE(v_rr_p1, 0)
             
         WHERE league_id = v_league_id AND player_id = v_player1_id;
 
@@ -108,11 +112,12 @@ BEGIN
             matches_played = matches_played - 1,
             shutouts = shutouts - (CASE WHEN v_was_shutout AND v_player2_id = v_winner_id THEN 1 ELSE 0 END),
             
-            total_break_and_runs = total_break_and_runs - (CASE WHEN v_br_p2 THEN 1 ELSE 0 END),
-            total_rack_and_runs = total_rack_and_runs - (CASE WHEN v_rr_p2 THEN 1 ELSE 0 END),
+            total_break_and_runs = total_break_and_runs - COALESCE(v_br_p2, 0),
+            total_rack_and_runs = total_rack_and_runs - COALESCE(v_rr_p2, 0),
+            total_early_8 = total_early_8 - COALESCE(v_early_p2, 0),
             
-            total_break_and_runs_8ball = total_break_and_runs_8ball - (CASE WHEN v_br_p2 THEN 1 ELSE 0 END),
-            total_rack_and_runs_8ball = total_rack_and_runs_8ball - (CASE WHEN v_rr_p2 THEN 1 ELSE 0 END)
+            total_break_and_runs_8ball = total_break_and_runs_8ball - COALESCE(v_br_p2, 0),
+            total_rack_and_runs_8ball = total_rack_and_runs_8ball - COALESCE(v_rr_p2, 0)
             
         WHERE league_id = v_league_id AND player_id = v_player2_id;
 
@@ -143,14 +148,21 @@ BEGIN
 
         -- Fetch 9-ball specific data
         SELECT delta_9ball_p1, delta_9ball_p2, winner_id_9ball,
-               score_9ball_p1, score_9ball_p2,
-               p1_break_run_9ball, p2_break_run_9ball,
-               p1_nine_on_snap, p2_nine_on_snap
+               score_9ball_p1, score_9ball_p2
         INTO v_delta_p1, v_delta_p2, v_winner_id,
-             v_score_p1, v_score_p2,
-             v_br_p1, v_br_p2,
-             v_snap_p1, v_snap_p2
+             v_score_p1, v_score_p2
         FROM matches WHERE id = p_match_id;
+        
+        -- COMPUTING GRANULAR STATS FROM GAMES TABLE (Before Deletion)
+        SELECT 
+            COUNT(*) FILTER (WHERE winner_id = v_player1_id AND is_break_and_run) as br1,
+            COUNT(*) FILTER (WHERE winner_id = v_player2_id AND is_break_and_run) as br2,
+            COUNT(*) FILTER (WHERE winner_id = v_player1_id AND is_rack_and_run) as rr1,
+            COUNT(*) FILTER (WHERE winner_id = v_player2_id AND is_rack_and_run) as rr2,
+            COUNT(*) FILTER (WHERE winner_id = v_player1_id AND is_9_on_snap) as snap1,
+            COUNT(*) FILTER (WHERE winner_id = v_player2_id AND is_9_on_snap) as snap2
+        INTO v_br_p1, v_br_p2, v_rr_p1, v_rr_p2, v_snap_p1, v_snap_p2
+        FROM games WHERE match_id = p_match_id AND game_type = '9ball';
 
         -- Check Shutout Reversal (same logic: if both were finalized and winners matched)
         IF v_status_8ball = 'finalized' AND v_winner_8ball = v_winner_9ball THEN
@@ -171,10 +183,10 @@ BEGIN
             matches_played = matches_played - 1,
             shutouts = shutouts - (CASE WHEN v_was_shutout AND v_player1_id = v_winner_id THEN 1 ELSE 0 END),
             
-            total_break_and_runs = total_break_and_runs - (CASE WHEN v_br_p1 THEN 1 ELSE 0 END),
-            total_nine_on_snap = total_nine_on_snap - (CASE WHEN v_snap_p1 THEN 1 ELSE 0 END),
+            total_break_and_runs = total_break_and_runs - COALESCE(v_br_p1, 0),
+            total_nine_on_snap = total_nine_on_snap - COALESCE(v_snap_p1, 0),
             
-            total_break_and_runs_9ball = total_break_and_runs_9ball - (CASE WHEN v_br_p1 THEN 1 ELSE 0 END)
+            total_break_and_runs_9ball = total_break_and_runs_9ball - COALESCE(v_br_p1, 0)
             
         WHERE league_id = v_league_id AND player_id = v_player1_id;
 
@@ -189,10 +201,10 @@ BEGIN
             matches_played = matches_played - 1,
             shutouts = shutouts - (CASE WHEN v_was_shutout AND v_player2_id = v_winner_id THEN 1 ELSE 0 END),
             
-            total_break_and_runs = total_break_and_runs - (CASE WHEN v_br_p2 THEN 1 ELSE 0 END),
-            total_nine_on_snap = total_nine_on_snap - (CASE WHEN v_snap_p2 THEN 1 ELSE 0 END),
+            total_break_and_runs = total_break_and_runs - COALESCE(v_br_p2, 0),
+            total_nine_on_snap = total_nine_on_snap - COALESCE(v_snap_p2, 0),
             
-            total_break_and_runs_9ball = total_break_and_runs_9ball - (CASE WHEN v_br_p2 THEN 1 ELSE 0 END)
+            total_break_and_runs_9ball = total_break_and_runs_9ball - COALESCE(v_br_p2, 0)
             
         WHERE league_id = v_league_id AND player_id = v_player2_id;
 
