@@ -96,7 +96,7 @@ export default function CreateSessionForm({
                 <h3 className="text-white font-bold mb-4" style={{ color: "#D4AF37" }}>Bounty Configuration</h3>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                     <div>
-                        <label className="label">8-Ball Break & Run (Points)</label>
+                        <label className="label">8-Ball Break & Run ($)</label>
                         <input
                             name="bounty8Run"
                             type="number"
@@ -106,7 +106,7 @@ export default function CreateSessionForm({
                         />
                     </div>
                     <div>
-                        <label className="label">9-Ball Break & Run (Points)</label>
+                        <label className="label">9-Ball Break & Run ($)</label>
                         <input
                             name="bounty9Run"
                             type="number"
@@ -116,7 +116,7 @@ export default function CreateSessionForm({
                         />
                     </div>
                     <div>
-                        <label className="label">9-Ball On the Snap (Points)</label>
+                        <label className="label">9-Ball On the Snap ($)</label>
                         <input
                             name="bounty9Snap"
                             type="number"
@@ -126,7 +126,7 @@ export default function CreateSessionForm({
                         />
                     </div>
                     <div>
-                        <label className="label">Shutout (Points)</label>
+                        <label className="label">Shutout ($)</label>
                         <input
                             name="bountyShutout"
                             type="number"

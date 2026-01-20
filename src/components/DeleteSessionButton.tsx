@@ -40,7 +40,7 @@ export default function DeleteSessionButton({ sessionId, sessionName }: { sessio
         <>
             <button
                 onClick={() => setIsOpen(true)}
-                className="btn h-6 text-[10px] uppercase tracking-widest px-3 border border-red-500/50 text-red-500 hover:bg-red-500/10 hover:text-red-400 hover:border-red-400 transition-colors"
+                className="btn h-6 text-[10px] uppercase tracking-widest px-3 border !border-red-500/50 !text-red-500 hover:!bg-red-500/10 hover:!text-red-400 hover:!border-red-400 transition-colors"
                 title="Delete Session"
             >
                 DELETE
