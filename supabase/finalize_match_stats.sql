@@ -187,3 +187,5 @@ END;
 $$;
 
 COMMENT ON FUNCTION finalize_match_stats IS 'Finalizes match with server-side BBRS calculation. Deltas computed internally.';
+
+GRANT EXECUTE ON FUNCTION finalize_match_stats TO authenticated;
