@@ -341,15 +341,8 @@ export default function MatchScreen() {
                         // Determine Match Winner
                         const winnerId = p1WonRacks > p2WonRacks ? p1Id : p2Id;
 
-                        // DEBUG: Inspect Params
-                        const debugParams = {
-                            id, type: activeGameType, winner: winnerId,
-                            p1W: p1WonRacks, p1L: p2WonRacks
-                        };
-                        Alert.alert("Debug Params", JSON.stringify(debugParams));
-
                         // Call RPC to Finalize (BBRS deltas computed server-side)
-                        const { error } = await supabaseAuthenticated.rpc('finalize_match_stats_v2', {
+                        const { error } = await supabaseAuthenticated.rpc('finalize_match_stats', {
                             p_match_id: id,
                             p_game_type: activeGameType,
                             p_winner_id: winnerId,
