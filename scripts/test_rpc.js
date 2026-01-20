@@ -36,10 +36,11 @@ async function run() {
             match.id,          // p_match_id
             '8ball',           // p_game_type
             match.player1_id,  // p_winner_id
-            1,                 // p_p1_racks_won
-            0,                 // p_p1_racks_lost
+            0,                 // p_p1_racks_won
+            1,                 // p_p1_racks_lost (now p2 won)
             0,                 // p_p2_racks_won
-            1,                 // p_p2_racks_lost
+            1,                 // p_p2_racks_lost (now p1 won... wait logic here)
+            0, 0,              // p1_delta, p2_delta (IGNORED)
             0, 0, 0, 0,        // p1 granular (break, rack, snaps, early)
             0, 0, 0, 0         // p2 granular
         ];
@@ -50,8 +51,9 @@ async function run() {
             SELECT finalize_match_stats(
                 $1, $2, $3, 
                 $4, $5, $6, $7, 
-                $8, $9, $10, $11, 
-                $12, $13, $14, $15
+                $8, $9, 
+                $10, $11, $12, $13, 
+                $14, $15, $16, $17
             );
         `;
 

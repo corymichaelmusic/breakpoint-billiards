@@ -7,17 +7,22 @@ DROP FUNCTION IF EXISTS public.finalize_match_stats(p_match_id uuid, p_game_type
 DROP FUNCTION IF EXISTS public.finalize_match_stats(p_match_id uuid, p_game_type text, p_winner_id text, p_p1_delta numeric, p_p2_delta numeric, p_p1_racks_won integer, p_p1_racks_lost integer, p_p2_racks_won integer, p_p2_racks_lost integer, p_p1_break_runs integer, p_p1_rack_runs integer, p_p1_snaps integer, p_p1_early_8s integer, p_p2_break_runs integer, p_p2_rack_runs integer, p_p2_snaps integer, p_p2_early_8s integer);
 -- Drop old signature with win_zips parameters
 DROP FUNCTION IF EXISTS public.finalize_match_stats(p_match_id uuid, p_game_type text, p_winner_id text, p_p1_racks_won integer, p_p1_racks_lost integer, p_p2_racks_won integer, p_p2_racks_lost integer, p_p1_break_runs integer, p_p1_rack_runs integer, p_p1_snaps integer, p_p1_win_zips integer, p_p1_early_8s integer, p_p2_break_runs integer, p_p2_rack_runs integer, p_p2_snaps integer, p_p2_win_zips integer, p_p2_early_8s integer);
+-- Drop signature without deltas (the one we just tried)
+DROP FUNCTION IF EXISTS public.finalize_match_stats(p_match_id uuid, p_game_type text, p_winner_id text, p_p1_racks_won integer, p_p1_racks_lost integer, p_p2_racks_won integer, p_p2_racks_lost integer, p_p1_break_runs integer, p_p1_rack_runs integer, p_p1_snaps integer, p_p1_early_8s integer, p_p2_break_runs integer, p_p2_rack_runs integer, p_p2_snaps integer, p_p2_early_8s integer);
 
 
 CREATE OR REPLACE FUNCTION finalize_match_stats(
     p_match_id uuid,
     p_game_type text,
     p_winner_id text,
-    -- REMOVED: p_p1_delta and p_p2_delta - now calculated server-side
+
     p_p1_racks_won int,
     p_p1_racks_lost int,
     p_p2_racks_won int,
     p_p2_racks_lost int,
+    -- ADDED BACK: Accept deltas from client (ignored server-side). Moved here to satisfy default value rules.
+    p_p1_delta numeric DEFAULT 0,
+    p_p2_delta numeric DEFAULT 0,
     
     -- Granular Stats (win_zips removed - columns dropped from DB)
     p_p1_break_runs int default 0,
