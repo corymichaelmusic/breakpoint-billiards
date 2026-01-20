@@ -1,3 +1,5 @@
+DROP FUNCTION IF EXISTS reset_match_stats(uuid, text);
+
 CREATE OR REPLACE FUNCTION reset_match_stats(
     p_match_id uuid,
     p_game_type text -- '8ball' or '9ball'
@@ -56,16 +58,13 @@ BEGIN
                score_8ball_p1, score_8ball_p2,
                p1_break_run_8ball, p2_break_run_8ball,
                p1_rack_run_8ball,  p2_rack_run_8ball
-               -- Note: Matches table does NOT store early 8s or snaps for 8-ball?? 
-               -- Let's check list_cols.json... p1_early_8s? NO. 
-               -- Matches has: p1_nine_on_snap (implies 9ball). No explicit 8ball early win column found in list.
-               -- So we cannot revert early 8s if not stored.
         INTO v_delta_p1, v_delta_p2, v_winner_id,
              v_score_p1, v_score_p2,
              v_br_p1, v_br_p2,
-             v_rr_p1, v_rr_p2;
+             v_rr_p1, v_rr_p2
+        FROM matches WHERE id = p_match_id;
              
-        v_early_p1 := false; v_early_p2 := false; -- Cannot revert what we don't have
+        v_early_p1 := false; v_early_p2 := false;
         
         -- Check Shutout Reversal logic
         -- If both WERE finalized and winners matched, it WAS a shutout.
@@ -141,7 +140,8 @@ BEGIN
         INTO v_delta_p1, v_delta_p2, v_winner_id,
              v_score_p1, v_score_p2,
              v_br_p1, v_br_p2,
-             v_snap_p1, v_snap_p2;
+             v_snap_p1, v_snap_p2
+        FROM matches WHERE id = p_match_id;
 
         -- Check Shutout Reversal (same logic: if both were finalized and winners matched)
         IF v_status_8ball = 'finalized' AND v_winner_8ball = v_winner_9ball THEN
