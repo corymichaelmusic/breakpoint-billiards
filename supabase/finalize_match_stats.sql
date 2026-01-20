@@ -5,6 +5,9 @@
 -- Drop ALL existing function signatures (exact signatures from database)
 DROP FUNCTION IF EXISTS public.finalize_match_stats(p_match_id uuid, p_game_type text, p_winner_id uuid, p_p1_delta numeric, p_p2_delta numeric, p_p1_racks_won integer, p_p1_racks_lost integer, p_p2_racks_won integer, p_p2_racks_lost integer);
 DROP FUNCTION IF EXISTS public.finalize_match_stats(p_match_id uuid, p_game_type text, p_winner_id text, p_p1_delta numeric, p_p2_delta numeric, p_p1_racks_won integer, p_p1_racks_lost integer, p_p2_racks_won integer, p_p2_racks_lost integer, p_p1_break_runs integer, p_p1_rack_runs integer, p_p1_snaps integer, p_p1_early_8s integer, p_p2_break_runs integer, p_p2_rack_runs integer, p_p2_snaps integer, p_p2_early_8s integer);
+-- Drop old signature with win_zips parameters
+DROP FUNCTION IF EXISTS public.finalize_match_stats(p_match_id uuid, p_game_type text, p_winner_id text, p_p1_racks_won integer, p_p1_racks_lost integer, p_p2_racks_won integer, p_p2_racks_lost integer, p_p1_break_runs integer, p_p1_rack_runs integer, p_p1_snaps integer, p_p1_win_zips integer, p_p1_early_8s integer, p_p2_break_runs integer, p_p2_rack_runs integer, p_p2_snaps integer, p_p2_win_zips integer, p_p2_early_8s integer);
+
 
 CREATE OR REPLACE FUNCTION finalize_match_stats(
     p_match_id uuid,
@@ -16,17 +19,15 @@ CREATE OR REPLACE FUNCTION finalize_match_stats(
     p_p2_racks_won int,
     p_p2_racks_lost int,
     
-    -- Granular Stats
+    -- Granular Stats (win_zips removed - columns dropped from DB)
     p_p1_break_runs int default 0,
     p_p1_rack_runs int default 0,
     p_p1_snaps int default 0,
-    p_p1_win_zips int default 0,
     p_p1_early_8s int default 0,
     
     p_p2_break_runs int default 0,
     p_p2_rack_runs int default 0,
     p_p2_snaps int default 0,
-    p_p2_win_zips int default 0,
     p_p2_early_8s int default 0
 )
 RETURNS void
@@ -134,7 +135,6 @@ BEGIN
             -- Granular Updates
             total_break_and_runs = total_break_and_runs + p_p1_break_runs,
             total_rack_and_runs = total_rack_and_runs + p_p1_rack_runs,
-            total_win_zip = total_win_zip + p_p1_win_zips,
             total_nine_on_snap = total_nine_on_snap + p_p1_snaps,
             total_early_8 = total_early_8 + p_p1_early_8s,
             
@@ -142,9 +142,7 @@ BEGIN
             total_break_and_runs_8ball = total_break_and_runs_8ball + (CASE WHEN p_game_type = '8ball' THEN p_p1_break_runs ELSE 0 END),
             total_break_and_runs_9ball = total_break_and_runs_9ball + (CASE WHEN p_game_type = '9ball' THEN p_p1_break_runs ELSE 0 END),
             total_rack_and_runs_8ball = total_rack_and_runs_8ball + (CASE WHEN p_game_type = '8ball' THEN p_p1_rack_runs ELSE 0 END),
-            total_rack_and_runs_9ball = total_rack_and_runs_9ball + (CASE WHEN p_game_type = '9ball' THEN p_p1_rack_runs ELSE 0 END),
-            total_win_zip_8ball = total_win_zip_8ball + (CASE WHEN p_game_type = '8ball' THEN p_p1_win_zips ELSE 0 END),
-            total_win_zip_9ball = total_win_zip_9ball + (CASE WHEN p_game_type = '9ball' THEN p_p1_win_zips ELSE 0 END)
+            total_rack_and_runs_9ball = total_rack_and_runs_9ball + (CASE WHEN p_game_type = '9ball' THEN p_p1_rack_runs ELSE 0 END)
             
         WHERE league_id = v_league_id AND player_id = v_player1_id;
 
@@ -168,7 +166,6 @@ BEGIN
             -- Granular Updates
             total_break_and_runs = total_break_and_runs + p_p2_break_runs,
             total_rack_and_runs = total_rack_and_runs + p_p2_rack_runs,
-            total_win_zip = total_win_zip + p_p2_win_zips,
             total_nine_on_snap = total_nine_on_snap + p_p2_snaps,
             total_early_8 = total_early_8 + p_p2_early_8s,
             
@@ -176,9 +173,7 @@ BEGIN
             total_break_and_runs_8ball = total_break_and_runs_8ball + (CASE WHEN p_game_type = '8ball' THEN p_p2_break_runs ELSE 0 END),
             total_break_and_runs_9ball = total_break_and_runs_9ball + (CASE WHEN p_game_type = '9ball' THEN p_p2_break_runs ELSE 0 END),
             total_rack_and_runs_8ball = total_rack_and_runs_8ball + (CASE WHEN p_game_type = '8ball' THEN p_p2_rack_runs ELSE 0 END),
-            total_rack_and_runs_9ball = total_rack_and_runs_9ball + (CASE WHEN p_game_type = '9ball' THEN p_p2_rack_runs ELSE 0 END),
-            total_win_zip_8ball = total_win_zip_8ball + (CASE WHEN p_game_type = '8ball' THEN p_p2_win_zips ELSE 0 END),
-            total_win_zip_9ball = total_win_zip_9ball + (CASE WHEN p_game_type = '9ball' THEN p_p2_win_zips ELSE 0 END)
+            total_rack_and_runs_9ball = total_rack_and_runs_9ball + (CASE WHEN p_game_type = '9ball' THEN p_p2_rack_runs ELSE 0 END)
             
         WHERE league_id = v_league_id AND player_id = v_player2_id;
     END;
