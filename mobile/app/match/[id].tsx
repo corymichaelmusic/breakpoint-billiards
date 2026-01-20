@@ -513,7 +513,7 @@ export default function MatchScreen() {
                                 {match.status_8ball === 'finalized' ? (
                                     <View className="bg-green-500 px-2 py-1.5 rounded-full w-4/5 items-center">
                                         <Text className="text-white text-[10px] font-bold uppercase w-full text-center" numberOfLines={1} adjustsFontSizeToFit>
-                                            Winner: {(match.points_8ball_p1 > match.points_8ball_p2) ? match.player1.nickname || match.player1.full_name?.split(' ')[0] : match.player2.nickname || match.player2.full_name?.split(' ')[0]}
+                                            Winner: {(match.winner_id_8ball === match.player1.id) ? match.player1.nickname || match.player1.full_name?.split(' ')[0] : match.player2.nickname || match.player2.full_name?.split(' ')[0]}
                                         </Text>
                                     </View>
                                 ) : (
@@ -536,7 +536,7 @@ export default function MatchScreen() {
                                 {match.status_9ball === 'finalized' ? (
                                     <View className="bg-green-500 px-2 py-1.5 rounded-full w-4/5 items-center">
                                         <Text className="text-white text-[10px] font-bold uppercase w-full text-center" numberOfLines={1} adjustsFontSizeToFit>
-                                            Winner: {(match.points_9ball_p1 > match.points_9ball_p2) ? match.player1.nickname || match.player1.full_name?.split(' ')[0] : match.player2.nickname || match.player2.full_name?.split(' ')[0]}
+                                            Winner: {(match.winner_id_9ball === match.player1.id) ? match.player1.nickname || match.player1.full_name?.split(' ')[0] : match.player2.nickname || match.player2.full_name?.split(' ')[0]}
                                         </Text>
                                     </View>
                                 ) : (
