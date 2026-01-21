@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, Modal, ScrollView, Animated } from 'react-native';
-import { router } from 'expo-router';
+
 
 // Types
 type Player = {

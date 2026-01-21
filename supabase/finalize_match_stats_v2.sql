@@ -81,20 +81,20 @@ BEGIN
         TRUE                   -- p_is_league
     );
 
-    -- 4. Update Match Status
-    IF p_game_type = '8ball' THEN
-        UPDATE matches 
-        SET status_8ball = 'finalized', 
-            winner_id_8ball = p_winner_id,
-            submitted_at = NOW()
-        WHERE id = p_match_id;
-    ELSE
-        UPDATE matches 
-        SET status_9ball = 'finalized', 
-            winner_id_9ball = p_winner_id,
-            submitted_at = NOW()
-        WHERE id = p_match_id;
-    END IF;
+    -- 4. Update Match Status & Scoped Verification Flags
+    UPDATE public.matches
+    SET 
+        status_8ball = CASE WHEN p_game_type = '8ball' THEN 'finalized' ELSE status_8ball END,
+        winner_id_8ball = CASE WHEN p_game_type = '8ball' THEN p_winner_id ELSE winner_id_8ball END,
+        p1_verified_8ball = CASE WHEN p_game_type = '8ball' THEN TRUE ELSE p1_verified_8ball END,
+        p2_verified_8ball = CASE WHEN p_game_type = '8ball' THEN TRUE ELSE p2_verified_8ball END,
+        
+        status_9ball = CASE WHEN p_game_type = '9ball' THEN 'finalized' ELSE status_9ball END,
+        winner_id_9ball = CASE WHEN p_game_type = '9ball' THEN p_winner_id ELSE winner_id_9ball END,
+        p1_verified_9ball = CASE WHEN p_game_type = '9ball' THEN TRUE ELSE p1_verified_9ball END,
+        p2_verified_9ball = CASE WHEN p_game_type = '9ball' THEN TRUE ELSE p2_verified_9ball END,
+        submitted_at = NOW()
+    WHERE id = p_match_id;
 
     -- Check for Shutout Condition (Both sets finalized and won by same player)
     DECLARE

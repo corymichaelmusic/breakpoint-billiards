@@ -290,11 +290,14 @@ export default function MatchScreen() {
                 return [...prev, insertedGame];
             });
             // Reset verification flags on score change
+            const resetPayload = activeGameType === '8ball'
+                ? { p1_verified_8ball: false, p2_verified_8ball: false }
+                : { p1_verified_9ball: false, p2_verified_9ball: false };
+
             setMatch((prev: any) => ({
                 ...prev,
                 ...dbMatchPayload,
-                p1_verified: false,
-                p2_verified: false
+                ...resetPayload
             }));
 
         } catch (e: any) {
@@ -325,7 +328,10 @@ export default function MatchScreen() {
                 { global: { headers: authHeader } }
             );
 
-            const updatePayload = isPlayer1 ? { p1_verified: true } : { p2_verified: true };
+            const key = activeGameType === '8ball'
+                ? (isPlayer1 ? 'p1_verified_8ball' : 'p2_verified_8ball')
+                : (isPlayer1 ? 'p1_verified_9ball' : 'p2_verified_9ball');
+            const updatePayload = { [key]: true };
 
             const { error } = await supabaseAuthenticated
                 .from('matches')
@@ -352,11 +358,20 @@ export default function MatchScreen() {
 
         if (isFinalized) return;
 
+        // Scoped check
+        const p1Verified = is8Ball ? match.p1_verified_8ball : match.p1_verified_9ball;
+        const p2Verified = is8Ball ? match.p2_verified_8ball : match.p2_verified_9ball;
+
         // If both verified, trigger finalization
-        if (match.p1_verified && match.p2_verified) {
+        if (p1Verified && p2Verified) {
             finalizeSet();
         }
-    }, [match?.p1_verified, match?.p2_verified, match?.status_8ball, match?.status_9ball, activeGameType, submitting]);
+    }, [
+        match?.p1_verified_8ball, match?.p2_verified_8ball,
+        match?.p1_verified_9ball, match?.p2_verified_9ball,
+        match?.status_8ball, match?.status_9ball,
+        activeGameType, submitting
+    ]);
 
 
     const finalizeSet = async () => {
@@ -652,8 +667,8 @@ export default function MatchScreen() {
                                             isRaceComplete={showFinalizeUI}
                                             isFinalized={isFinalized}
                                             onVerify={handleVerify}
-                                            p1Verified={match.p1_verified}
-                                            p2Verified={match.p2_verified}
+                                            p1Verified={match.p1_verified_8ball}
+                                            p2Verified={match.p2_verified_8ball}
                                             userRole={match.player1_id === userId ? 'p1' : (match.player2_id === userId ? 'p2' : 'spectator')}
                                         />
                                     ) : (
@@ -669,8 +684,8 @@ export default function MatchScreen() {
                                             isRaceComplete={showFinalizeUI}
                                             isFinalized={isFinalized}
                                             onVerify={handleVerify}
-                                            p1Verified={match.p1_verified}
-                                            p2Verified={match.p2_verified}
+                                            p1Verified={match.p1_verified_9ball}
+                                            p2Verified={match.p2_verified_9ball}
                                             userRole={match.player1_id === userId ? 'p1' : (match.player2_id === userId ? 'p2' : 'spectator')}
                                         />
                                     )}
