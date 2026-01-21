@@ -131,7 +131,8 @@ export default function EightBallScorer({
                                 oppVerification ? (
                                     <TouchableOpacity
                                         onPress={onVerify}
-                                        className="bg-green-500 px-8 py-4 rounded-full w-full items-center shadow-lg shadow-green-900/20"
+                                        className="bg-green-500 px-8 py-4 rounded-full w-full items-center"
+
                                     >
                                         <Text className="text-white font-black text-lg">OPPONENT VERIFIED. CONFIRM?</Text>
                                     </TouchableOpacity>

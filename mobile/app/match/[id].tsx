@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, RefreshControl, Alert, Image, Animated, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter, useFocusEffect, Stack } from 'expo-router';
-import { useIsFocused } from '@react-navigation/native';
+
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { createClient } from '@supabase/supabase-js';
 import { Ionicons } from '@expo/vector-icons';
@@ -167,23 +167,22 @@ export default function MatchScreen() {
     // PERIODIC POLLING (Safety Net)
     // Ensures sync even if Realtime events are missed or blocked
     // Runs ONLY when screen is focused to prevent lag on other screens
-    const isFocused = useIsFocused();
+    // PERIODIC POLLING (Safety Net)
+    // Ensures sync even if Realtime events are missed or blocked
     useEffect(() => {
-        if (!isFocused || !id || submitting) return;
+        if (!id || submitting) return;
 
         console.log("Starting poller...");
-        fetchMatchData(); // Immediate fetch on focus to ensure data is fresh
+        fetchMatchData(); // Immediate fetch to ensure data is fresh
 
         const interval = setInterval(() => {
-            // console.log("Auto-refreshing match data...");
             fetchMatchData();
-        }, 10000); // Reduced to 10s to improve responsiveness when Realtime fails
+        }, 10000);
 
         return () => {
-            // console.log("Stopping poller...");
             clearInterval(interval);
         };
-    }, [isFocused, id, submitting]);
+    }, [id, submitting]);
 
     // REALTIME SUBSCRIPTION
     // REALTIME SUBSCRIPTION
