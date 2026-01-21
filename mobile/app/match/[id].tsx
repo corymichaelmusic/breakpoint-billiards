@@ -636,7 +636,13 @@ export default function MatchScreen() {
                                 ? calculateRace(match.player1.rating, match.player2.rating).short.p2
                                 : calculateRace(match.player1.rating, match.player2.rating, '9ball').short.p2;
 
-                            const isRaceMet = ((p1Score || 0) >= raceP1) || ((p2Score || 0) >= raceP2);
+                            console.log("[MatchScreen Debug] Race Check:", {
+                                gameType: activeGameType,
+                                p1: { name: match.player1.nickname, score: p1Score, race: raceP1, rating: match.player1.rating },
+                                p2: { name: match.player2.nickname, score: p2Score, race: raceP2, rating: match.player2.rating }
+                            });
+
+                            const isRaceMet = (Number(p1Score || 0) >= raceP1) || (Number(p2Score || 0) >= raceP2);
                             const isFinalized = (activeGameType === '8ball' ? match.status_8ball : match.status_9ball) === 'finalized';
                             const showFinalizeUI = isRaceMet && !isFinalized;
 

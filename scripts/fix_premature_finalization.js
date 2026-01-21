@@ -1,61 +1,42 @@
 
+require('dotenv').config({ path: '.env.local' });
 const { Client } = require('pg');
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../.env.local') });
 
-const dbUrl = process.env.DATABASE_URL;
-
-async function runFix() {
-    console.log("Checking for prematurely finalized matches (Attempt 2)...");
-    if (!dbUrl) {
-        console.error("DATABASE_URL not found.");
+async function fixPrematureFinalization() {
+    if (!process.env.DATABASE_URL) {
+        console.error("Error: DATABASE_URL not found in .env.local");
         process.exit(1);
     }
-    const client = new Client({ connectionString: dbUrl });
+
+    const client = new Client({
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false }
+    });
 
     try {
         await client.connect();
+        console.log("Connected to database.");
 
-        // Find matches that are 'finalized' globally, 
-        // BUT have a sub-status that is still 'scheduled' or 'in_progress'.
-        // This handles cases where race data is NULL in DB.
+        const query = `
+            UPDATE public.matches
+            SET status_9ball = 'scheduled',
+                winner_id_9ball = NULL,
+                p1_verified_9ball = FALSE,
+                p2_verified_9ball = FALSE
+            WHERE status_9ball = 'finalized'
+              AND points_9ball_p1 = 0
+              AND points_9ball_p2 = 0;
+        `;
 
-        const res = await client.query(`
-            SELECT id, status_8ball, status_9ball, scheduled_date 
-            FROM matches 
-            WHERE status = 'finalized'
-            AND (
-                status_8ball IN ('scheduled', 'in_progress')
-                OR 
-                status_9ball IN ('scheduled', 'in_progress')
-            )
-        `);
+        console.log("Executing fix...");
+        const res = await client.query(query);
+        console.log(`Fix executed. Updated ${res.rowCount} matches.`);
 
-        if (res.rows.length === 0) {
-            console.log("No prematurely finalized matches found.");
-        } else {
-            console.log(`Found ${res.rows.length} matches to fix.`);
-            console.table(res.rows);
-
-            const ids = res.rows.map(r => r.id);
-
-            await client.query(`
-                UPDATE matches 
-                SET status = 'in_progress',
-                    p1_verified = false,
-                    p2_verified = false,
-                    winner_id = NULL
-                WHERE id = ANY($1::uuid[])
-            `, [ids]);
-
-            console.log("Fixed status for matches:", ids);
-        }
-
-    } catch (e) {
-        console.error("Fix Error:", e);
+    } catch (err) {
+        console.error("Error executing fix:", err);
     } finally {
         await client.end();
     }
 }
 
-runFix();
+fixPrematureFinalization();
