@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, Modal, ScrollView, Animated } from 'react-native';
-
+import { router } from 'expo-router';
 
 // Types
 type Player = {
@@ -20,10 +20,7 @@ type NineBallScorerProps = {
     onEditGame?: (gameId: string) => void;
     isRaceComplete?: boolean;
     isFinalized?: boolean;
-    p1Verified?: boolean;
-    p2Verified?: boolean;
-    onVerify?: () => void;
-    userRole?: 'p1' | 'p2' | 'spectator';
+    onFinalize?: () => void;
 };
 
 export default function NineBallScorer({
@@ -37,10 +34,7 @@ export default function NineBallScorer({
     onEditGame,
     isRaceComplete,
     isFinalized,
-    p1Verified,
-    p2Verified,
-    onVerify,
-    userRole
+    onFinalize
 }: NineBallScorerProps) {
     const [view, setView] = useState<'score'>('score');
 
@@ -52,10 +46,6 @@ export default function NineBallScorer({
     const p1Wins = games.filter(g => g.winner_id === player1.id).length;
     const p2Wins = games.filter(g => g.winner_id === player2.id).length;
     const currentRackNumber = games.length + 1;
-
-    // Verification State Helpers
-    const myVerification = userRole === 'p1' ? p1Verified : (userRole === 'p2' ? p2Verified : false);
-    const oppVerification = userRole === 'p1' ? p2Verified : (userRole === 'p2' ? p1Verified : false);
 
 
 
@@ -111,45 +101,14 @@ export default function NineBallScorer({
                 </View>
             ) : isRaceComplete ? (
                 <View className="mb-8 bg-surface p-6 rounded-lg border border-green-600 items-center">
-                    <Text className="text-green-500 text-2xl font-bold mb-2 w-full text-center" numberOfLines={1} adjustsFontSizeToFit>SET FINISHED</Text>
-                    <Text className="text-white text-lg font-bold mb-4 text-center">Winner: {p1Wins >= raceTo.p1 ? player1.name : player2.name}</Text>
-
-                    {userRole === 'spectator' ? (
-                        <Text className="text-gray-400 text-center italic">Waiting for players to verify...</Text>
-                    ) : (
-                        <View className="w-full">
-                            {myVerification ? (
-                                oppVerification ? (
-                                    <View className="items-center">
-                                        <Text className="text-green-400 font-bold mb-2">Verified!</Text>
-                                        <Text className="text-white text-xs">Finalizing match...</Text>
-                                    </View>
-                                ) : (
-                                    <View className="items-center">
-                                        <Text className="text-yellow-500 font-bold mb-2">Waiting for Opponent...</Text>
-                                        <Text className="text-gray-400 text-xs text-center">You have verified the score.</Text>
-                                    </View>
-                                )
-                            ) : (
-                                oppVerification ? (
-                                    <TouchableOpacity
-                                        onPress={onVerify}
-                                        className="bg-green-500 px-8 py-4 rounded-full w-full items-center"
-
-                                    >
-                                        <Text className="text-white font-black text-lg">OPPONENT VERIFIED. CONFIRM?</Text>
-                                    </TouchableOpacity>
-                                ) : (
-                                    <TouchableOpacity
-                                        onPress={onVerify}
-                                        className="bg-primary px-8 py-3 rounded-full w-full items-center"
-                                    >
-                                        <Text className="text-black font-bold text-center">VERIFY SCORE</Text>
-                                    </TouchableOpacity>
-                                )
-                            )}
-                        </View>
-                    )}
+                    <Text className="text-green-500 text-2xl font-bold mb-4 w-full text-center" numberOfLines={1} adjustsFontSizeToFit>SET FINISHED</Text>
+                    <Text className="text-white mb-4 text-center">Race reached. Verify and Finalize.</Text>
+                    <TouchableOpacity
+                        onPress={onFinalize}
+                        className="bg-primary px-8 py-3 rounded-full w-full items-center"
+                    >
+                        <Text className="text-black font-bold text-center w-full" numberOfLines={1} adjustsFontSizeToFit>VERIFY & FINALIZE</Text>
+                    </TouchableOpacity>
                 </View>
             ) : (
                 <>
