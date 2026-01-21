@@ -99,17 +99,13 @@ export default function PlayerDetailScreen() {
 
                 // 8-Ball
                 if (m.status_8ball === 'finalized') {
-                    const myPts = isP1 ? m.points_8ball_p1 : m.points_8ball_p2;
-                    const oppPts = isP1 ? m.points_8ball_p2 : m.points_8ball_p1;
-                    if (myPts > oppPts) wins++;
-                    else if (oppPts > myPts) losses++;
+                    if (m.winner_id_8ball === userId) wins++;
+                    else if (m.winner_id_8ball) losses++;
                 }
                 // 9-Ball
                 if (m.status_9ball === 'finalized') {
-                    const myPts = isP1 ? m.points_9ball_p1 : m.points_9ball_p2;
-                    const oppPts = isP1 ? m.points_9ball_p2 : m.points_9ball_p1;
-                    if (myPts > oppPts) wins++;
-                    else if (oppPts > myPts) losses++;
+                    if (m.winner_id_9ball === userId) wins++;
+                    else if (m.winner_id_9ball) losses++;
                 }
             });
 
@@ -202,6 +198,8 @@ export default function PlayerDetailScreen() {
                                 p2_8: match.points_8ball_p2 || 0,
                                 p1_9: match.points_9ball_p1 || 0,
                                 p2_9: match.points_9ball_p2 || 0,
+                                winnerId8: match.winner_id_8ball,
+                                winnerId9: match.winner_id_9ball,
                                 isPlayer1: isP1
                             };
 

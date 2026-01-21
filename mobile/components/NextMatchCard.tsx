@@ -24,6 +24,8 @@ interface NextMatchCardProps {
         p2_8: number;
         p1_9: number;
         p2_9: number;
+        winnerId8?: string | null;
+        winnerId9?: string | null;
         isPlayer1: boolean;
     };
     specialStats?: {
@@ -292,13 +294,19 @@ export default function NextMatchCard({
                     <View className="flex-row gap-4 mb-4">
                         <View>
                             <Text className="text-gray-400 text-[10px] uppercase">8-Ball</Text>
-                            <Text className={`font-bold ${((scores.isPlayer1 ? scores.p1_8 : scores.p2_8) > (scores.isPlayer1 ? scores.p2_8 : scores.p1_8)) ? 'text-green-400' : 'text-red-400'}`}>
+                            <Text className={`font-bold ${scores.winnerId8
+                                    ? (scores.winnerId8 === (scores.isPlayer1 ? player1Id : player2Id) ? 'text-green-400' : 'text-red-400')
+                                    : ((scores.isPlayer1 ? scores.p1_8 : scores.p2_8) > (scores.isPlayer1 ? scores.p2_8 : scores.p1_8)) ? 'text-green-400' : 'text-red-400'
+                                }`}>
                                 {scores.isPlayer1 ? scores.p1_8 : scores.p2_8} - {scores.isPlayer1 ? scores.p2_8 : scores.p1_8}
                             </Text>
                         </View>
                         <View>
                             <Text className="text-gray-400 text-[10px] uppercase">9-Ball</Text>
-                            <Text className={`font-bold ${((scores.isPlayer1 ? scores.p1_9 : scores.p2_9) > (scores.isPlayer1 ? scores.p2_9 : scores.p1_9)) ? 'text-green-400' : 'text-red-400'}`}>
+                            <Text className={`font-bold ${scores.winnerId9
+                                    ? (scores.winnerId9 === (scores.isPlayer1 ? player1Id : player2Id) ? 'text-green-400' : 'text-red-400')
+                                    : ((scores.isPlayer1 ? scores.p1_9 : scores.p2_9) > (scores.isPlayer1 ? scores.p2_9 : scores.p1_9)) ? 'text-green-400' : 'text-red-400'
+                                }`}>
                                 {scores.isPlayer1 ? scores.p1_9 : scores.p2_9} - {scores.isPlayer1 ? scores.p2_9 : scores.p1_9}
                             </Text>
                         </View>

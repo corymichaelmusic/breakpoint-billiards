@@ -29,7 +29,9 @@ export default function ProfileScreen() {
     const [currentPassword, setCurrentPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
+
     const [passwordLoading, setPasswordLoading] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -416,124 +418,144 @@ export default function ProfileScreen() {
             </ScrollView>
 
             <View className="p-6 bg-background border-t border-white/5 gap-3">
-                {/* Change Password Section - Only show if user has password enabled */}
-                {user?.passwordEnabled && (
-                    <View className="mb-2">
-                        {!changingPassword ? (
-                            <TouchableOpacity
-                                onPress={() => setChangingPassword(true)}
-                                className="bg-primary/10 border border-primary/50 py-4 rounded-lg items-center active:bg-primary/20"
-                            >
-                                <Text className="text-primary font-bold uppercase tracking-widest" style={{ includeFontPadding: false }}>
-                                    Change Password
-                                </Text>
-                            </TouchableOpacity>
-                        ) : (
-                            <View className="bg-surface border border-border rounded-xl p-4 gap-3">
-                                <Text className="text-white font-bold text-lg text-center mb-2">Change Password</Text>
-                                <TextInput
-                                    value={currentPassword}
-                                    onChangeText={setCurrentPassword}
-                                    placeholder="Current Password"
-                                    placeholderTextColor="#666"
-                                    secureTextEntry
-                                    className="bg-white/10 text-white px-4 py-3 rounded-lg"
-                                />
-                                <TextInput
-                                    value={newPassword}
-                                    onChangeText={setNewPassword}
-                                    placeholder="New Password"
-                                    placeholderTextColor="#666"
-                                    secureTextEntry
-                                    className="bg-white/10 text-white px-4 py-3 rounded-lg"
-                                />
-                                <TextInput
-                                    value={confirmPassword}
-                                    onChangeText={setConfirmPassword}
-                                    placeholder="Confirm New Password"
-                                    placeholderTextColor="#666"
-                                    secureTextEntry
-                                    className="bg-white/10 text-white px-4 py-3 rounded-lg"
-                                />
-                                <View className="flex-row gap-3 mt-2">
+                {/* SETTINGS TOGGLE BUTTON */}
+                <TouchableOpacity
+                    onPress={() => setShowSettings(!showSettings)}
+                    className="flex-row items-center justify-between bg-surface border border-border py-4 px-6 rounded-xl active:bg-surface-hover"
+                >
+                    <View className="flex-row items-center gap-3">
+                        <Ionicons name="settings-outline" size={20} color="#D4AF37" />
+                        <Text className="text-white font-bold text-lg uppercase tracking-wider" style={{ includeFontPadding: false }}>
+                            Settings
+                        </Text>
+                    </View>
+                    <Ionicons name={showSettings ? "chevron-up" : "chevron-down"} size={20} color="#666" />
+                </TouchableOpacity>
+
+                {/* EXPANDABLE CONTENT */}
+                {showSettings && (
+                    <View className="gap-3 mt-2 pl-2 border-l-2 border-primary/20">
+
+                        {/* Change Password Section - Only show if user has password enabled */}
+                        {user?.passwordEnabled && (
+                            <View className="mb-2">
+                                {!changingPassword ? (
                                     <TouchableOpacity
-                                        onPress={() => {
-                                            setChangingPassword(false);
-                                            setCurrentPassword("");
-                                            setNewPassword("");
-                                            setConfirmPassword("");
-                                        }}
-                                        className="flex-1 bg-gray-600/20 py-3 rounded-lg items-center"
-                                        disabled={passwordLoading}
+                                        onPress={() => setChangingPassword(true)}
+                                        className="bg-primary/10 border border-primary/50 py-4 rounded-lg items-center active:bg-primary/20"
                                     >
-                                        <Text className="text-gray-400 font-bold">Cancel</Text>
+                                        <Text className="text-primary font-bold uppercase tracking-widest" style={{ includeFontPadding: false }}>
+                                            Change Password
+                                        </Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity
-                                        onPress={handleChangePassword}
-                                        className="flex-1 bg-primary py-3 rounded-lg items-center"
-                                        disabled={passwordLoading}
-                                    >
-                                        {passwordLoading ? (
-                                            <ActivityIndicator color="#000" />
-                                        ) : (
-                                            <Text className="text-black font-bold">Update</Text>
-                                        )}
-                                    </TouchableOpacity>
-                                </View>
+                                ) : (
+                                    <View className="bg-surface border border-border rounded-xl p-4 gap-3">
+                                        <Text className="text-white font-bold text-lg text-center mb-2">Change Password</Text>
+                                        <TextInput
+                                            value={currentPassword}
+                                            onChangeText={setCurrentPassword}
+                                            placeholder="Current Password"
+                                            placeholderTextColor="#666"
+                                            secureTextEntry
+                                            className="bg-white/10 text-white px-4 py-3 rounded-lg"
+                                        />
+                                        <TextInput
+                                            value={newPassword}
+                                            onChangeText={setNewPassword}
+                                            placeholder="New Password"
+                                            placeholderTextColor="#666"
+                                            secureTextEntry
+                                            className="bg-white/10 text-white px-4 py-3 rounded-lg"
+                                        />
+                                        <TextInput
+                                            value={confirmPassword}
+                                            onChangeText={setConfirmPassword}
+                                            placeholder="Confirm New Password"
+                                            placeholderTextColor="#666"
+                                            secureTextEntry
+                                            className="bg-white/10 text-white px-4 py-3 rounded-lg"
+                                        />
+                                        <View className="flex-row gap-3 mt-2">
+                                            <TouchableOpacity
+                                                onPress={() => {
+                                                    setChangingPassword(false);
+                                                    setCurrentPassword("");
+                                                    setNewPassword("");
+                                                    setConfirmPassword("");
+                                                }}
+                                                className="flex-1 bg-gray-600/20 py-3 rounded-lg items-center"
+                                                disabled={passwordLoading}
+                                            >
+                                                <Text className="text-gray-400 font-bold">Cancel</Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                onPress={handleChangePassword}
+                                                className="flex-1 bg-primary py-3 rounded-lg items-center"
+                                                disabled={passwordLoading}
+                                            >
+                                                {passwordLoading ? (
+                                                    <ActivityIndicator color="#000" />
+                                                ) : (
+                                                    <Text className="text-black font-bold">Update</Text>
+                                                )}
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+                                )}
                             </View>
                         )}
+
+                        <TouchableOpacity onPress={() => signOut()} className="bg-red-500/10 border border-red-500/50 py-4 rounded-lg items-center active:bg-red-500/20">
+                            <Text className="text-red-500 font-bold uppercase tracking-widest" style={{ includeFontPadding: false }}>Sign Out </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            onPress={() => {
+                                Alert.alert(
+                                    "Delete Account",
+                                    "Your account will be scheduled for deletion within 24 hours. This action cannot be undone. All your data will be permanently removed.",
+                                    [
+                                        { text: "Cancel", style: "cancel" },
+                                        {
+                                            text: "Delete My Account",
+                                            style: "destructive",
+                                            onPress: async () => {
+                                                try {
+                                                    const token = await getToken();
+                                                    const response = await fetch('https://breakpoint-billiards.vercel.app/api/request-deletion', {
+                                                        method: 'POST',
+                                                        headers: {
+                                                            'Content-Type': 'application/json',
+                                                            'Authorization': `Bearer ${token}`
+                                                        }
+                                                    });
+
+                                                    const result = await response.json();
+
+                                                    if (result.success) {
+                                                        Alert.alert(
+                                                            "Request Submitted",
+                                                            "Your account deletion request has been submitted. Your account will be deleted within 24 hours.",
+                                                            [{ text: "OK", onPress: () => signOut() }]
+                                                        );
+                                                    } else {
+                                                        Alert.alert("Error", result.error || "Failed to submit deletion request.");
+                                                    }
+                                                } catch (e: any) {
+                                                    console.error("Deletion request error:", e);
+                                                    Alert.alert("Error", "Failed to submit deletion request. Please try again.");
+                                                }
+                                            }
+                                        }
+                                    ]
+                                );
+                            }}
+                            className="bg-transparent border border-gray-600 py-3 rounded-lg items-center active:bg-gray-800"
+                        >
+                            <Text className="text-gray-400 text-sm uppercase tracking-widest" style={{ includeFontPadding: false }}>Delete My Account</Text>
+                        </TouchableOpacity>
                     </View>
                 )}
-
-                <TouchableOpacity onPress={() => signOut()} className="bg-red-500/10 border border-red-500/50 py-4 rounded-lg items-center active:bg-red-500/20">
-                    <Text className="text-red-500 font-bold uppercase tracking-widest" style={{ includeFontPadding: false }}>Sign Out </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    onPress={() => {
-                        Alert.alert(
-                            "Delete Account",
-                            "Your account will be scheduled for deletion within 24 hours. This action cannot be undone. All your data will be permanently removed.",
-                            [
-                                { text: "Cancel", style: "cancel" },
-                                {
-                                    text: "Delete My Account",
-                                    style: "destructive",
-                                    onPress: async () => {
-                                        try {
-                                            const token = await getToken();
-                                            const response = await fetch('https://breakpoint-billiards.vercel.app/api/request-deletion', {
-                                                method: 'POST',
-                                                headers: {
-                                                    'Content-Type': 'application/json',
-                                                    'Authorization': `Bearer ${token}`
-                                                }
-                                            });
-
-                                            const result = await response.json();
-
-                                            if (result.success) {
-                                                Alert.alert(
-                                                    "Request Submitted",
-                                                    "Your account deletion request has been submitted. Your account will be deleted within 24 hours.",
-                                                    [{ text: "OK", onPress: () => signOut() }]
-                                                );
-                                            } else {
-                                                Alert.alert("Error", result.error || "Failed to submit deletion request.");
-                                            }
-                                        } catch (e: any) {
-                                            console.error("Deletion request error:", e);
-                                            Alert.alert("Error", "Failed to submit deletion request. Please try again.");
-                                        }
-                                    }
-                                }
-                            ]
-                        );
-                    }}
-                    className="bg-transparent border border-gray-600 py-3 rounded-lg items-center active:bg-gray-800"
-                >
-                    <Text className="text-gray-400 text-sm uppercase tracking-widest" style={{ includeFontPadding: false }}>Delete My Account</Text>
-                </TouchableOpacity>
             </View>
         </SafeAreaView >
     );

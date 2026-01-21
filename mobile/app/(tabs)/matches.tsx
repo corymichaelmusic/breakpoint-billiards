@@ -155,6 +155,8 @@ export default function MatchesScreen() {
                             p2_8: match.points_8ball_p2 || 0,
                             p1_9: match.points_9ball_p1 || 0,
                             p2_9: match.points_9ball_p2 || 0,
+                            winnerId8: match.winner_id_8ball,
+                            winnerId9: match.winner_id_9ball,
                             isPlayer1: isP1
                         };
 

@@ -11,6 +11,7 @@ import * as WebBrowser from "expo-web-browser";
 import "../global.css";
 import { applyRealtimeAuth } from "../lib/realtimeAuth";
 import { authSignal } from "../lib/authSignal";
+import * as NavigationBar from 'expo-navigation-bar';
 
 // Handle OAuth redirects instantly
 try {
@@ -42,6 +43,12 @@ const InitialLayout = () => {
       authSignal.justLoggedIn = false;
     }
   }, [isSignedIn]);
+
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      NavigationBar.setBackgroundColorAsync("#121212");
+    }
+  }, []);
 
   useEffect(() => {
     if (!isLoaded) return;

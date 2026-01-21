@@ -34,12 +34,26 @@ export default function StatsScreen() {
                 .single();
             const currentRating = profile?.breakpoint_rating || 500;
 
-            // Calculate Global Rank
-            const { count: higherRankedCount } = await supabase
+            // Calculate Global Rank (Consistent with Leaderboard)
+            const { data: topPlayers } = await supabase
                 .from('profiles')
-                .select('*', { count: 'exact', head: true })
-                .gt('breakpoint_rating', currentRating);
-            const rank = (higherRankedCount || 0) + 1;
+                .select('id')
+                .order('breakpoint_rating', { ascending: false })
+                .limit(50);
+
+            let rank = 0;
+            const topIndex = topPlayers?.findIndex(p => p.id === userId);
+
+            if (topIndex !== undefined && topIndex !== -1) {
+                rank = topIndex + 1;
+            } else {
+                // Fallback for outside top 50
+                const { count: higherRankedCount } = await supabase
+                    .from('profiles')
+                    .select('*', { count: 'exact', head: true })
+                    .gt('breakpoint_rating', currentRating);
+                rank = (higherRankedCount || 0) + 1;
+            }
 
             // 1. Fetch Aggregated Stats from league_players
             const { data: leagueStats, error: leagueError } = await supabase
@@ -130,9 +144,8 @@ export default function StatsScreen() {
 
                     if (status8 === 'finalized') {
                         stats8.played++;
-                        // Determine winner based on points if status finalized, or reliable winner_id?
-                        // Using points is consistent with previous logic
-                        if ((isP1 ? p1_8 : p2_8) > (isP1 ? p2_8 : p1_8)) stats8.wins++;
+                        // Use authoritative winner_id
+                        if (m.winner_id_8ball === userId) stats8.wins++;
 
                         stats8.racksWon += (isP1 ? p1_8 : p2_8);
                         stats8.racksLost += (isP1 ? p2_8 : p1_8);
@@ -145,7 +158,7 @@ export default function StatsScreen() {
 
                     if (status9 === 'finalized') {
                         stats9.played++;
-                        if ((isP1 ? p1_9 : p2_9) > (isP1 ? p2_9 : p1_9)) stats9.wins++;
+                        if (m.winner_id_9ball === userId) stats9.wins++;
 
                         stats9.racksWon += (isP1 ? p1_9 : p2_9);
                         stats9.racksLost += (isP1 ? p2_9 : p1_9);

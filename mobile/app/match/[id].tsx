@@ -289,7 +289,13 @@ export default function MatchScreen() {
                 if (prev.find((g: any) => g.id === insertedGame.id)) return prev;
                 return [...prev, insertedGame];
             });
-            setMatch((prev: any) => ({ ...prev, ...dbMatchPayload }));
+            // Reset verification flags on score change
+            setMatch((prev: any) => ({
+                ...prev,
+                ...dbMatchPayload,
+                p1_verified: false,
+                p2_verified: false
+            }));
 
         } catch (e: any) {
             console.error("Submit Game Error", e);
@@ -299,89 +305,139 @@ export default function MatchScreen() {
         }
     };
 
-    const handleVerifyAndFinalize = async () => {
-        // Simple Set Verification Logic
-        Alert.alert("Verify & Finalize", "Are both players agreed on the final score?", [
-            { text: "Cancel", style: "cancel" },
-            {
-                text: "Yes, Finalize Set",
-                onPress: async () => {
-                    try {
-                        const token = await getToken({ template: 'supabase' });
-                        // Refresh Realtime Auth (Keep alive)
-                        await applyRealtimeAuth(token);
+    const handleVerify = async () => {
+        if (!match || submitting) return;
 
-                        const authHeader = token ? { Authorization: 'Bearer ' + token } : undefined;
-                        const supabaseAuthenticated = createClient(
-                            process.env.EXPO_PUBLIC_SUPABASE_URL!,
-                            process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
-                            { global: { headers: authHeader } }
-                        );
+        const isPlayer1 = match.player1_id === userId;
+        const isPlayer2 = match.player2_id === userId;
 
-                        // Calculate Stats Locally (BBRS deltas computed server-side)
-                        const p1Id = match.player1.id;
-                        const p2Id = match.player2.id;
+        if (!isPlayer1 && !isPlayer2) {
+            Alert.alert("Spectator", "Only players can verify the score.");
+            return;
+        }
 
-                        // Filter games for current type
-                        const relevantGames = games.filter(g => g.game_type === activeGameType);
-                        const p1WonRacks = relevantGames.filter(g => g.winner_id === p1Id).length;
-                        const p2WonRacks = relevantGames.filter(g => g.winner_id === p2Id).length;
+        try {
+            const token = await getToken({ template: 'supabase' });
+            const authHeader = token ? { Authorization: 'Bearer ' + token } : undefined;
+            const supabaseAuthenticated = createClient(
+                process.env.EXPO_PUBLIC_SUPABASE_URL!,
+                process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+                { global: { headers: authHeader } }
+            );
 
-                        // Granular Stats Calculation
-                        const p1BreakRuns = relevantGames.filter(g => g.winner_id === p1Id && g.is_break_and_run).length;
-                        const p1RackRuns = relevantGames.filter(g => g.winner_id === p1Id && g.is_rack_and_run).length;
-                        const p1Snaps = relevantGames.filter(g => g.winner_id === p1Id && g.is_9_on_snap).length;
-                        const p1Early8s = relevantGames.filter(g => g.winner_id === p1Id && g.is_early_8).length;
+            const updatePayload = isPlayer1 ? { p1_verified: true } : { p2_verified: true };
 
-                        const p2BreakRuns = relevantGames.filter(g => g.winner_id === p2Id && g.is_break_and_run).length;
-                        const p2RackRuns = relevantGames.filter(g => g.winner_id === p2Id && g.is_rack_and_run).length;
-                        const p2Snaps = relevantGames.filter(g => g.winner_id === p2Id && g.is_9_on_snap).length;
-                        const p2Early8s = relevantGames.filter(g => g.winner_id === p2Id && g.is_early_8).length;
+            const { error } = await supabaseAuthenticated
+                .from('matches')
+                .update(updatePayload)
+                .eq('id', match.id);
 
-                        // Determine Match Winner (Based on Race Target)
-                        const race = activeGameType === '8ball'
-                            ? calculateRace(match.player1.rating, match.player2.rating).short
-                            : calculateRace(match.player1.rating, match.player2.rating, '9ball').short;
+            if (error) throw error;
 
-                        let winnerId = p2Id; // Default fallback
-                        if (p1WonRacks >= race.p1) winnerId = p1Id;
-                        else if (p2WonRacks >= race.p2) winnerId = p2Id;
-                        else winnerId = p1WonRacks > p2WonRacks ? p1Id : p2Id;
+            // Optimistic update
+            setMatch((prev: any) => ({ ...prev, ...updatePayload }));
 
-                        // Call RPC to Finalize (BBRS deltas computed server-side)
-                        const { error } = await supabaseAuthenticated.rpc('finalize_match_stats', {
-                            p_match_id: id,
-                            p_game_type: activeGameType,
-                            p_winner_id: winnerId,
-                            // REMOVED: p_p1_delta, p_p2_delta - now calculated server-side
-                            p_p1_racks_won: p1WonRacks,
-                            p_p1_racks_lost: p2WonRacks,
-                            p_p2_racks_won: p2WonRacks,
-                            p_p2_racks_lost: p1WonRacks,
-                            // Granular Stats
-                            p_p1_break_runs: p1BreakRuns,
-                            p_p1_rack_runs: p1RackRuns,
-                            p_p1_snaps: p1Snaps,
-                            p_p1_early_8s: p1Early8s,
-                            p_p2_break_runs: p2BreakRuns,
-                            p_p2_rack_runs: p2RackRuns,
-                            p_p2_snaps: p2Snaps,
-                            p_p2_early_8s: p2Early8s
-                        });
+        } catch (e: any) {
+            console.error("Verification Error", e);
+            Alert.alert("Error", "Failed to verify score.");
+        }
+    };
 
-                        if (error) throw error;
+    // Auto-Finalize Trigger
+    useEffect(() => {
+        if (!match || submitting) return;
 
-                        Alert.alert("Success", "Set finalized successfully.");
-                        setViewMode('selection');
-                        fetchMatchData();
+        const is8Ball = activeGameType === '8ball';
+        const isFinalized = is8Ball ? match.status_8ball === 'finalized' : match.status_9ball === 'finalized';
 
-                    } catch (e: any) {
-                        console.error("Finalize Error", e);
-                        Alert.alert("Error", `Failed to finalize: ${e.message}`);
-                    }
-                }
-            }
-        ]);
+        if (isFinalized) return;
+
+        // If both verified, trigger finalization
+        if (match.p1_verified && match.p2_verified) {
+            finalizeSet();
+        }
+    }, [match?.p1_verified, match?.p2_verified, match?.status_8ball, match?.status_9ball, activeGameType, submitting]);
+
+
+    const finalizeSet = async () => {
+        if (submitting) return;
+        setSubmitting(true); // Re-use submitting state for finalization
+
+        try {
+            const token = await getToken({ template: 'supabase' });
+            // Refresh Realtime Auth (Keep alive)
+            await applyRealtimeAuth(token);
+
+            const authHeader = token ? { Authorization: 'Bearer ' + token } : undefined;
+            const supabaseAuthenticated = createClient(
+                process.env.EXPO_PUBLIC_SUPABASE_URL!,
+                process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+                { global: { headers: authHeader } }
+            );
+
+            // Calculate Stats Locally (BBRS deltas computed server-side)
+            const p1Id = match.player1.id;
+            const p2Id = match.player2.id;
+
+            // Filter games for current type
+            const relevantGames = games.filter(g => g.game_type === activeGameType);
+            const p1WonRacks = relevantGames.filter(g => g.winner_id === p1Id).length;
+            const p2WonRacks = relevantGames.filter(g => g.winner_id === p2Id).length;
+
+            // Granular Stats Calculation
+            const p1BreakRuns = relevantGames.filter(g => g.winner_id === p1Id && g.is_break_and_run).length;
+            const p1RackRuns = relevantGames.filter(g => g.winner_id === p1Id && g.is_rack_and_run).length;
+            const p1Snaps = relevantGames.filter(g => g.winner_id === p1Id && g.is_9_on_snap).length;
+            const p1Early8s = relevantGames.filter(g => g.winner_id === p1Id && g.is_early_8).length;
+
+            const p2BreakRuns = relevantGames.filter(g => g.winner_id === p2Id && g.is_break_and_run).length;
+            const p2RackRuns = relevantGames.filter(g => g.winner_id === p2Id && g.is_rack_and_run).length;
+            const p2Snaps = relevantGames.filter(g => g.winner_id === p2Id && g.is_9_on_snap).length;
+            const p2Early8s = relevantGames.filter(g => g.winner_id === p2Id && g.is_early_8).length;
+
+            // Determine Match Winner (Based on Race Target)
+            const race = activeGameType === '8ball'
+                ? calculateRace(match.player1.rating, match.player2.rating).short
+                : calculateRace(match.player1.rating, match.player2.rating, '9ball').short;
+
+            let winnerId = p2Id; // Default fallback
+            if (p1WonRacks >= race.p1) winnerId = p1Id;
+            else if (p2WonRacks >= race.p2) winnerId = p2Id;
+            else winnerId = p1WonRacks > p2WonRacks ? p1Id : p2Id;
+
+            // Call RPC to Finalize (BBRS deltas computed server-side)
+            const { error } = await supabaseAuthenticated.rpc('finalize_match_stats_v2', {
+                p_match_id: id,
+                p_game_type: activeGameType,
+                p_winner_id: winnerId,
+                // REMOVED: p_p1_delta, p_p2_delta - now calculated server-side
+                p_p1_racks_won: p1WonRacks,
+                p_p1_racks_lost: p2WonRacks,
+                p_p2_racks_won: p2WonRacks,
+                p_p2_racks_lost: p1WonRacks,
+                // Granular Stats
+                p_p1_break_runs: p1BreakRuns,
+                p_p1_rack_runs: p1RackRuns,
+                p_p1_snaps: p1Snaps,
+                p_p1_early_8s: p1Early8s,
+                p_p2_break_runs: p2BreakRuns,
+                p_p2_rack_runs: p2RackRuns,
+                p_p2_snaps: p2Snaps,
+                p_p2_early_8s: p2Early8s
+            });
+
+            if (error) throw error;
+
+            console.log("Set finalized successfully via Remote Verification.");
+            setViewMode('selection');
+            fetchMatchData();
+
+        } catch (e: any) {
+            console.error("Finalize Error", e);
+            Alert.alert("Error", `Failed to finalize: ${e.message}`);
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const handleSelectGame = (type: '8ball' | '9ball') => {
@@ -595,7 +651,10 @@ export default function MatchScreen() {
                                             onEditGame={handleEditGame}
                                             isRaceComplete={showFinalizeUI}
                                             isFinalized={isFinalized}
-                                            onFinalize={handleVerifyAndFinalize}
+                                            onVerify={handleVerify}
+                                            p1Verified={match.p1_verified}
+                                            p2Verified={match.p2_verified}
+                                            userRole={match.player1_id === userId ? 'p1' : (match.player2_id === userId ? 'p2' : 'spectator')}
                                         />
                                     ) : (
                                         <NineBallScorer
@@ -609,7 +668,10 @@ export default function MatchScreen() {
                                             onEditGame={handleEditGame}
                                             isRaceComplete={showFinalizeUI}
                                             isFinalized={isFinalized}
-                                            onFinalize={handleVerifyAndFinalize}
+                                            onVerify={handleVerify}
+                                            p1Verified={match.p1_verified}
+                                            p2Verified={match.p2_verified}
+                                            userRole={match.player1_id === userId ? 'p1' : (match.player2_id === userId ? 'p2' : 'spectator')}
                                         />
                                     )}
                                 </View>

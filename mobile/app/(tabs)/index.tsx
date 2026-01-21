@@ -188,17 +188,25 @@ export default function HomeScreen() {
               const my8 = isP1 ? m.points_8ball_p1 : m.points_8ball_p2;
               const opp8 = isP1 ? m.points_8ball_p2 : m.points_8ball_p1;
               p8_racksWon += my8 || 0; p8_racksLost += opp8 || 0;
-              if (m.winner_id_8ball === userId) p8_setsWon++; else if (m.winner_id_8ball) p8_setsLost++;
+              if (m.winner_id_8ball === userId) {
+                p8_setsWon++;
+                matchesWon++; // Correctly increment total wins based on authoritative winner
+              } else if (m.winner_id_8ball) {
+                p8_setsLost++;
+              }
               matchesPlayed++;
-              if (my8 > opp8) matchesWon++;
             }
             if (m.status_9ball === 'finalized') {
               const my9 = isP1 ? m.points_9ball_p1 : m.points_9ball_p2;
               const opp9 = isP1 ? m.points_9ball_p2 : m.points_9ball_p1;
               p9_racksWon += my9 || 0; p9_racksLost += opp9 || 0;
-              if (m.winner_id_9ball === userId) p9_setsWon++; else if (m.winner_id_9ball) p9_setsLost++;
+              if (m.winner_id_9ball === userId) {
+                p9_setsWon++;
+                matchesWon++; // Correctly increment total wins based on authoritative winner
+              } else if (m.winner_id_9ball) {
+                p9_setsLost++;
+              }
               matchesPlayed++;
-              if (my9 > opp9) matchesWon++;
             }
             if (m.status_8ball === 'finalized' && m.status_9ball === 'finalized' && m.winner_id_8ball === userId && m.winner_id_9ball === userId) {
               shutouts++;
@@ -508,7 +516,13 @@ export default function HomeScreen() {
 
             <View className="flex-row gap-2 mb-4">
               <StatsCard label="Win Rate" value={`${stats.winRate}%`} highlight />
-              <StatsCard label="Session Rank" value={stats.rank} />
+              <TouchableOpacity
+                style={{ flex: 1 }}
+                onPress={() => router.push("/(tabs)/leaderboard")}
+                activeOpacity={0.7}
+              >
+                <StatsCard label="Session Rank" value={stats.rank} />
+              </TouchableOpacity>
             </View>
             <View className="flex-row gap-2 mb-6">
               <StatsCard label="Set W-L" value={stats.wl} />
@@ -528,6 +542,9 @@ export default function HomeScreen() {
                       <Text className="text-gray-500 text-xs font-bold" style={{ includeFontPadding: false }}>({stats.stats8?.setWinRate || 0}%)   </Text>
                     </View>
                   </View>
+                  <View>
+                    <Text className="text-gray-500 text-xs font-bold uppercase">Racks: <Text className="text-white">{stats.stats8?.racksWon}-{stats.stats8?.racksLost}</Text> <Text className="text-gray-500">({stats.stats8?.rackWinRate}%)</Text></Text>
+                  </View>
                 </View>
                 <StatRow label="Break & Run" value={stats.stats8?.br || 0} />
                 <StatRow label="Rack & Run" value={stats.stats8?.rr || 0} />
@@ -543,6 +560,9 @@ export default function HomeScreen() {
                     <View className="min-w-[50px]">
                       <Text className="text-gray-500 text-xs font-bold" style={{ includeFontPadding: false }}>({stats.stats9?.setWinRate || 0}%)   </Text>
                     </View>
+                  </View>
+                  <View>
+                    <Text className="text-gray-500 text-xs font-bold uppercase">Racks: <Text className="text-white">{stats.stats9?.racksWon}-{stats.stats9?.racksLost}</Text> <Text className="text-gray-500">({stats.stats9?.rackWinRate}%)</Text></Text>
                   </View>
                 </View>
                 <StatRow label="Break & Run" value={stats.stats9?.br || 0} />
