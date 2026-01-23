@@ -70,10 +70,9 @@ async function resetAllStats() {
 
         // 4. Reset Profiles Ratings
         console.log("Resetting Global Profile ratings...");
-        // Reset to Fargo Rating if available, else 500
         await client.query(`
             UPDATE profiles
-            SET breakpoint_rating = COALESCE(fargo_rating, 500)
+            SET breakpoint_rating = 500
         `);
 
         console.log("✅ FULL STATS RESET COMPLETE.");
