@@ -240,7 +240,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                         <div className="flex items-center gap-4 mt-2">
                             <h1 className="text-3xl font-bold font-sans text-[#D4AF37] m-0">{league.name}</h1>
                             {sessionStartDate && (
-                                <span className="text-sm text-gray-300 border-l border-border pl-4">
+                                <span className="text-sm text-gray-300 border-l border-border pl-4" style={{ marginLeft: '0.5rem' }}>
                                     Start: {sessionStartDate}
                                 </span>
                             )}
@@ -302,7 +302,9 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                             }}>
                                                 <button type="submit"
                                                     disabled={league.creation_fee_status === 'unpaid' || hasUnpaidPlayers}
-                                                    className={`btn w-full ${league.creation_fee_status === 'unpaid' || hasUnpaidPlayers ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-success text-black'}`}>
+                                                    className={`btn w-full ${league.creation_fee_status === 'unpaid' || hasUnpaidPlayers ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : ''}`}
+                                                    style={!(league.creation_fee_status === 'unpaid' || hasUnpaidPlayers) ? { backgroundColor: '#22c55e', color: 'black' } : {}}
+                                                >
                                                     {league.creation_fee_status === 'unpaid' ? 'Fee Required to Start' : hasUnpaidPlayers ? `Waiting for ${unpaidPlayerCount} Player(s)` : 'Start Session'}
                                                 </button>
                                             </form>
@@ -311,7 +313,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                                 const { resetSchedule } = await import("@/app/actions/league-actions");
                                                 await resetSchedule(id);
                                             }}>
-                                                <button className="btn w-full bg-error/10 text-error border border-error hover:bg-error hover:text-white">Reset Schedule</button>
+                                                <button className="btn w-full" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid #ef4444' }}>Reset Schedule</button>
                                             </form>
                                         </div>
                                     )}

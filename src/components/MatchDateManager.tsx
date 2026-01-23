@@ -46,7 +46,7 @@ export default function MatchDateManager({ matchId, initialDate, isUnlocked }: P
                 </div>
             ) : (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontSize: '0.9rem' }}>
+                    <span style={{ fontSize: '0.9rem', color: '#fff' }}>
                         {initialDate ? new Date(initialDate).toLocaleDateString() : 'No Date'}
                     </span>
                     <button
