@@ -31,8 +31,8 @@ export default async function PayFeePage({ params }: { params: Promise<{ id: str
         <main>
             <Navbar />
             <div className="container" style={{ marginTop: "4rem", maxWidth: "600px", textAlign: "center" }}>
-                <div className="card" style={{ padding: "3rem" }}>
-                    <h1 style={{ marginBottom: "1rem" }}>Activate Your Session</h1>
+                <div className="card-glass">
+                    <h1 style={{ marginBottom: "1rem", color: "var(--primary)" }}>Activate Your Session</h1>
                     <p style={{ color: "#888", marginBottom: "2rem" }}>
                         To start scheduling matches and managing your league, a one-time session creation fee is required.
                     </p>
