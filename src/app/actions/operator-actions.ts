@@ -93,3 +93,45 @@ export async function updatePlayerFargo(playerId: string, fargoRating: number) {
     revalidatePath("/dashboard/operator", "layout");
     return { success: true };
 }
+
+export async function updatePlayerStatus(leagueId: string, playerId: string, status: 'active' | 'inactive' | 'pending' | 'rejected') {
+    const { userId } = await auth();
+    if (!userId) return { error: "Unauthorized" };
+
+    const supabase = await createClient();
+
+    // Verify Caller is Operator or Admin
+    const { data: callerProfile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userId)
+        .single();
+
+    if (callerProfile?.role !== 'operator' && callerProfile?.role !== 'admin') {
+        return { error: "Unauthorized: Operator privileges required." };
+    }
+
+    const adminClient = createAdminClient();
+
+    // If status is 'rejected', we might want to delete the record so they can request again, OR keep it as rejected.
+    // For now, let's treat 'rejected' as 'pending' deletion or just 'inactive'.
+    // Actually, simply updating status is safest.
+
+    // Allow deleting the row if 'rejected' is passed?
+    // Let's stick to status updates for now.
+
+    const { error } = await adminClient
+        .from("league_players")
+        .update({ status: status })
+        .eq("league_id", leagueId)
+        .eq("player_id", playerId);
+
+    if (error) {
+        console.error("Error updating player status:", error);
+        return { error: "Failed to update status." };
+    }
+
+    revalidatePath(`/dashboard/operator/leagues/${leagueId}`);
+    revalidatePath(`/dashboard/operator/leagues/${leagueId}/players`);
+    return { success: true };
+}

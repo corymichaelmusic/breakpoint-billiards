@@ -65,6 +65,15 @@ export default function SelectLeagueScreen() {
                 { global: { headers: authHeader } }
             );
 
+            // Check if user has any other sessions (active or setup)
+            // If none, make this one Primary
+            const { count } = await supabase
+                .from('league_players')
+                .select('league_id', { count: 'exact', head: true })
+                .eq('player_id', userId);
+
+            const isFirstSession = (count || 0) === 0;
+
             // Insert membership
             const { error } = await supabase
                 .from('league_players')
@@ -72,7 +81,8 @@ export default function SelectLeagueScreen() {
                     league_id: league.id,
                     player_id: userId,
                     status: 'pending',
-                    joined_at: new Date().toISOString()
+                    joined_at: new Date().toISOString(),
+                    is_primary: isFirstSession
                 });
 
             // If error is "duplicate key", it means already joined.

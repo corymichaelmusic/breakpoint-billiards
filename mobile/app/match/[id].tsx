@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, RefreshControl, Alert, Image, Animated, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, RefreshControl, Alert, Image, Animated, ActivityIndicator, Modal, Platform } from 'react-native';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter, useFocusEffect, Stack } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
@@ -10,7 +10,7 @@ import EightBallScorer from '../../components/EightBallScorer'; // 8-ball scorer
 import NineBallScorer from '../../components/NineBallScorer'; // 9-ball scorer
 import { supabase } from '../../lib/supabase';
 import { applyRealtimeAuth } from '../../lib/realtimeAuth'; // Import singleton
-import { calculateRace, getBreakpointLevel } from '../../utils/rating'; // Import race calc
+import { fetchMatchRaces, getBreakpointLevel } from '../../utils/rating'; // Import race calc
 import { useMatchBroadcast } from '../../hooks/useMatchBroadcast';
 
 // Default initial rating (used for display only - calculations happen server-side)
@@ -28,10 +28,21 @@ export default function MatchScreen() {
     const { userId, getToken } = useAuth();
     const [match, setMatch] = useState<any>(null);
     const [games, setGames] = useState<any[]>([]);
+    const [races, setRaces] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [lastSynced, setLastSynced] = useState<string | null>(null);
+
+    // Score Verification State
+    const [setCompleted8ball, setSetCompleted8ball] = useState(false);
+    const [setCompleted9ball, setSetCompleted9ball] = useState(false);
+    const [verificationStatus, setVerificationStatus] = useState<'in_progress' | 'pending_verification' | 'verified' | 'disputed'>('in_progress');
+    const [showSubmissionModal, setShowSubmissionModal] = useState(false);
+
+    // Outcome Selection State (Custom Overlay)
+    const [outcomePromptVisible, setOutcomePromptVisible] = useState(false);
+    const [pendingWinnerId, setPendingWinnerId] = useState<string | null>(null);
 
     // Initialize state based on navigation params
     const initialViewMode = returnToScore === 'true' ? 'scoring' : 'selection';
@@ -94,11 +105,12 @@ export default function MatchScreen() {
             if (matchError) throw matchError;
             if (!matchDataRaw) throw new Error("Match not found");
 
-            // Fetch Games
+            // Fetch Games - Only show games scored by THIS user (independent scoring)
             const { data: gamesData, error: gamesError } = await supabaseAuthenticated
                 .from('games')
                 .select('*')
                 .eq('match_id', id)
+                .eq('scored_by', userId)
                 .order('game_number');
 
             if (gamesError) throw gamesError;
@@ -133,6 +145,16 @@ export default function MatchScreen() {
             setGames(gamesData || []);
             setLastSynced(new Date().toLocaleTimeString());
 
+            // Fetch Races
+            const rData = await fetchMatchRaces([{
+                id: matchData.id,
+                p1Rating: matchData.player1.rating,
+                p2Rating: matchData.player2.rating
+            }]);
+            if (rData && rData[matchData.id]) {
+                setRaces(rData[matchData.id]);
+            }
+
 
         } catch (error: any) {
             // Suppress network errors and expired tokens (transient)
@@ -158,6 +180,48 @@ export default function MatchScreen() {
     useEffect(() => {
         fetchMatchData();
     }, [id]);
+
+    // Auto-detect set completion from games data (persists across app restarts)
+    useEffect(() => {
+        if (!match || !games.length) return;
+
+        const p1Rating = match.player1?.rating || 500;
+        const p2Rating = match.player2?.rating || 500;
+        const p1Id = match.player1?.id;
+        const p2Id = match.player2?.id;
+
+        if (!races) return;
+
+        // Calculate races
+        const race8ball = races.race8;
+        const race9ball = races.race9;
+
+        // Count wins per game type
+        const games8ball = games.filter(g => g.game_type === '8ball');
+        const games9ball = games.filter(g => g.game_type === '9ball');
+
+        const p1_8wins = games8ball.filter(g => g.winner_id === p1Id).length;
+        const p2_8wins = games8ball.filter(g => g.winner_id === p2Id).length;
+        const p1_9wins = games9ball.filter(g => g.winner_id === p1Id).length;
+        const p2_9wins = games9ball.filter(g => g.winner_id === p2Id).length;
+
+        // Check if races are met (but not yet finalized on server)
+        const is8ballRaceMet = (p1_8wins >= race8ball.p1 || p2_8wins >= race8ball.p2);
+        const is9ballRaceMet = (p1_9wins >= race9ball.p1 || p2_9wins >= race9ball.p2);
+
+        // Auto-set completion state (only if not already finalized on server)
+        if (is8ballRaceMet && match.status_8ball !== 'finalized' && !setCompleted8ball) {
+            setSetCompleted8ball(true);
+        }
+        if (is9ballRaceMet && match.status_9ball !== 'finalized' && !setCompleted9ball) {
+            setSetCompleted9ball(true);
+        }
+
+        // Also detect verification status from match data
+        if (match.verification_status) {
+            setVerificationStatus(match.verification_status);
+        }
+    }, [match, games, races]);
 
     // Focus Effect to ensure data is fresh when returning to screen
     // Focus Effect merged into Poller below
@@ -209,18 +273,18 @@ export default function MatchScreen() {
                 { global: { headers: authHeader } }
             );
 
-            // Insert Game (BBRS calculations now happen server-side during finalization)
-            const isP1Win = winnerId === match.player1.id;
+            // Insert Game (player scores independently, verified later)
             const gameData = {
                 match_id: match.id,
-                game_number: games.length + 1,
+                game_number: games.filter(g => g.game_type === activeGameType).length + 1,
                 game_type: activeGameType,
                 winner_id: winnerId,
                 is_break_and_run: outcome === 'break_run',
                 is_rack_and_run: outcome === 'rack_run',
                 is_early_8: outcome === 'early_8',
                 is_scratch_8: outcome === 'scratch_8',
-                is_9_on_snap: outcome === '9_snap'
+                is_9_on_snap: outcome === '9_snap',
+                scored_by: userId // Each player scores independently
             };
 
             const { data: insertedGame, error: insertError } = await supabaseAuthenticated
@@ -231,65 +295,17 @@ export default function MatchScreen() {
 
             if (insertError) throw insertError;
 
-            // 3. Update Match Scores (DB)
-            // Explicitly get current scores based on type
-            const currentP1 = activeGameType === '8ball' ? (match.points_8ball_p1 || 0) : (match.points_9ball_p1 || 0);
-            const currentP2 = activeGameType === '8ball' ? (match.points_8ball_p2 || 0) : (match.points_9ball_p2 || 0);
-            const newScoreP1 = Number(currentP1) + (isP1Win ? 1 : 0);
-            const newScoreP2 = Number(currentP2) + (isP1Win ? 0 : 1);
-
-            // Perform Dynamic Race Calculation (Same as UI)
-            const calcRaceP1 = activeGameType === '8ball'
-                ? calculateRace(match.player1.rating, match.player2.rating).short.p1
-                : calculateRace(match.player1.rating, match.player2.rating, '9ball').short.p1;
-            const calcRaceP2 = activeGameType === '8ball'
-                ? calculateRace(match.player1.rating, match.player2.rating).short.p2
-                : calculateRace(match.player1.rating, match.player2.rating, '9ball').short.p2;
-
-            const dbMatchPayload: any = {};
-            if (activeGameType === '8ball') {
-                dbMatchPayload.points_8ball_p1 = newScoreP1;
-                dbMatchPayload.points_8ball_p2 = newScoreP2;
-
-                // REMOVED: Premature auto-finalize. 
-                // We rely on the UI to detect race completion and prompt user to "Verify & Finalize".
-
-            } else {
-                dbMatchPayload.points_9ball_p1 = newScoreP1;
-                dbMatchPayload.points_9ball_p2 = newScoreP2;
-            }
-
-            // Global Status Check: If both sets are finalized (or just this one if single set match)
-            // Ideally we check if *all* active sets are done. For now, we update global status if the current set updates.
-            // A simplified rule: if this set updates to finalized, update global to finalized? 
-            // Wait, we have separate statuses. Let's start with updating local status.
-            // If the schema requires a global 'status', we should probably set it to finalized if *all* races are done.
-            // But since this app seems to often be one type at a time, we can defer complex multi-set logic.
-            // For now, if the current game type finalizes, we'll mark global status finalized just to trigger UI completion if needed,
-            // or rely on the UI checking `status_8ball` / `status_9ball`. 
-            // Let's stick to updating the specific status columns for now as that's safer.
-
-
-            // Increment Racks Played for BBRS
-            match.player1.racks += 1;
-            match.player2.racks += 1;
-
-            const { error: updateError } = await supabaseAuthenticated
-                .from('matches')
-                .update(dbMatchPayload)
-                .eq('id', match.id);
-
-            if (updateError) throw updateError;
-
+            // NOTE: We no longer update match points in real-time.
+            // Each player scores independently, and final scores are submitted during verification.
+            // The UI calculates scores from local games.
 
             // --- SUCCESS CONFIRMATION ---
-            // Update local state with the CONFIRMED data from DB
+            // Update local state with the inserted game
             setGames((prev: any[]) => {
-                // Deduplication check in case Realtime beat us to it
+                // Deduplication check
                 if (prev.find((g: any) => g.id === insertedGame.id)) return prev;
                 return [...prev, insertedGame];
             });
-            setMatch((prev: any) => ({ ...prev, ...dbMatchPayload }));
 
         } catch (e: any) {
             console.error("Submit Game Error", e);
@@ -300,89 +316,216 @@ export default function MatchScreen() {
     };
 
     const handleVerifyAndFinalize = async () => {
-        // Simple Set Verification Logic
-        Alert.alert("Verify & Finalize", "Are both players agreed on the final score?", [
-            { text: "Cancel", style: "cancel" },
-            {
-                text: "Yes, Finalize Set",
-                onPress: async () => {
-                    try {
-                        const token = await getToken({ template: 'supabase' });
-                        // Refresh Realtime Auth (Keep alive)
-                        await applyRealtimeAuth(token);
+        // Calculate winner BEFORE showing alert so we can announce it
+        const p1Id = match.player1.id;
+        const p2Id = match.player2.id;
+        const p1Name = match.player1.nickname || match.player1.full_name?.split(' ')[0] || 'Player 1';
+        const p2Name = match.player2.nickname || match.player2.full_name?.split(' ')[0] || 'Player 2';
 
-                        const authHeader = token ? { Authorization: 'Bearer ' + token } : undefined;
-                        const supabaseAuthenticated = createClient(
-                            process.env.EXPO_PUBLIC_SUPABASE_URL!,
-                            process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
-                            { global: { headers: authHeader } }
-                        );
+        // Filter games for current type
+        const relevantGames = games.filter(g => g.game_type === activeGameType);
+        const p1WonRacks = relevantGames.filter(g => g.winner_id === p1Id).length;
+        const p2WonRacks = relevantGames.filter(g => g.winner_id === p2Id).length;
 
-                        // Calculate Stats Locally (BBRS deltas computed server-side)
-                        const p1Id = match.player1.id;
-                        const p2Id = match.player2.id;
+        // Determine Match Winner (Based on Race Target)
+        // Determine Match Winner (Based on Race Target)
+        if (!races) {
+            Alert.alert("Error", "Race data not loaded.");
+            return;
+        }
+        const race = activeGameType === '8ball' ? races.race8 : races.race9;
 
-                        // Filter games for current type
-                        const relevantGames = games.filter(g => g.game_type === activeGameType);
-                        const p1WonRacks = relevantGames.filter(g => g.winner_id === p1Id).length;
-                        const p2WonRacks = relevantGames.filter(g => g.winner_id === p2Id).length;
+        let winnerId = p2Id; // Default fallback
+        if (p1WonRacks >= race.p1) winnerId = p1Id;
+        else if (p2WonRacks >= race.p2) winnerId = p2Id;
+        else winnerId = p1WonRacks > p2WonRacks ? p1Id : p2Id;
 
-                        // Granular Stats Calculation
-                        const p1BreakRuns = relevantGames.filter(g => g.winner_id === p1Id && g.is_break_and_run).length;
-                        const p1RackRuns = relevantGames.filter(g => g.winner_id === p1Id && g.is_rack_and_run).length;
-                        const p1Snaps = relevantGames.filter(g => g.winner_id === p1Id && g.is_9_on_snap).length;
-                        const p1Early8s = relevantGames.filter(g => g.winner_id === p1Id && g.is_early_8).length;
+        const winnerName = winnerId === p1Id ? p1Name : p2Name;
+        const gameTypeLabel = activeGameType === '8ball' ? '8-Ball' : '9-Ball';
+        const otherSetLabel = activeGameType === '8ball' ? '9-Ball' : '8-Ball';
+        const isOtherSetComplete = activeGameType === '8ball' ? setCompleted9ball : setCompleted8ball;
 
-                        const p2BreakRuns = relevantGames.filter(g => g.winner_id === p2Id && g.is_break_and_run).length;
-                        const p2RackRuns = relevantGames.filter(g => g.winner_id === p2Id && g.is_rack_and_run).length;
-                        const p2Snaps = relevantGames.filter(g => g.winner_id === p2Id && g.is_9_on_snap).length;
-                        const p2Early8s = relevantGames.filter(g => g.winner_id === p2Id && g.is_early_8).length;
+        // Show Set Completion Alert
+        Alert.alert(
+            `${gameTypeLabel} Set Finished!`,
+            `🏆 ${winnerName} wins the set!\n\nFinal Score: ${p1Name} ${p1WonRacks} - ${p2WonRacks} ${p2Name}`,
+            Platform.OS === 'ios' ? [
+                {
+                    text: isOtherSetComplete ? "Submit Match" : `Play ${otherSetLabel}`,
+                    onPress: () => {
+                        // Mark this set as complete
+                        if (activeGameType === '8ball') {
+                            setSetCompleted8ball(true);
+                        } else {
+                            setSetCompleted9ball(true);
+                        }
 
-                        // Determine Match Winner (Based on Race Target)
-                        const race = activeGameType === '8ball'
-                            ? calculateRace(match.player1.rating, match.player2.rating).short
-                            : calculateRace(match.player1.rating, match.player2.rating, '9ball').short;
+                        if (isOtherSetComplete) {
+                            // Both sets complete - show submission modal
+                            setShowSubmissionModal(true);
+                        } else {
+                            // Switch to the other game type DIRECTLY
+                            setActiveGameType(activeGameType === '8ball' ? '9ball' : '8ball');
+                            setViewMode('scoring'); // Ensure we stay in scoring view
+                        }
+                    }
+                },
+                {
+                    text: "Match Hub",
+                    style: "destructive",
+                    onPress: () => {
+                        // Mark this set as complete
+                        if (activeGameType === '8ball') {
+                            setSetCompleted8ball(true);
+                        } else {
+                            setSetCompleted9ball(true);
+                        }
 
-                        let winnerId = p2Id; // Default fallback
-                        if (p1WonRacks >= race.p1) winnerId = p1Id;
-                        else if (p2WonRacks >= race.p2) winnerId = p2Id;
-                        else winnerId = p1WonRacks > p2WonRacks ? p1Id : p2Id;
+                        if (isOtherSetComplete) {
+                            setShowSubmissionModal(true);
+                        } else {
+                            setViewMode('selection');
+                        }
+                    }
+                },
+                { text: "Cancel", style: "cancel" }
+            ] : [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Match Hub",
+                    style: "destructive",
+                    onPress: () => {
+                        // Mark this set as complete
+                        if (activeGameType === '8ball') {
+                            setSetCompleted8ball(true);
+                        } else {
+                            setSetCompleted9ball(true);
+                        }
 
-                        // Call RPC to Finalize (BBRS deltas computed server-side)
-                        const { error } = await supabaseAuthenticated.rpc('finalize_match_stats', {
-                            p_match_id: id,
-                            p_game_type: activeGameType,
-                            p_winner_id: winnerId,
-                            // REMOVED: p_p1_delta, p_p2_delta - now calculated server-side
-                            p_p1_racks_won: p1WonRacks,
-                            p_p1_racks_lost: p2WonRacks,
-                            p_p2_racks_won: p2WonRacks,
-                            p_p2_racks_lost: p1WonRacks,
-                            // Granular Stats
-                            p_p1_break_runs: p1BreakRuns,
-                            p_p1_rack_runs: p1RackRuns,
-                            p_p1_snaps: p1Snaps,
-                            p_p1_early_8s: p1Early8s,
-                            p_p2_break_runs: p2BreakRuns,
-                            p_p2_rack_runs: p2RackRuns,
-                            p_p2_snaps: p2Snaps,
-                            p_p2_early_8s: p2Early8s
-                        });
+                        if (isOtherSetComplete) {
+                            setShowSubmissionModal(true);
+                        } else {
+                            setViewMode('selection');
+                        }
+                    }
+                },
+                {
+                    text: isOtherSetComplete ? "Submit Match" : `Play ${otherSetLabel}`,
+                    onPress: () => {
+                        // Mark this set as complete
+                        if (activeGameType === '8ball') {
+                            setSetCompleted8ball(true);
+                        } else {
+                            setSetCompleted9ball(true);
+                        }
 
-                        if (error) throw error;
-
-                        Alert.alert("Success", "Set finalized successfully.");
-                        setViewMode('selection');
-                        fetchMatchData();
-
-                    } catch (e: any) {
-                        console.error("Finalize Error", e);
-                        Alert.alert("Error", `Failed to finalize: ${e.message}`);
+                        if (isOtherSetComplete) {
+                            // Both sets complete - show submission modal
+                            setShowSubmissionModal(true);
+                        } else {
+                            // Switch to the other game type DIRECTLY
+                            setActiveGameType(activeGameType === '8ball' ? '9ball' : '8ball');
+                            setViewMode('scoring'); // Ensure we stay in scoring view
+                        }
                     }
                 }
-            }
-        ]);
+            ]
+        );
     };
+
+    // New: Submit both sets for verification
+    const handleSubmitForVerification = async () => {
+        if (submitting) return;
+        setSubmitting(true);
+
+        try {
+            const p1Id = match.player1.id;
+            const p2Id = match.player2.id;
+
+            // Calculate stats for both game types
+            const games8ball = games.filter(g => g.game_type === '8ball');
+            const games9ball = games.filter(g => g.game_type === '9ball');
+
+            const stats = {
+                '8ball': {
+                    p1_racks: games8ball.filter(g => g.winner_id === p1Id).length,
+                    p2_racks: games8ball.filter(g => g.winner_id === p2Id).length,
+                    p1_break_runs: games8ball.filter(g => g.winner_id === p1Id && g.is_break_and_run).length,
+                    p2_break_runs: games8ball.filter(g => g.winner_id === p2Id && g.is_break_and_run).length,
+                    p1_rack_runs: games8ball.filter(g => g.winner_id === p1Id && g.is_rack_and_run).length,
+                    p2_rack_runs: games8ball.filter(g => g.winner_id === p2Id && g.is_rack_and_run).length,
+                },
+                '9ball': {
+                    p1_racks: games9ball.filter(g => g.winner_id === p1Id).length,
+                    p2_racks: games9ball.filter(g => g.winner_id === p2Id).length,
+                    p1_break_runs: games9ball.filter(g => g.winner_id === p1Id && g.is_break_and_run).length,
+                    p2_break_runs: games9ball.filter(g => g.winner_id === p2Id && g.is_break_and_run).length,
+                    p1_snaps: games9ball.filter(g => g.winner_id === p1Id && g.is_9_on_snap).length,
+                    p2_snaps: games9ball.filter(g => g.winner_id === p2Id && g.is_9_on_snap).length,
+                }
+            };
+
+            const token = await getToken({ template: 'supabase' });
+            await applyRealtimeAuth(token);
+
+            const authHeader = token ? { Authorization: 'Bearer ' + token } : undefined;
+            const supabaseAuthenticated = createClient(
+                process.env.EXPO_PUBLIC_SUPABASE_URL!,
+                process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+                { global: { headers: authHeader } }
+            );
+
+            // Submit for verification
+            const { data, error } = await supabaseAuthenticated.rpc('submit_match_for_verification', {
+                p_match_id: id,
+                p_player_id: userId,
+                p_stats: stats
+            });
+
+            if (error) throw error;
+
+            const result = data as { success: boolean; status?: string; message?: string; error?: string; opponent_submission?: any; your_submission?: any };
+
+            // Handle RPC failure responses (success: false)
+            if (!result.success) {
+                Alert.alert("Error", result.error || "Failed to submit for verification");
+                return;
+            }
+
+            if (result.status === 'verified') {
+                Alert.alert("Match Verified! 🎉", result.message || "Both players agree!");
+                setVerificationStatus('verified');
+                setShowSubmissionModal(false);
+                router.replace('/(tabs)');
+            } else if (result.status === 'waiting_for_opponent') {
+                Alert.alert("Scores Submitted", result.message);
+                setVerificationStatus('pending_verification');
+                setShowSubmissionModal(false);
+                router.replace('/(tabs)');
+            } else if (result.status === 'disputed') {
+                Alert.alert(
+                    "Score Mismatch",
+                    "Your scores don't match your opponent's. Please review and resubmit.",
+                    [
+                        {
+                            text: "Review Scores",
+                            onPress: () => {
+                                setVerificationStatus('disputed');
+                                // Keep modal open so user can review
+                            }
+                        }
+                    ]
+                );
+            }
+
+        } catch (e: any) {
+            console.error("Verification Error", e);
+            Alert.alert("Error", `Failed to submit for verification: ${e.message}`);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
 
     const handleSelectGame = (type: '8ball' | '9ball') => {
         setActiveGameType(type);
@@ -391,6 +534,26 @@ export default function MatchScreen() {
 
     const handleEditGame = (gameId: string) => {
         router.push(`/game/${gameId}`);
+    };
+
+    // Custom Overlay Handlers
+    const handleRequestOutcome = (winnerId: string) => {
+        setPendingWinnerId(winnerId);
+        setOutcomePromptVisible(true);
+    };
+
+    const handleCommitOutcome = (outcome: string) => {
+        if (!pendingWinnerId) return;
+
+        // Calculate opponent ID
+        const opponentId = pendingWinnerId === match.player1.id ? match.player2.id : match.player1.id;
+
+        // Submit Game
+        handleSubmitGame(pendingWinnerId, outcome, opponentId);
+
+        // Reset Overlay
+        setOutcomePromptVisible(false);
+        setPendingWinnerId(null);
     };
 
     if (loading) {
@@ -419,7 +582,7 @@ export default function MatchScreen() {
     }
 
     return (
-        <SafeAreaView className="flex-1 bg-background" edges={['top', 'left', 'right']}>
+        <SafeAreaView className="flex-1 bg-black pt-6" edges={['left', 'right']}>
             {viewMode === 'selection' && (
                 <View className="px-4 py-2 border-b border-border/10">
                     <TouchableOpacity onPress={() => router.replace('/(tabs)')} className="flex-row items-center">
@@ -431,7 +594,7 @@ export default function MatchScreen() {
 
             {
                 viewMode === 'scoring' && (
-                    <View className="px-4 py-2 border-b border-border/10">
+                    <View className="px-4 py-1 border-b border-border/10">
                         <TouchableOpacity onPress={() => setViewMode('selection')} className="flex-row items-center">
                             <Ionicons name="arrow-back" size={24} color="#888" />
                             <Text className="text-foreground ml-2 font-bold" numberOfLines={1} adjustsFontSizeToFit>Back to Hub</Text>
@@ -507,7 +670,7 @@ export default function MatchScreen() {
                             >
                                 <Text className="text-yellow-400 font-black text-3xl italic tracking-tighter mb-2">8-BALL</Text>
                                 <Text className="text-white font-bold text-2xl mb-4 w-full text-center" numberOfLines={1} adjustsFontSizeToFit>
-                                    {match.points_8ball_p1 || 0}-{match.points_8ball_p2 || 0}
+                                    {games.filter(g => g.game_type === '8ball' && g.winner_id === match.player1.id).length}-{games.filter(g => g.game_type === '8ball' && g.winner_id === match.player2.id).length}
                                 </Text>
 
                                 {match.status_8ball === 'finalized' ? (
@@ -515,6 +678,10 @@ export default function MatchScreen() {
                                         <Text className="text-white text-[10px] font-bold uppercase w-full text-center" numberOfLines={1} adjustsFontSizeToFit>
                                             Winner: {(match.winner_id_8ball === match.player1.id) ? match.player1.nickname || match.player1.full_name?.split(' ')[0] : match.player2.nickname || match.player2.full_name?.split(' ')[0]}
                                         </Text>
+                                    </View>
+                                ) : setCompleted8ball ? (
+                                    <View className="bg-blue-500 px-6 py-1.5 rounded-full">
+                                        <Text className="text-white text-[10px] font-bold uppercase">✓ READY TO SUBMIT</Text>
                                     </View>
                                 ) : (
                                     <View className="bg-indigo-500 px-6 py-1.5 rounded-full">
@@ -530,7 +697,7 @@ export default function MatchScreen() {
                             >
                                 <Text className="text-yellow-400 font-black text-3xl italic tracking-tighter mb-2">9-BALL</Text>
                                 <Text className="text-white font-bold text-2xl mb-4 w-full text-center" numberOfLines={1} adjustsFontSizeToFit>
-                                    {match.points_9ball_p1 || 0}-{match.points_9ball_p2 || 0}
+                                    {games.filter(g => g.game_type === '9ball' && g.winner_id === match.player1.id).length}-{games.filter(g => g.game_type === '9ball' && g.winner_id === match.player2.id).length}
                                 </Text>
 
                                 {match.status_9ball === 'finalized' ? (
@@ -539,12 +706,27 @@ export default function MatchScreen() {
                                             Winner: {(match.winner_id_9ball === match.player1.id) ? match.player1.nickname || match.player1.full_name?.split(' ')[0] : match.player2.nickname || match.player2.full_name?.split(' ')[0]}
                                         </Text>
                                     </View>
+                                ) : setCompleted9ball ? (
+                                    <View className="bg-blue-500 px-6 py-1.5 rounded-full">
+                                        <Text className="text-white text-[10px] font-bold uppercase">✓ READY TO SUBMIT</Text>
+                                    </View>
                                 ) : (
                                     <View className="bg-indigo-500 px-6 py-1.5 rounded-full">
                                         <Text className="text-white text-[10px] font-bold uppercase">PLAY SET</Text>
                                     </View>
                                 )}
                             </TouchableOpacity>
+
+                            {/* Submit Match Button - shown when both sets are locally complete */}
+                            {(setCompleted8ball && setCompleted9ball) && (
+                                <TouchableOpacity
+                                    onPress={() => setShowSubmissionModal(true)}
+                                    className="bg-primary border-2 border-yellow-300 rounded-xl p-6 items-center justify-center"
+                                >
+                                    <Text className="text-black font-black text-xl uppercase tracking-wider mb-1">Submit Match</Text>
+                                    <Text className="text-black/70 text-sm">Both sets complete - ready for verification</Text>
+                                </TouchableOpacity>
+                            )}
                         </View>
                     </View>
                 )}
@@ -555,17 +737,21 @@ export default function MatchScreen() {
 
                         {/* Race Calculation Logic Lifted */}
                         {(() => {
-                            const p1Score = activeGameType === '8ball' ? match.points_8ball_p1 : match.points_9ball_p1;
-                            const p2Score = activeGameType === '8ball' ? match.points_8ball_p2 : match.points_9ball_p2;
+                            // Calculate scores from local games (not synced match.points)
+                            const relevantGames = games.filter(g => g.game_type === activeGameType);
+                            const p1Score = relevantGames.filter(g => g.winner_id === match.player1.id).length;
+                            const p2Score = relevantGames.filter(g => g.winner_id === match.player2.id).length;
+
+                            if (!races) return <ActivityIndicator color="#EAB308" />;
 
                             const raceP1 = activeGameType === '8ball'
-                                ? calculateRace(match.player1.rating, match.player2.rating).short.p1
-                                : calculateRace(match.player1.rating, match.player2.rating, '9ball').short.p1;
+                                ? races.race8.p1
+                                : races.race9.p1;
                             const raceP2 = activeGameType === '8ball'
-                                ? calculateRace(match.player1.rating, match.player2.rating).short.p2
-                                : calculateRace(match.player1.rating, match.player2.rating, '9ball').short.p2;
+                                ? races.race8.p2
+                                : races.race9.p2;
 
-                            const isRaceMet = ((p1Score || 0) >= raceP1) || ((p2Score || 0) >= raceP2);
+                            const isRaceMet = (p1Score >= raceP1) || (p2Score >= raceP2);
                             const isFinalized = (activeGameType === '8ball' ? match.status_8ball : match.status_9ball) === 'finalized';
                             const showFinalizeUI = isRaceMet && !isFinalized;
 
@@ -590,7 +776,7 @@ export default function MatchScreen() {
                                             player2={{ ...match.player2, name: getP2Name() }}
                                             games={games.filter(g => g.game_type === '8ball')}
                                             raceTo={{ p1: raceP1, p2: raceP2 }}
-                                            onSubmitGame={handleSubmitGame}
+                                            onRequestOutcome={handleRequestOutcome}
                                             isSubmitting={submitting}
                                             onEditGame={handleEditGame}
                                             isRaceComplete={showFinalizeUI}
@@ -604,7 +790,7 @@ export default function MatchScreen() {
                                             player2={{ ...match.player2, name: getP2Name() }}
                                             games={games.filter(g => g.game_type === '9ball')}
                                             raceTo={{ p1: raceP1, p2: raceP2 }}
-                                            onSubmitGame={handleSubmitGame}
+                                            onRequestOutcome={handleRequestOutcome}
                                             isSubmitting={submitting}
                                             onEditGame={handleEditGame}
                                             isRaceComplete={showFinalizeUI}
@@ -618,6 +804,228 @@ export default function MatchScreen() {
                     </View>
                 )}
             </ScrollView>
+
+            {/* Match Submission Modal */}
+            <Modal
+                visible={showSubmissionModal}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setShowSubmissionModal(false)}
+            >
+                <View className="flex-1 bg-black/90 justify-end">
+                    <View className="bg-surface rounded-t-3xl p-6 border-t border-yellow-600/50 max-h-[85%]">
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                            {/* Header */}
+                            <View className="items-center mb-6">
+                                <View className="w-12 h-1 bg-gray-600 rounded-full mb-4" />
+                                <Text className="text-primary text-2xl font-black uppercase tracking-wider mb-2">Submit Match</Text>
+                                <Text className="text-gray-400 text-center">Review your scores before submitting for verification</Text>
+                            </View>
+
+                            {/* 8-Ball Summary */}
+                            <View className="bg-black/40 border border-yellow-600/30 rounded-xl p-4 mb-4">
+                                <Text className="text-yellow-400 font-bold text-lg mb-3">8-Ball Set</Text>
+                                <View className="flex-row justify-between items-center mb-3">
+                                    <View className="items-center flex-1">
+                                        <Text className="text-white font-bold">{match?.player1?.nickname || match?.player1?.full_name?.split(' ')[0]}</Text>
+                                        <Text className="text-yellow-400 text-3xl font-black">
+                                            {games.filter(g => g.game_type === '8ball' && g.winner_id === match?.player1?.id).length}
+                                        </Text>
+                                    </View>
+                                    <Text className="text-gray-500 font-bold px-4">vs</Text>
+                                    <View className="items-center flex-1">
+                                        <Text className="text-white font-bold">{match?.player2?.nickname || match?.player2?.full_name?.split(' ')[0]}</Text>
+                                        <Text className="text-yellow-400 text-3xl font-black">
+                                            {games.filter(g => g.game_type === '8ball' && g.winner_id === match?.player2?.id).length}
+                                        </Text>
+                                    </View>
+                                </View>
+                                {/* 8-Ball Bonus Stats */}
+                                <View className="flex-row justify-around border-t border-gray-700 pt-3">
+                                    <View className="items-center">
+                                        <Text className="text-gray-500 text-[10px] uppercase">Break Runs</Text>
+                                        <Text className="text-white font-bold">
+                                            {games.filter(g => g.game_type === '8ball' && g.winner_id === match?.player1?.id && g.is_break_and_run).length} - {games.filter(g => g.game_type === '8ball' && g.winner_id === match?.player2?.id && g.is_break_and_run).length}
+                                        </Text>
+                                    </View>
+                                    <View className="items-center">
+                                        <Text className="text-gray-500 text-[10px] uppercase">Rack Runs</Text>
+                                        <Text className="text-white font-bold">
+                                            {games.filter(g => g.game_type === '8ball' && g.winner_id === match?.player1?.id && g.is_rack_and_run).length} - {games.filter(g => g.game_type === '8ball' && g.winner_id === match?.player2?.id && g.is_rack_and_run).length}
+                                        </Text>
+                                    </View>
+                                </View>
+                                {(setCompleted8ball || match?.status_8ball === 'finalized') && (
+                                    <View className="bg-green-900/30 rounded-full px-3 py-1 mt-3 self-center">
+                                        <Text className="text-green-400 text-xs font-bold uppercase">✓ Complete</Text>
+                                    </View>
+                                )}
+                            </View>
+
+                            {/* 9-Ball Summary */}
+                            <View className="bg-black/40 border border-yellow-600/30 rounded-xl p-4 mb-6">
+                                <Text className="text-yellow-400 font-bold text-lg mb-3">9-Ball Set</Text>
+                                <View className="flex-row justify-between items-center mb-3">
+                                    <View className="items-center flex-1">
+                                        <Text className="text-white font-bold">{match?.player1?.nickname || match?.player1?.full_name?.split(' ')[0]}</Text>
+                                        <Text className="text-yellow-400 text-3xl font-black">
+                                            {games.filter(g => g.game_type === '9ball' && g.winner_id === match?.player1?.id).length}
+                                        </Text>
+                                    </View>
+                                    <Text className="text-gray-500 font-bold px-4">vs</Text>
+                                    <View className="items-center flex-1">
+                                        <Text className="text-white font-bold">{match?.player2?.nickname || match?.player2?.full_name?.split(' ')[0]}</Text>
+                                        <Text className="text-yellow-400 text-3xl font-black">
+                                            {games.filter(g => g.game_type === '9ball' && g.winner_id === match?.player2?.id).length}
+                                        </Text>
+                                    </View>
+                                </View>
+                                {/* 9-Ball Bonus Stats */}
+                                <View className="flex-row justify-around border-t border-gray-700 pt-3">
+                                    <View className="items-center">
+                                        <Text className="text-gray-500 text-[10px] uppercase">Break Runs</Text>
+                                        <Text className="text-white font-bold">
+                                            {games.filter(g => g.game_type === '9ball' && g.winner_id === match?.player1?.id && g.is_break_and_run).length} - {games.filter(g => g.game_type === '9ball' && g.winner_id === match?.player2?.id && g.is_break_and_run).length}
+                                        </Text>
+                                    </View>
+                                    <View className="items-center">
+                                        <Text className="text-gray-500 text-[10px] uppercase">9 on Snap</Text>
+                                        <Text className="text-white font-bold">
+                                            {games.filter(g => g.game_type === '9ball' && g.winner_id === match?.player1?.id && g.is_9_on_snap).length} - {games.filter(g => g.game_type === '9ball' && g.winner_id === match?.player2?.id && g.is_9_on_snap).length}
+                                        </Text>
+                                    </View>
+                                </View>
+                                {(setCompleted9ball || match?.status_9ball === 'finalized') && (
+                                    <View className="bg-green-900/30 rounded-full px-3 py-1 mt-3 self-center">
+                                        <Text className="text-green-400 text-xs font-bold uppercase">✓ Complete</Text>
+                                    </View>
+                                )}
+                            </View>
+
+                            {/* Verification Info */}
+                            <View className="bg-blue-900/30 border border-blue-500/30 rounded-xl p-4 mb-6">
+                                <Text className="text-blue-400 font-bold mb-2">How Verification Works</Text>
+                                <Text className="text-gray-300 text-sm leading-5">
+                                    Both players must submit their scores. Once both submit, the system will verify the scores match. If there's a discrepancy, you'll be asked to review and correct.
+                                </Text>
+                            </View>
+
+                            {/* Disputed Warning */}
+                            {verificationStatus === 'disputed' && (
+                                <View className="bg-red-900/30 border border-red-500/50 rounded-xl p-4 mb-6">
+                                    <Text className="text-red-400 font-bold mb-2">⚠️ Score Mismatch</Text>
+                                    <Text className="text-gray-300 text-sm leading-5">
+                                        Your scores don't match your opponent's submission. Please review the rack history and resubmit with corrections.
+                                    </Text>
+                                </View>
+                            )}
+
+                            {/* Submit Button */}
+                            <TouchableOpacity
+                                onPress={handleSubmitForVerification}
+                                disabled={submitting}
+                                className={`py-4 rounded-xl items-center mb-4 ${submitting ? 'bg-gray-700' : 'bg-primary'}`}
+                            >
+                                {submitting ? (
+                                    <ActivityIndicator color="#000" />
+                                ) : (
+                                    <Text className="text-black font-bold text-lg uppercase tracking-wider">Submit for Verification</Text>
+                                )}
+                            </TouchableOpacity>
+
+                            {/* Cancel Button */}
+                            <TouchableOpacity
+                                onPress={() => {
+                                    setShowSubmissionModal(false);
+                                    setViewMode('selection');
+                                }}
+                                className="py-3 items-center"
+                            >
+                                <Text className="text-gray-400 font-bold">Review Scores</Text>
+                            </TouchableOpacity>
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Outcome Selection Overlay (Replaces Modal to fix Android White Bar) */}
+            {outcomePromptVisible && (
+                <View className="absolute inset-x-0 inset-y-0 z-50 justify-end">
+                    {/* Backdrop - Tap to Dismiss */}
+                    <TouchableOpacity
+                        activeOpacity={1}
+                        onPress={() => setOutcomePromptVisible(false)}
+                        className="absolute inset-0 bg-black/80"
+                    />
+
+                    {/* Content */}
+                    <View className="bg-surface rounded-t-3xl p-6 border-t border-gray-700 w-full mb-0 pb-10">
+                        <View className="items-center mb-6">
+                            <View className="w-12 h-1 bg-gray-600 rounded-full mb-4" />
+                            <Text className="text-white text-xl font-bold text-center w-full" numberOfLines={1} adjustsFontSizeToFit>
+                                How did {pendingWinnerId === match.player1.id
+                                    ? (match.player1.nickname || match.player1.full_name?.split(' ')[0])
+                                    : (match.player2.nickname || match.player2.full_name?.split(' ')[0])} win?
+                            </Text>
+                        </View>
+
+                        <View className="gap-3 mb-4">
+                            {activeGameType === '8ball' ? (
+                                <>
+                                    {/* 8-BALL OUTCOMES */}
+                                    <TouchableOpacity onPress={() => handleCommitOutcome('made_8')} className="bg-gray-700 p-4 rounded-xl flex-row items-center">
+                                        <View className="w-8 h-8 rounded-full bg-black border border-gray-500 items-center justify-center mr-4">
+                                            <Text className="text-white font-bold text-xs">8</Text>
+                                        </View>
+                                        <Text className="text-white font-bold text-lg flex-1" numberOfLines={1} adjustsFontSizeToFit>Made 8-Ball</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity onPress={() => handleCommitOutcome('break_run')} className="bg-yellow-600/20 border border-yellow-600 p-4 rounded-xl flex-row items-center">
+                                        <Text className="text-yellow-500 font-bold text-lg ml-2 flex-1" numberOfLines={1} adjustsFontSizeToFit>Break & Run</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity onPress={() => handleCommitOutcome('rack_run')} className="bg-green-600/20 border border-green-600 p-4 rounded-xl flex-row items-center">
+                                        <Text className="text-green-500 font-bold text-lg ml-2 flex-1" numberOfLines={1} adjustsFontSizeToFit>Rack & Run</Text>
+                                    </TouchableOpacity>
+
+                                    <Text className="text-gray-500 text-xs font-bold uppercase mt-2 mb-1">Opponent Fault</Text>
+
+                                    <TouchableOpacity onPress={() => handleCommitOutcome('early_8')} className="bg-red-900/30 border border-red-900 p-4 rounded-xl flex-row items-center">
+                                        <Text className="text-red-400 font-bold text-lg ml-2 flex-1" numberOfLines={1} adjustsFontSizeToFit>Opponent Made Early 8</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity onPress={() => handleCommitOutcome('scratch_8')} className="bg-red-900/30 border border-red-900 p-4 rounded-xl flex-row items-center">
+                                        <Text className="text-red-400 font-bold text-lg ml-2 flex-1" numberOfLines={1} adjustsFontSizeToFit>Opponent Scratched on 8</Text>
+                                    </TouchableOpacity>
+                                </>
+                            ) : (
+                                <>
+                                    {/* 9-BALL SPECIFIC OUTCOMES */}
+                                    <TouchableOpacity onPress={() => handleCommitOutcome('made_9')} className="bg-gray-700 p-4 rounded-xl flex-row items-center">
+                                        <View className="w-8 h-8 rounded-full bg-white border border-gray-300 items-center justify-center mr-4 overflow-hidden relative">
+                                            <View className="absolute w-full h-4 bg-yellow-400 top-2" />
+                                            <Text className="text-black font-bold text-xs z-10">9</Text>
+                                        </View>
+                                        <Text className="text-white font-bold text-lg flex-1" numberOfLines={1} adjustsFontSizeToFit>Made 9-Ball</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity onPress={() => handleCommitOutcome('9_snap')} className="bg-yellow-600/20 border border-yellow-600 p-4 rounded-xl flex-row items-center">
+                                        <Text className="text-white font-bold text-lg ml-2 flex-1" numberOfLines={1} adjustsFontSizeToFit>9 on the Snap</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity onPress={() => handleCommitOutcome('break_run')} className="bg-green-600/20 border border-green-600 p-4 rounded-xl flex-row items-center">
+                                        <Text className="text-green-500 font-bold text-lg ml-2 flex-1" numberOfLines={1} adjustsFontSizeToFit>Break & Run</Text>
+                                    </TouchableOpacity>
+                                </>
+                            )}
+                        </View>
+
+                        <TouchableOpacity onPress={() => setOutcomePromptVisible(false)} className="items-center p-4">
+                            <Text className="text-gray-400 font-bold text-center w-full" numberOfLines={1} adjustsFontSizeToFit>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
         </SafeAreaView >
     );
 }

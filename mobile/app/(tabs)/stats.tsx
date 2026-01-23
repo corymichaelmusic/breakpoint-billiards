@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { useAuth } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
 import { getBreakpointLevel } from "../../utils/rating";
+import { useSession } from "../../lib/SessionContext";
 
 export default function StatsScreen() {
     const { userId, getToken } = useAuth();
@@ -12,6 +13,7 @@ export default function StatsScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [stats, setStats] = useState<any>(null);
+    const { currentSession } = useSession();
 
     const fetchStats = async () => {
         try {
@@ -197,7 +199,7 @@ export default function StatsScreen() {
 
     useEffect(() => {
         fetchStats();
-    }, [userId]);
+    }, [userId, currentSession]);
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
@@ -219,7 +221,7 @@ export default function StatsScreen() {
                     <View className="bg-surface border border-border rounded-xl p-4 mb-6">
                         <View className="flex-row justify-between items-center mb-4 border-b border-border pb-2">
                             <Text className="text-foreground text-lg font-bold max-w-[70%]">
-                                Lifetime Stats for {stats?.fullName || 'Player'}
+                                Lifetime Stats
                             </Text>
                             <TouchableOpacity onPress={() => router.push('/global-leaderboard')}>
                                 <Text className="text-primary font-bold text-base" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>

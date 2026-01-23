@@ -122,16 +122,19 @@ BEGIN
 
 
     -- 4. Calculate BBRS Deltas (Using BBRS ratings)
+    -- Pass p_did_win based on v_final_winner_id to handle handicap scenarios correctly
     v_p1_delta := calculate_bbrs_delta(
         v_p1_rating_bbrs, v_p2_rating_bbrs,
         p_p1_racks_won, p_p1_racks_lost,
-        v_p1_racks_played, TRUE
+        v_p1_racks_played, TRUE,
+        (v_final_winner_id = v_player1_id) -- p_did_win: true if player1 won
     );
     
     v_p2_delta := calculate_bbrs_delta(
         v_p2_rating_bbrs, v_p1_rating_bbrs,
         p_p2_racks_won, p_p2_racks_lost,
-        v_p2_racks_played, TRUE
+        v_p2_racks_played, TRUE,
+        (v_final_winner_id = v_player2_id) -- p_did_win: true if player2 won
     );
 
     -- 5. Update Match Status (Using Adjusted POINTS, but Real SCORE)

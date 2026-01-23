@@ -5,6 +5,7 @@ import { supabase } from "../../lib/supabase";
 import { createClient } from "@supabase/supabase-js";
 import { useAuth } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
+import { useSession } from "../../lib/SessionContext";
 
 import { getBreakpointLevel } from "../../utils/rating";
 
@@ -25,6 +26,7 @@ export default function LeaderboardScreen() {
     const [leaderboard, setLeaderboard] = useState<any[]>([]);
     const [sessionName, setSessionName] = useState("");
     const [leagueName, setLeagueName] = useState("");
+    const { currentSession } = useSession();
 
     // Refs
     const headerScrollViewRef = useRef<ScrollView>(null);
@@ -45,80 +47,52 @@ export default function LeaderboardScreen() {
                 }
             );
 
-
-            // 1. Get Active Session First
-            // PRIORITIZE ACTIVE status
-            const { data: memberships } = await supabaseAuthenticated
-                .from("league_players")
-                .select("league_id, leagues!inner(name, type, status, parent_league:parent_league_id(name))")
-                .eq("player_id", userId)
-                .eq("leagues.type", "session")
-                .in("leagues.status", ["active", "setup"])
-                .order("leagues(status)", { ascending: true }) // active < setup? No, alphabetical. active(a) < setup(s). So Active first.
-                // Wait, sorting by joined column on nested relation is tricky.
-                // Best to fetch all and sort in JS if few.
-                // Or just trust the status sort if we can.
-                // Let's try to just fetch them and pick the text 'active' one.
-                .limit(5); // Fetch top 5 recent to be safe
-
-            if (!memberships || memberships.length === 0) {
+            if (!currentSession) {
                 setLoading(false);
                 return;
             }
 
-            // Client-side Priority: Active > Setup > Completed
-            const sorted = memberships.sort((a: any, b: any) => {
-                const statusMap: Record<string, number> = { 'active': 1, 'setup': 2, 'completed': 3 };
-                const sA = statusMap[a.leagues.status] || 99;
-                const sB = statusMap[b.leagues.status] || 99;
-                return sA - sB;
-            });
+            setSessionName(currentSession.name);
+            setLeagueName(currentSession.parentLeagueName || '');
+            const leagueId = currentSession.id;
 
-            const activeSession = sorted[0];
+            // 3. Fetch Pre-Calculated Stats from league_players
+            // This replaces the expensive client-side aggregation
+            const { data: players } = await supabaseAuthenticated
+                .from("league_players")
+                .select("player_id, matches_played, matches_won, shutouts, profiles:player_id(full_name, breakpoint_rating)")
+                .eq("league_id", leagueId);
 
-            if (activeSession) {
-                setSessionName(activeSession.leagues.name);
-                setLeagueName(activeSession.leagues.parent_league?.name || '');
-                const leagueId = activeSession.league_id;
+            if (players && players.length > 0) {
+                const statsArray = players.map((p: any) => {
+                    const name = p.profiles?.full_name || 'Unknown';
+                    const rating = p.profiles?.breakpoint_rating ?? 500;
+                    const played = p.matches_played || 0;
+                    const wins = p.matches_won || 0;
+                    const shutouts = p.shutouts || 0;
 
-                // 3. Fetch Pre-Calculated Stats from league_players
-                // This replaces the expensive client-side aggregation
-                const { data: players } = await supabaseAuthenticated
-                    .from("league_players")
-                    .select("player_id, matches_played, matches_won, shutouts, profiles:player_id(full_name, breakpoint_rating)")
-                    .eq("league_id", leagueId);
+                    return {
+                        id: p.player_id,
+                        name,
+                        wins,
+                        played,
+                        shutouts,
+                        winRate: played > 0 ? Math.round((wins / played) * 100) : 0,
+                        breakPoint: getBreakpointLevel(rating),
+                        rating // raw for tiebreak
+                    };
+                });
 
-                if (players && players.length > 0) {
-                    const statsArray = players.map((p: any) => {
-                        const name = p.profiles?.full_name || 'Unknown';
-                        const rating = p.profiles?.breakpoint_rating ?? 500;
-                        const played = p.matches_played || 0;
-                        const wins = p.matches_won || 0;
-                        const shutouts = p.shutouts || 0;
+                statsArray.sort((a, b) => {
+                    if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+                    return b.played - a.played; // Secondary: More matches played
+                });
 
-                        return {
-                            id: p.player_id,
-                            name,
-                            wins,
-                            played,
-                            shutouts,
-                            winRate: played > 0 ? Math.round((wins / played) * 100) : 0,
-                            breakPoint: getBreakpointLevel(rating),
-                            rating // raw for tiebreak
-                        };
-                    });
-
-                    statsArray.sort((a, b) => {
-                        if (b.winRate !== a.winRate) return b.winRate - a.winRate;
-                        return b.played - a.played; // Secondary: More matches played
-                    });
-
-                    // Assign Rank
-                    const ranked = statsArray.map((s, i) => ({ ...s, rank: i + 1 }));
-                    setLeaderboard(ranked);
-                } else {
-                    setLeaderboard([]);
-                }
+                // Assign Rank
+                const ranked = statsArray.map((s, i) => ({ ...s, rank: i + 1 }));
+                setLeaderboard(ranked);
+            } else {
+                setLeaderboard([]);
             }
         } catch (e) {
             console.error(e);
@@ -130,7 +104,7 @@ export default function LeaderboardScreen() {
 
     useEffect(() => {
         fetchData();
-    }, [userId]);
+    }, [userId, currentSession]);
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);

@@ -39,10 +39,16 @@ const calculateOpponentScaling = (playerRating, opponentRating) => {
     return Math.max(0.85, Math.min(1.15, scale));
 };
 
-const calculateSetRatingChange = (playerRating, opponentRating, playerScore, opponentScore, playerRacksPlayed) => {
+const calculateSetRatingChange = (playerRating, opponentRating, playerScore, opponentScore, playerRacksPlayed, isWinner = null) => {
     const expectedWinProb = calculateExpectedWinProb(playerRating, opponentRating);
     const kFactor = getBaseKFactor(playerRacksPlayed);
-    const actualOutcome = playerScore > opponentScore ? 1 : 0;
+
+    let actualOutcome;
+    if (isWinner !== null) {
+        actualOutcome = isWinner ? 1 : 0;
+    } else {
+        actualOutcome = playerScore > opponentScore ? 1 : 0;
+    }
 
     // Base Delta
     const baseDelta = kFactor * (actualOutcome - expectedWinProb); // calculateBaseDelta inline
@@ -159,9 +165,32 @@ async function processGame(match, activeGameType, playerState) {
     const p1Score = activeGameType === '8ball' ? (match.points_8ball_p1 || 0) : (match.points_9ball_p1 || 0);
     const p2Score = activeGameType === '8ball' ? (match.points_8ball_p2 || 0) : (match.points_9ball_p2 || 0);
 
+    // Determine Winner Authoritatively
+    let p1Won = false;
+    let p2Won = false;
+
+    if (activeGameType === '8ball') {
+        if (match.winner_id_8ball) {
+            p1Won = match.winner_id_8ball === p1Id;
+            p2Won = match.winner_id_8ball === p2Id;
+        } else {
+            // Fallback for really old data if winner_id missing
+            p1Won = p1Score > p2Score;
+            p2Won = p2Score > p1Score;
+        }
+    } else {
+        if (match.winner_id_9ball) {
+            p1Won = match.winner_id_9ball === p1Id;
+            p2Won = match.winner_id_9ball === p2Id;
+        } else {
+            p1Won = p1Score > p2Score;
+            p2Won = p2Score > p1Score;
+        }
+    }
+
     // Calculate Deltas
-    const p1Delta = calculateSetRatingChange(p1.rating, p2.rating, p1Score, p2Score, p1.racksPlayed);
-    const p2Delta = calculateSetRatingChange(p2.rating, p1.rating, p2Score, p1Score, p2.racksPlayed);
+    const p1Delta = calculateSetRatingChange(p1.rating, p2.rating, p1Score, p2Score, p1.racksPlayed, p1Won);
+    const p2Delta = calculateSetRatingChange(p2.rating, p1.rating, p2Score, p1Score, p2.racksPlayed, p2Won);
 
     // Apply Changes
     p1.rating += p1Delta;

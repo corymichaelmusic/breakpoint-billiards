@@ -88,10 +88,12 @@ export default function MatchHistoryScreen() {
                             const opponentName = isP1 ? match.player2?.full_name : match.player1?.full_name || 'Unknown';
 
                             const scores = {
-                                p1_8: match.points_8ball_p1 || 0,
-                                p2_8: match.points_8ball_p2 || 0,
-                                p1_9: match.points_9ball_p1 || 0,
-                                p2_9: match.points_9ball_p2 || 0,
+                                p1_8: match.points_8ball_p1,
+                                p2_8: match.points_8ball_p2,
+                                p1_9: match.points_9ball_p1,
+                                p2_9: match.points_9ball_p2,
+                                winnerId8: match.winner_id_8ball,
+                                winnerId9: match.winner_id_9ball,
                                 isPlayer1: isP1
                             };
 

@@ -6,15 +6,19 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "../../lib/supabase";
 import { createClient } from "@supabase/supabase-js";
 import NextMatchCard from "../../components/NextMatchCard";
+import { fetchMatchRaces } from "../../utils/rating";
+import { useSession } from "../../lib/SessionContext";
 
 export default function MatchesScreen() {
     const { userId, getToken } = useAuth();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [matches, setMatches] = useState<any[]>([]);
+    const [races, setRaces] = useState<Record<string, any>>({});
     const [activeSession, setActiveSession] = useState<any>(null);
     const lastFetchTime = useRef<number>(0);
     const CACHE_DURATION = 60000; // 60 seconds
+    const { currentSession } = useSession();
 
     useFocusEffect(
         useCallback(() => {
@@ -43,47 +47,43 @@ export default function MatchesScreen() {
                 { global: { headers: { Authorization: `Bearer ${token}` } } }
             );
 
-            // 1. Fetch Active Session Logic (same as Dashboard)
-            const { data: memberships } = await supabaseAuthenticated
-                .from("league_players")
+            if (!currentSession) {
+                setLoading(false);
+                return;
+            }
+
+            // Use session from context
+            setActiveSession(currentSession);
+
+            // 2. Fetch All Matches for this session
+            const { data: fetchedMatches } = await supabaseAuthenticated
+                .from("matches")
                 .select(`
-            league_id,
-            leagues!inner (
-                id,
-                name,
-                type,
-                status,
-                parent_league:parent_league_id(name)
-            )
-        `)
-                .eq("player_id", userId)
-                .eq("leagues.status", "active")
-                .order("joined_at", { ascending: false });
-
-            const activeMembership = memberships?.find((m: any) => m.leagues.type === 'session' && m.leagues.status === 'active')
-                || memberships?.[0];
-
-            if (activeMembership) {
-                const session = activeMembership.leagues;
-                setActiveSession(session);
-
-                // 2. Fetch All Matches for this session
-                const { data: fetchedMatches } = await supabaseAuthenticated
-                    .from("matches")
-                    .select(`
             *,
-            player1:player1_id(full_name),
-            player2:player2_id(full_name),
+            p1_submitted_at,
+            p2_submitted_at,
+            player1:player1_id(full_name, breakpoint_rating, fargo_rating),
+            player2:player2_id(full_name, breakpoint_rating, fargo_rating),
             games (winner_id, is_break_and_run, is_9_on_snap, game_type)
           `)
-                    .eq("league_id", session.id)
-                    .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
-                    .order("week_number", { ascending: true }) // Order by Week
-                    .order("scheduled_date", { ascending: true });
+                .eq("league_id", currentSession.id)
+                .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
+                .order("week_number", { ascending: true }) // Order by Week
+                .order("scheduled_date", { ascending: true });
 
-                if (fetchedMatches) {
-                    setMatches(fetchedMatches);
-                }
+            if (fetchedMatches) {
+                setMatches(fetchedMatches);
+
+                // Bulk Fetch Races
+                const inputs = fetchedMatches.map((m: any) => ({
+                    id: m.id,
+                    p1Rating: m.player1?.fargo_rating || m.player1?.breakpoint_rating || 500,
+                    p2Rating: m.player2?.fargo_rating || m.player2?.breakpoint_rating || 500
+                }));
+
+                fetchMatchRaces(inputs).then(raceData => {
+                    if (raceData) setRaces(raceData);
+                });
             }
         } catch (error) {
             console.error("Error fetching matches:", error);
@@ -91,7 +91,7 @@ export default function MatchesScreen() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [userId, getToken]);
+    }, [userId, getToken, currentSession]);
 
     // useEffect removed - replaced by useFocusEffect above
 
@@ -189,14 +189,20 @@ export default function MatchesScreen() {
                             p1_snap, p2_snap
                         };
 
+                        const matchRaces = races[match.id];
+                        const racesForCard = matchRaces ? {
+                            p1_8: matchRaces.race8.p1, p2_8: matchRaces.race8.p2,
+                            p1_9: matchRaces.race9.p1, p2_9: matchRaces.race9.p2
+                        } : undefined;
+
                         return (
                             <NextMatchCard
                                 key={match.id}
                                 matchId={match.id}
                                 opponentName={match.player1_id === userId ? match.player2?.full_name : match.player1?.full_name || 'Unknown'}
-                                date={`Week ${match.week_number} • ${match.scheduled_date ? new Date(match.scheduled_date).toLocaleDateString() : 'TBD'}`}
+                                date={match.scheduled_date ? new Date(match.scheduled_date).toLocaleDateString() : 'TBD'}
                                 isLocked={isMatchLocked}
-                                weekNumber={match.week_number}
+                                weekNumber={undefined}
                                 status={effectiveStatus}
                                 player1Id={match.player1_id}
                                 player2Id={match.player2_id}
@@ -205,6 +211,10 @@ export default function MatchesScreen() {
                                 label={`Week ${match.week_number}`}
                                 scores={scores}
                                 specialStats={specialStats}
+                                verificationStatus={match.verification_status}
+                                p1SubmittedAt={match.p1_submitted_at}
+                                p2SubmittedAt={match.p2_submitted_at}
+                                races={racesForCard}
                             />
                         );
                     })

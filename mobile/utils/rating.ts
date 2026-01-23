@@ -24,76 +24,26 @@ export function calculateEloChange(playerRating: number, opponentRating: number,
     return Math.round(K * (actualScore - expectedScore));
 }
 
-export function calculateRace(rating1: number, rating2: number, gameType: '8ball' | '9ball' = '8ball') {
-    const r1 = rating1 || 500;
-    const r2 = rating2 || 500;
+import { supabase } from '../lib/supabase';
 
-    const getRangeIndex = (r: number) => {
-        if (r <= 275) return 0;
-        if (r <= 349) return 1;
-        if (r <= 399) return 2;
-        if (r <= 449) return 3;
-        if (r <= 499) return 4;
-        if (r <= 549) return 5;
-        if (r <= 599) return 6;
-        if (r <= 700) return 7;
-        return 8;
-    };
+// Deprecated local calculation - logic now on server
+// export function calculateRace(...) { ... }
 
-    const idx1 = getRangeIndex(r1);
-    const idx2 = getRangeIndex(r2);
+export async function fetchMatchRaces(matches: Array<{ id: string, p1Rating: number, p2Rating: number }>) {
+    try {
+        const { data, error } = await supabase.functions.invoke('calculate-race', {
+            body: { matches }
+        });
 
-    let race: number[];
+        if (error) {
+            console.error('Error fetching races:', error);
+            return null;
+        }
 
-    if (gameType === '9ball') {
-        const matrix9 = [
-            // Row 0 (200-275)
-            [[2, 2], [2, 3], [2, 3], [2, 4], [2, 4], [2, 5], [2, 5], [2, 7], [2, 7]],
-            // Row 1 (276-349)
-            [[3, 2], [3, 3], [3, 4], [3, 4], [3, 5], [3, 5], [3, 6], [2, 7], [2, 7]],
-            // Row 2 (350-399)
-            [[3, 2], [3, 3], [3, 3], [3, 4], [3, 5], [3, 5], [3, 6], [2, 7], [2, 7]],
-            // Row 3 (400-449)
-            [[4, 2], [4, 3], [4, 3], [4, 4], [4, 5], [4, 5], [4, 6], [4, 7], [3, 7]],
-            // Row 4 (450-499)
-            [[4, 2], [4, 3], [4, 3], [4, 4], [5, 5], [4, 5], [4, 6], [4, 7], [3, 7]],
-            // Row 5 (500-549)
-            [[5, 2], [5, 3], [5, 3], [5, 4], [5, 4], [5, 5], [5, 6], [4, 7], [4, 7]],
-            // Row 6 (550-599)
-            [[5, 2], [5, 3], [5, 3], [5, 4], [5, 4], [5, 5], [5, 6], [5, 7], [4, 7]],
-            // Row 7 (600-700)
-            [[6, 2], [6, 2], [6, 3], [6, 4], [6, 4], [6, 5], [6, 6], [6, 7], [6, 7]],
-            // Row 8 (701+)
-            [[7, 2], [7, 2], [7, 3], [7, 3], [7, 4], [7, 4], [7, 5], [7, 6], [8, 8]]
-        ];
-        race = matrix9[idx1][idx2];
-    } else {
-        // 8-Ball Matrix
-        const matrix8 = [
-            // Row 0 (200-275)
-            [[2, 2], [2, 3], [2, 4], [2, 5], [2, 5], [2, 5], [2, 6], [2, 6], [2, 6]],
-            // Row 1 (276-349)
-            [[3, 2], [3, 3], [3, 3], [3, 4], [3, 4], [3, 5], [2, 5], [2, 5], [2, 6]],
-            // Row 2 (350-399)
-            [[4, 2], [3, 3], [3, 3], [3, 4], [3, 4], [3, 5], [3, 5], [2, 5], [2, 6]],
-            // Row 3 (400-449)
-            [[4, 2], [4, 3], [4, 3], [4, 4], [4, 4], [3, 5], [3, 5], [3, 5], [2, 6]],
-            // Row 4 (450-499)
-            [[5, 2], [4, 3], [4, 3], [4, 4], [4, 4], [4, 5], [3, 5], [3, 5], [3, 6]],
-            // Row 5 (500-549)
-            [[5, 2], [5, 3], [5, 3], [5, 3], [5, 4], [4, 4], [4, 5], [4, 5], [3, 6]],
-            // Row 6 (550-599)
-            [[6, 2], [6, 2], [5, 3], [5, 3], [5, 3], [5, 4], [4, 4], [4, 5], [4, 6]],
-            // Row 7 (600-700)
-            [[6, 2], [6, 2], [5, 2], [5, 3], [5, 3], [5, 4], [5, 4], [5, 5], [5, 6]],
-            // Row 8 (701+)
-            [[6, 2], [6, 2], [6, 2], [6, 2], [6, 3], [6, 3], [6, 4], [6, 5], [6, 6]]
-        ];
-        race = matrix8[idx1][idx2];
+        return data; // Returns { [matchId]: { race8: {p1, p2}, race9: {p1, p2} } }
+    } catch (e) {
+        console.error('Exception fetching races:', e);
+        return null;
     }
-
-    return {
-        short: { p1: race[0], p2: race[1] },
-        long: { p1: race[0], p2: race[1] }
-    };
 }
+

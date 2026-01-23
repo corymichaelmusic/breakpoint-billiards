@@ -12,6 +12,7 @@ import "../global.css";
 import { applyRealtimeAuth } from "../lib/realtimeAuth";
 import { authSignal } from "../lib/authSignal";
 import * as NavigationBar from 'expo-navigation-bar';
+import { SessionProvider } from "../lib/SessionContext";
 
 // Handle OAuth redirects instantly
 try {
@@ -46,7 +47,14 @@ const InitialLayout = () => {
 
   useEffect(() => {
     if (Platform.OS === 'android') {
-      NavigationBar.setBackgroundColorAsync("#121212");
+      try {
+        // Set to dark color to match app theme
+        NavigationBar.setBackgroundColorAsync("#121212");
+        // Ensure icons are light-colored
+        NavigationBar.setButtonStyleAsync("light");
+      } catch (e) {
+        console.log("Failed to configure Android navigation bar:", e);
+      }
     }
   }, []);
 
@@ -115,7 +123,7 @@ const InitialLayout = () => {
   // TEMPORARY DEBUG OVERLAY
   // Remove this after fixing the issue
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: "#121212" }}>
       <Stack screenOptions={{
         headerShown: false,
         header: () => <Header />
@@ -132,6 +140,10 @@ const InitialLayout = () => {
 
 
 
+import { ThemeProvider, DarkTheme } from "@react-navigation/native";
+
+// ... existing imports
+
 export default function Layout() {
   return (
     // 2. TOKEN CACHE REMOVED
@@ -145,7 +157,11 @@ export default function Layout() {
         publishableKey={publishableKey}
         tokenCache={tokenCache}
       >
-        <InitialLayout />
+        <SessionProvider>
+          <ThemeProvider value={DarkTheme}>
+            <InitialLayout />
+          </ThemeProvider>
+        </SessionProvider>
       </ClerkProvider>
     </SafeAreaProvider>
   );

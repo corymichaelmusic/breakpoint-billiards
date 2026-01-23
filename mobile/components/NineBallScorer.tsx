@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, Modal, ScrollView, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ScrollView, Animated, Platform } from 'react-native';
 import { router } from 'expo-router';
 
 // Types
@@ -15,7 +15,7 @@ type NineBallScorerProps = {
     player2: Player;
     games: any[];
     raceTo: { p1: number; p2: number };
-    onSubmitGame: (winnerId: string, outcome: string, opponentId: string) => void;
+    onRequestOutcome: (winnerId: string) => void;
     isSubmitting: boolean;
     onEditGame?: (gameId: string) => void;
     isRaceComplete?: boolean;
@@ -29,7 +29,7 @@ export default function NineBallScorer({
     player2,
     games,
     raceTo,
-    onSubmitGame,
+    onRequestOutcome,
     isSubmitting,
     onEditGame,
     isRaceComplete,
@@ -38,40 +38,20 @@ export default function NineBallScorer({
 }: NineBallScorerProps) {
     const [view, setView] = useState<'score'>('score');
 
-    // Scoring State
-    const [outcomeModalVisible, setOutcomeModalVisible] = useState(false);
-    const [selectedWinnerId, setSelectedWinnerId] = useState<string | null>(null);
-
     // Derived State
     const p1Wins = games.filter(g => g.winner_id === player1.id).length;
     const p2Wins = games.filter(g => g.winner_id === player2.id).length;
     const currentRackNumber = games.length + 1;
 
-
-
-
-    // --- Scoring Logic ---
-    const handleSelectWinner = (winnerId: string) => {
-        setSelectedWinnerId(winnerId);
-        setOutcomeModalVisible(true);
-    };
-
-    const handleOutcomeSelect = (outcome: string) => {
-        if (!selectedWinnerId) return;
-        const opponentId = selectedWinnerId === player1.id ? player2.id : player1.id;
-
-        // Pass to parent to handle DB & BBRS
-        onSubmitGame(selectedWinnerId, outcome, opponentId);
-
-        // Close and reset
-        setOutcomeModalVisible(false);
-        setSelectedWinnerId(null);
-    };
-
     // --- Render Helpers ---
 
     return (
         <View className="w-full">
+            {/* Game Type Header */}
+            <View className="items-center mb-4 pt-4">
+                <Text className="text-yellow-400 font-black text-4xl italic tracking-tighter">9-BALL</Text>
+            </View>
+
             {/* Header / Scoreboard */}
             <View className="bg-surface p-4 rounded-lg border border-border mb-6">
                 <View className="flex-row justify-between items-center">
@@ -101,13 +81,15 @@ export default function NineBallScorer({
                 </View>
             ) : isRaceComplete ? (
                 <View className="mb-8 bg-surface p-6 rounded-lg border border-green-600 items-center">
-                    <Text className="text-green-500 text-2xl font-bold mb-4 w-full text-center" numberOfLines={1} adjustsFontSizeToFit>SET FINISHED</Text>
-                    <Text className="text-white mb-4 text-center">Race reached. Verify and Finalize.</Text>
+                    <Text className="text-green-500 text-2xl font-bold mb-2 w-full text-center" numberOfLines={1} adjustsFontSizeToFit>SET FINISHED</Text>
+                    <Text className="text-primary text-xl font-bold mb-4 w-full text-center" numberOfLines={1} adjustsFontSizeToFit>
+                        🏆 {p1Wins >= raceTo.p1 ? player1.name : player2.name} Wins!
+                    </Text>
                     <TouchableOpacity
                         onPress={onFinalize}
                         className="bg-primary px-8 py-3 rounded-full w-full items-center"
                     >
-                        <Text className="text-black font-bold text-center w-full" numberOfLines={1} adjustsFontSizeToFit>VERIFY & FINALIZE</Text>
+                        <Text className="text-black font-bold text-center w-full" numberOfLines={1} adjustsFontSizeToFit>CONTINUE</Text>
                     </TouchableOpacity>
                 </View>
             ) : (
@@ -116,7 +98,7 @@ export default function NineBallScorer({
 
                     <View className="flex-row gap-4 mb-8">
                         <TouchableOpacity
-                            onPress={() => handleSelectWinner(player1.id)}
+                            onPress={() => onRequestOutcome(player1.id)}
                             className="flex-1 bg-surface border-2 border-primary/50 p-6 rounded-xl items-center active:bg-primary/10"
                         >
                             <View className="w-16 h-16 rounded-full bg-primary/20 items-center justify-center mb-2 border border-primary">
@@ -127,7 +109,7 @@ export default function NineBallScorer({
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            onPress={() => handleSelectWinner(player2.id)}
+                            onPress={() => onRequestOutcome(player2.id)}
                             className="flex-1 bg-surface border-2 border-gray-500/50 p-6 rounded-xl items-center active:bg-gray-500/10"
                         >
                             <View className="w-16 h-16 rounded-full bg-gray-700 items-center justify-center mb-2 border border-gray-500">
@@ -179,52 +161,6 @@ export default function NineBallScorer({
                     );
                 })}
             </View>
-
-
-            {/* Method Selection Modal */}
-            <Modal
-                transparent={true}
-                visible={outcomeModalVisible}
-                animationType="slide"
-                onRequestClose={() => setOutcomeModalVisible(false)}
-            >
-                <View className="flex-1 bg-black/80 justify-end">
-                    <View className="bg-surface rounded-t-3xl p-6 border-t border-gray-700">
-                        <View className="items-center mb-6">
-                            <View className="w-12 h-1 bg-gray-600 rounded-full mb-4" />
-                            <Text className="text-white text-xl font-bold text-center w-full" numberOfLines={1} adjustsFontSizeToFit>
-                                How did {selectedWinnerId === player1.id ? player1.name : player2.name} win?
-                            </Text>
-                        </View>
-
-                        <View className="gap-3 mb-8">
-                            {/* 9-BALL SPECIFIC OUTCOMES */}
-                            <TouchableOpacity onPress={() => handleOutcomeSelect('made_9')} className="bg-gray-700 p-4 rounded-xl flex-row items-center">
-                                <View className="w-8 h-8 rounded-full bg-white border border-gray-300 items-center justify-center mr-4 overflow-hidden relative">
-                                    <View className="absolute w-full h-4 bg-yellow-400 top-2" />
-                                    <Text className="text-black font-bold text-xs z-10">9</Text>
-                                </View>
-                                <Text className="text-white font-bold text-lg flex-1" numberOfLines={1} adjustsFontSizeToFit>Made 9-Ball</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity onPress={() => handleOutcomeSelect('9_snap')} className="bg-yellow-600/20 border border-yellow-600 p-4 rounded-xl flex-row items-center">
-                                <Text className="text-white font-bold text-lg ml-2 flex-1" numberOfLines={1} adjustsFontSizeToFit>9 on the Snap</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity onPress={() => handleOutcomeSelect('break_run')} className="bg-green-600/20 border border-green-600 p-4 rounded-xl flex-row items-center">
-                                <Text className="text-green-500 font-bold text-lg ml-2 flex-1" numberOfLines={1} adjustsFontSizeToFit>Break & Run</Text>
-                            </TouchableOpacity>
-
-
-
-                        </View>
-
-                        <TouchableOpacity onPress={() => setOutcomeModalVisible(false)} className="items-center p-4">
-                            <Text className="text-gray-400 font-bold text-center w-full" numberOfLines={1} adjustsFontSizeToFit>Cancel</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
         </View>
     );
 }

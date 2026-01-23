@@ -268,7 +268,55 @@ export async function deleteLeague(leagueId: string) {
     // Use admin client to bypass RLS
     const adminSupabase = createAdminClient();
 
-    // First, delete related records from league_operators junction table
+    // 1. Fetch all match IDs for this league to delete their dependencies
+    const { data: matches, error: matchesFetchError } = await adminSupabase
+        .from("matches")
+        .select("id")
+        .eq("league_id", leagueId);
+
+    if (matchesFetchError) {
+        console.error("Error fetching league matches:", matchesFetchError);
+        return { error: "Failed to fetch session matches." };
+    }
+
+    if (matches && matches.length > 0) {
+        const matchIds = matches.map(m => m.id);
+
+        // 2. Delete games associated with these matches
+        const { error: gamesError } = await adminSupabase
+            .from("games")
+            .delete()
+            .in("match_id", matchIds);
+
+        if (gamesError) {
+            console.error("Error deleting games:", gamesError);
+            return { error: "Failed to delete session games." };
+        }
+
+        // 3. Delete reschedule requests associated with these matches
+        const { error: rescheduleError } = await adminSupabase
+            .from("reschedule_requests")
+            .delete()
+            .in("match_id", matchIds);
+
+        if (rescheduleError) {
+            console.error("Error deleting reschedule requests:", rescheduleError);
+            // Continue anyway as this might be less critical or empty
+        }
+
+        // 4. Delete the matches themselves
+        const { error: matchesDeleteError } = await adminSupabase
+            .from("matches")
+            .delete()
+            .in("id", matchIds);
+
+        if (matchesDeleteError) {
+            console.error("Error deleting matches:", matchesDeleteError);
+            return { error: "Failed to delete session matches." };
+        }
+    }
+
+    // 5. Delete related records from league_operators junction table
     const { error: operatorsError } = await adminSupabase
         .from("league_operators")
         .delete()
@@ -276,10 +324,9 @@ export async function deleteLeague(leagueId: string) {
 
     if (operatorsError) {
         console.error("Error deleting league operators:", operatorsError);
-        // Continue anyway, it might not have any operators
     }
 
-    // Delete league_players records
+    // 6. Delete league_players records
     const { error: playersError } = await adminSupabase
         .from("league_players")
         .delete()
@@ -287,9 +334,9 @@ export async function deleteLeague(leagueId: string) {
 
     if (playersError) {
         console.error("Error deleting league players:", playersError);
-        // Continue anyway
     }
 
+    // 7. Finally, delete the league record itself
     const { error } = await adminSupabase
         .from("leagues")
         .delete()
@@ -297,7 +344,7 @@ export async function deleteLeague(leagueId: string) {
 
     if (error) {
         console.error("Error deleting league:", error);
-        return { error: "Failed to delete league. " + error.message };
+        return { error: "Failed to delete session. " + error.message };
     }
 
     revalidatePath("/dashboard/admin");

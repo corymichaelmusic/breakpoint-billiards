@@ -3,6 +3,9 @@
 -- It runs entirely server-side and is never exposed to clients
 -- SECURITY DEFINER ensures it runs with elevated privileges
 
+-- Drop old signature to prevent ambiguity
+DROP FUNCTION IF EXISTS calculate_bbrs_delta(numeric, numeric, int, int, int, boolean);
+
 -- Core calculation function
 CREATE OR REPLACE FUNCTION calculate_bbrs_delta(
     p_player_rating NUMERIC,
@@ -10,7 +13,8 @@ CREATE OR REPLACE FUNCTION calculate_bbrs_delta(
     p_player_score INT,
     p_opponent_score INT,
     p_player_racks_played INT,
-    p_is_league BOOLEAN DEFAULT TRUE
+    p_is_league BOOLEAN DEFAULT TRUE,
+    p_did_win BOOLEAN DEFAULT NULL -- Explicit win status for handicaps
 )
 RETURNS NUMERIC
 LANGUAGE plpgsql
@@ -44,7 +48,14 @@ BEGIN
     END IF;
     
     -- 3. Determine Outcome (1 for win, 0 for loss)
-    IF p_player_score > p_opponent_score THEN
+    -- Priority: Explicit p_did_win (for handicaps) > Score Comparison
+    IF p_did_win IS NOT NULL THEN
+        IF p_did_win THEN
+            v_actual_outcome := 1;
+        ELSE
+            v_actual_outcome := 0;
+        END IF;
+    ELSIF p_player_score > p_opponent_score THEN
         v_actual_outcome := 1;
     ELSE
         v_actual_outcome := 0;

@@ -79,11 +79,13 @@ BEGIN
 
     -- 3. Calculate Deltas
     v_p1_delta := calculate_bbrs_delta(
-        v_p1_rating, v_p2_rating, p_p1_racks_won, p_p1_racks_lost, v_p1_racks_played, TRUE
+        v_p1_rating, v_p2_rating, p_p1_racks_won, p_p1_racks_lost, v_p1_racks_played, TRUE,
+        (v_player1_id = p_winner_id) -- p_did_win
     );
     
     v_p2_delta := calculate_bbrs_delta(
-        v_p2_rating, v_p1_rating, p_p2_racks_won, p_p2_racks_lost, v_p2_racks_played, TRUE
+        v_p2_rating, v_p1_rating, p_p2_racks_won, p_p2_racks_lost, v_p2_racks_played, TRUE,
+        (v_player2_id = p_winner_id) -- p_did_win
     );
 
     -- 4. Update Match Status & Reset Verification Flags (Cleanup)

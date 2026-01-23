@@ -6,6 +6,7 @@ import Navbar from "@/components/Navbar";
 import Link from "next/link";
 import FargoEditor from "@/components/FargoEditor";
 import BackButton from "@/components/BackButton";
+import PlayerStatusControl from "@/components/PlayerStatusControl";
 
 export default async function LeaguePlayersPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params; // League Org ID
@@ -120,10 +121,15 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
                                                 <FargoEditor playerId={p.player_id} currentFargo={p.profiles?.fargo_rating} />
                                             </td>
                                             <td className="p-3">
-                                                <span className={`text-xs px-2 py-1 rounded font-bold uppercase tracking-wide border
-                                                    ${p.leagueStatus === 'active' ? 'bg-[#22c55e]/20 text-[#4ade80] border-[#22c55e]/30' : 'bg-surface text-gray-300 border-border'}`}>
-                                                    {p.leagueStatus}
-                                                </span>
+                                                {league.type === 'league' ? (
+                                                    // For Org level, we generally don't have a direct "join request" flow yet, usually it's per session.
+                                                    // But the table logic uses `p.leagueStatus` which is correct for the current context (id).
+                                                    <PlayerStatusControl leagueId={id} playerId={p.player_id} currentStatus={p.leagueStatus} />
+                                                ) : (
+                                                    // If we are in a session context, usually the ID is the session ID.
+                                                    // The logic above sets p.leagueStatus based on p.league_id === id.
+                                                    <PlayerStatusControl leagueId={id} playerId={p.player_id} currentStatus={p.leagueStatus} />
+                                                )}
                                             </td>
                                             <td className="p-3">
                                                 <div className="flex flex-wrap gap-2">

@@ -19,6 +19,7 @@ interface NextMatchCardProps {
     paymentStatusP1?: string;
     paymentStatusP2?: string;
     label?: string;
+    verificationStatus?: 'in_progress' | 'pending_verification' | 'verified' | 'disputed';
     scores?: {
         p1_8: number;
         p2_8: number;
@@ -36,11 +37,15 @@ interface NextMatchCardProps {
         p1_snap: number;
         p2_snap: number;
     };
+    p1SubmittedAt?: string | null;
+    p2SubmittedAt?: string | null;
+    races?: { p1_8: number; p2_8: number; p1_9: number; p2_9: number; };
 }
 
 export default function NextMatchCard({
     opponentName, date, isLocked, matchId, leagueName, sessionName, weekNumber, status,
-    player1Id, player2Id, paymentStatusP1, paymentStatusP2, label, scores, specialStats
+    player1Id, player2Id, paymentStatusP1, paymentStatusP2, label, scores, specialStats, verificationStatus,
+    p1SubmittedAt, p2SubmittedAt, races
 }: NextMatchCardProps) {
     const [isRequesting, setIsRequesting] = useState(false);
     const { getToken, userId } = useAuth();
@@ -51,6 +56,20 @@ export default function NextMatchCard({
 
     const myName = user?.firstName || 'Me';
     const oppName = opponentName.split(' ')[0];
+
+    // Verification Logic: Differentiate "Waiting" vs "Needs Action"
+    const isPlayer1 = userId === player1Id;
+    const haveISubmitted = isPlayer1 ? !!p1SubmittedAt : !!p2SubmittedAt;
+
+    // ... (rest of useEffects) ... 
+
+    // (Note: Skipping useEffects for brevity in tool call, ensuring lines align)
+    // Actually I need to match the lines carefully.
+    // I will replace from line 23 to 45 (Interface + Signature) 
+    // AND ALSO replace the render logic block at 267. 
+    // This tool does not support multiple discontinuous blocks.
+    // I MUST use multi_replace_file_content.
+
 
 
 
@@ -253,15 +272,56 @@ export default function NextMatchCard({
                     So let's keep weekNumber on the right only if it's NOT in the label to avoid redundancy?
                     Actually, user said "Show the week (week 1...)" instead of "Next Match".
                     Existing weekNumber is shown on the right: {weekNumber && <Text...>Week {weekNumber}</Text>}
-                    We can assume if label is provided, we might want to hide the right-side week number if it's redundant.
                     But for now, minimal change: Just replace "Next Match" with label. 
                 */}
-                {weekNumber && <Text className="text-gray-400 text-[10px] uppercase" style={{ includeFontPadding: false }}>Week {weekNumber} </Text>}
+                {races && (
+                    <View className="flex-row gap-2">
+                        {/* 8-Ball Box */}
+                        <View className="bg-surface-hover/50 border border-white/10 rounded px-2 py-1 flex-row items-center">
+                            <Text className="text-gray-400 text-[10px] font-bold mr-1">8 BALL:</Text>
+                            <Text className="text-white text-[10px] font-bold">
+                                {userId === player1Id ? races.p1_8 : races.p2_8}/{userId === player1Id ? races.p2_8 : races.p1_8}
+                            </Text>
+                        </View>
+                        {/* 9-Ball Box */}
+                        <View className="bg-surface-hover/50 border border-white/10 rounded px-2 py-1 flex-row items-center">
+                            <Text className="text-gray-400 text-[10px] font-bold mr-1">9 BALL:</Text>
+                            <Text className="text-white text-[10px] font-bold">
+                                {userId === player1Id ? races.p1_9 : races.p2_9}/{userId === player1Id ? races.p2_9 : races.p1_9}
+                            </Text>
+                        </View>
+                    </View>
+                )}
+                {date && <Text className="text-gray-400 text-xs uppercase" style={{ includeFontPadding: false }}>{date}</Text>}
             </View>
             <Text className="text-foreground text-xl font-bold mb-1" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>vs {opponentName}</Text>
             {leagueName && <Text className="text-gray-300 text-sm">{leagueName}</Text>}
-            {sessionName && <Text className="text-gray-500 text-xs mb-1">{sessionName}</Text>}
-            <Text className="text-gray-400 text-xs mb-4">{date}</Text>
+            {sessionName && <Text className="text-gray-500 text-xs mb-2">{sessionName}</Text>}
+
+            {/* Verification Status Badges */}
+            {/* Verification Status Badges */}
+            {verificationStatus === 'pending_verification' && (
+                haveISubmitted ? (
+                    <View className="bg-blue-900/30 border border-blue-500/50 rounded-lg p-3 mb-4">
+                        <Text className="text-blue-400 font-bold text-sm mb-1">⏳ Waiting for Opponent</Text>
+                        <Text className="text-gray-400 text-xs">You've submitted your scores. Waiting for your opponent to submit theirs.</Text>
+                    </View>
+                ) : (
+                    <TouchableOpacity
+                        onPress={handlePlayMatch} // Use handlePlayMatch which navigates to the match
+                        className="bg-yellow-900/30 border border-yellow-500/50 rounded-lg p-3 mb-4 active:bg-yellow-900/50"
+                    >
+                        <Text className="text-yellow-400 font-bold text-sm mb-1">⚠️ Action Required</Text>
+                        <Text className="text-gray-400 text-xs">Your opponent has submitted scores. Tap to review and verify.</Text>
+                    </TouchableOpacity>
+                )
+            )}
+            {verificationStatus === 'disputed' && (
+                <View className="bg-red-900/30 border border-red-500/50 rounded-lg p-3 mb-4">
+                    <Text className="text-red-400 font-bold text-sm mb-1">⚠️ Score Mismatch</Text>
+                    <Text className="text-gray-400 text-xs">Your scores don't match your opponent's. Tap to review and resubmit.</Text>
+                </View>
+            )}
 
             {/* Payment Status Badges - Only show if NOT finalized */}
             {status !== 'finalized' && status !== 'completed' && (
@@ -295,8 +355,8 @@ export default function NextMatchCard({
                         <View>
                             <Text className="text-gray-400 text-[10px] uppercase">8-Ball</Text>
                             <Text className={`font-bold ${scores.winnerId8
-                                    ? (scores.winnerId8 === (scores.isPlayer1 ? player1Id : player2Id) ? 'text-green-400' : 'text-red-400')
-                                    : ((scores.isPlayer1 ? scores.p1_8 : scores.p2_8) > (scores.isPlayer1 ? scores.p2_8 : scores.p1_8)) ? 'text-green-400' : 'text-red-400'
+                                ? (scores.winnerId8 === (scores.isPlayer1 ? player1Id : player2Id) ? 'text-green-400' : 'text-red-400')
+                                : ((scores.isPlayer1 ? scores.p1_8 : scores.p2_8) > (scores.isPlayer1 ? scores.p2_8 : scores.p1_8)) ? 'text-green-400' : 'text-red-400'
                                 }`}>
                                 {scores.isPlayer1 ? scores.p1_8 : scores.p2_8} - {scores.isPlayer1 ? scores.p2_8 : scores.p1_8}
                             </Text>
@@ -304,8 +364,8 @@ export default function NextMatchCard({
                         <View>
                             <Text className="text-gray-400 text-[10px] uppercase">9-Ball</Text>
                             <Text className={`font-bold ${scores.winnerId9
-                                    ? (scores.winnerId9 === (scores.isPlayer1 ? player1Id : player2Id) ? 'text-green-400' : 'text-red-400')
-                                    : ((scores.isPlayer1 ? scores.p1_9 : scores.p2_9) > (scores.isPlayer1 ? scores.p2_9 : scores.p1_9)) ? 'text-green-400' : 'text-red-400'
+                                ? (scores.winnerId9 === (scores.isPlayer1 ? player1Id : player2Id) ? 'text-green-400' : 'text-red-400')
+                                : ((scores.isPlayer1 ? scores.p1_9 : scores.p2_9) > (scores.isPlayer1 ? scores.p2_9 : scores.p1_9)) ? 'text-green-400' : 'text-red-400'
                                 }`}>
                                 {scores.isPlayer1 ? scores.p1_9 : scores.p2_9} - {scores.isPlayer1 ? scores.p2_9 : scores.p1_9}
                             </Text>

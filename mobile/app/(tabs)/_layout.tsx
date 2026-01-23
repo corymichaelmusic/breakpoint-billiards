@@ -8,8 +8,15 @@ export default function TabLayout() {
             screenOptions={{
                 headerShown: false,
                 tabBarStyle: {
-                    backgroundColor: "#121212", // Surface color matching theme
-                    borderTopColor: "#333",
+                    backgroundColor: "#121212",
+                    borderTopWidth: 0,
+                    borderTopColor: "#121212", // Match background to hide line
+                    elevation: 0,
+                    shadowOpacity: 0,
+                    shadowOffset: { width: 0, height: 0 },
+                    shadowRadius: 0,
+                    shadowColor: "transparent",
+                    overflow: 'hidden',
                     height: 90,
                     paddingBottom: 30,
                     paddingTop: 8,
