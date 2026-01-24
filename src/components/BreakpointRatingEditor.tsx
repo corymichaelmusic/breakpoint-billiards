@@ -79,8 +79,8 @@ export default function BreakpointRatingEditor({ leagueId, playerId, currentRati
             </span>
             <button
                 onClick={() => setIsEditing(true)}
-                className="bg-[#D4AF37] hover:bg-[#c4a030] text-black text-xs font-bold rounded px-2 py-1 ml-2 transition-colors"
-                style={{ color: 'black' }}
+                className="!bg-[#D4AF37] hover:!bg-[#c4a030] !text-black text-xs font-bold rounded px-2 py-1 ml-2 transition-colors"
+                style={{ color: 'black', backgroundColor: '#D4AF37' }}
             >
                 Edit
             </button>

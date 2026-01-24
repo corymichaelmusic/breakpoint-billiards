@@ -37,8 +37,8 @@ export default function RatingConversionCalculator() {
                             value={fargo}
                             onChange={(e) => calculate(e.target.value)}
                             placeholder="e.g. 500"
-                            className="w-full bg-[#222] border border-white/20 rounded p-2 text-white font-mono text-lg focus:border-[#D4AF37] outline-none transition-colors placeholder:text-gray-500"
-                            style={{ color: 'white' }}
+                            className="w-full !bg-[#222] border border-white/20 rounded p-2 !text-white font-mono text-lg focus:border-[#D4AF37] outline-none transition-colors placeholder:text-gray-500"
+                            style={{ color: 'white', backgroundColor: '#222222' }}
                         />
                     </div>
 
