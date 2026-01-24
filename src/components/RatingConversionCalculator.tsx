@@ -22,7 +22,8 @@ export default function RatingConversionCalculator() {
         <div className="bg-black/40 border border-[#D4AF37]/30 rounded-lg p-4 mb-6 backdrop-blur-sm">
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 text-[#D4AF37] font-bold text-sm uppercase tracking-wide w-full"
+                className="flex items-center gap-2 !text-[#D4AF37] font-bold text-sm uppercase tracking-wide w-full"
+                style={{ color: '#D4AF37' }}
             >
                 <span className="text-xl">{isOpen ? '−' : '+'}</span>
                 rating conversion calculator (Fargo → Breakpoint)
