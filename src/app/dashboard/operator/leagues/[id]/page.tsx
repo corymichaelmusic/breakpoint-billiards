@@ -380,11 +380,11 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                                             <div className="flex flex-col gap-1 text-sm">
                                                                 <div className="flex items-center gap-2">
                                                                     <PaymentStatusManager matchId={match.id} playerId={match.player1_id} status={match.payment_status_p1} playerName={match.player1?.full_name || "P1"} openUpwards={isNearBottom} />
-                                                                    <span className={match.winner_id === match.player1_id ? 'text-primary font-bold' : 'text-gray-300'}>{match.player1?.full_name}</span>
+                                                                    <span className={match.winner_id === match.player1_id ? '!text-[#D4AF37] font-bold' : '!text-gray-300'} style={{ color: match.winner_id === match.player1_id ? '#D4AF37' : '#d1d5db' }}>{match.player1?.full_name}</span>
                                                                 </div>
                                                                 <div className="flex items-center gap-2">
                                                                     <PaymentStatusManager matchId={match.id} playerId={match.player2_id} status={match.payment_status_p2} playerName={match.player2?.full_name || "P2"} openUpwards={isNearBottom} />
-                                                                    <span className={match.winner_id === match.player2_id ? 'text-primary font-bold' : 'text-gray-300'}>{match.player2?.full_name}</span>
+                                                                    <span className={match.winner_id === match.player2_id ? '!text-[#D4AF37] font-bold' : '!text-gray-300'} style={{ color: match.winner_id === match.player2_id ? '#D4AF37' : '#d1d5db' }}>{match.player2?.full_name}</span>
                                                                 </div>
                                                             </div>
                                                         </td>
