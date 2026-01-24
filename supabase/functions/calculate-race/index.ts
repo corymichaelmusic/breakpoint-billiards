@@ -48,14 +48,14 @@ const matrix8 = [
 ];
 
 function getRangeIndex(r: number) {
-    if (r <= 275) return 0;
-    if (r <= 349) return 1;
-    if (r <= 399) return 2;
-    if (r <= 449) return 3;
-    if (r <= 499) return 4;
-    if (r <= 549) return 5;
-    if (r <= 599) return 6;
-    if (r <= 700) return 7;
+    if (r <= 344) return 0;
+    if (r <= 436) return 1;
+    if (r <= 499) return 2;
+    if (r <= 561) return 3;
+    if (r <= 624) return 4;
+    if (r <= 686) return 5;
+    if (r <= 749) return 6;
+    if (r <= 875) return 7;
     return 8;
 }
 

@@ -146,8 +146,8 @@ export async function POST(req: Request) {
 
             const amount = (session.session_fee || 25) * 100; // Default 25
             metadata.session_id = sessionId;
-            successUrl = `${baseUrl}/dashboard`; // Redirect to player dashboard
-            cancelUrl = `${baseUrl}/dashboard`;
+            successUrl = isMobile ? `${baseUrl}/payment/success?session_id=${sessionId}${sourceParam}` : `${baseUrl}/dashboard`;
+            cancelUrl = isMobile ? `${baseUrl}/dashboard?source=mobile` : `${baseUrl}/dashboard`;
 
             lineItems.push({
                 price_data: {

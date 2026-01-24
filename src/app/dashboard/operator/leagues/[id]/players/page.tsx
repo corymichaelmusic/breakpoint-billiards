@@ -4,7 +4,8 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
-import FargoEditor from "@/components/FargoEditor";
+import BreakpointRatingEditor from "@/components/BreakpointRatingEditor";
+import RatingConversionCalculator from "@/components/RatingConversionCalculator";
 import BackButton from "@/components/BackButton";
 import PlayerStatusControl from "@/components/PlayerStatusControl";
 
@@ -92,6 +93,8 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
                     </div>
                 </div>
 
+                <RatingConversionCalculator />
+
                 <div className="card-glass p-6">
                     {playerList.length > 0 ? (
                         <div className="overflow-x-auto">
@@ -100,7 +103,7 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
                                     <tr className="border-b border-border text-gray-500 text-xs uppercase">
                                         <th className="p-3 font-semibold">Name</th>
                                         <th className="p-3 font-semibold">Contact</th>
-                                        <th className="p-3 font-semibold">Fargo</th>
+                                        <th className="p-3 font-semibold">Rating</th>
                                         <th className="p-3 font-semibold">Org Status</th>
                                         <th className="p-3 font-semibold">Active Sessions</th>
                                     </tr>
@@ -118,7 +121,11 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
                                                 <div className="text-xs opacity-70">{p.profiles?.phone || "No Phone"}</div>
                                             </td>
                                             <td className="p-3">
-                                                <FargoEditor playerId={p.player_id} currentFargo={p.profiles?.fargo_rating} />
+                                                <BreakpointRatingEditor
+                                                    leagueId={id}
+                                                    playerId={p.player_id}
+                                                    currentRating={p.breakpoint_rating}
+                                                />
                                             </td>
                                             <td className="p-3">
                                                 {league.type === 'league' ? (

@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Alert } from "react-native";
+import { View, Text, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Alert, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useAuth, useUser } from "@clerk/clerk-expo";
@@ -439,7 +439,42 @@ export default function HomeScreen() {
   // 1. Session context has finished loading (sessionLoading is false)
   // 2. Dashboard fetch has completed (loading is false) 
   // 3. If user has a session in context, we must wait for activeSession to be populated
+  const [isPaying, setIsPaying] = useState(false);
   const shouldShowLoader = sessionLoading || loading || (currentSession && !activeSession);
+
+  const handlePaySessionFee = async () => {
+    if (!currentSession || !userId) return;
+    setIsPaying(true);
+    try {
+      const token = await getToken();
+      const apiUrl = process.env.EXPO_PUBLIC_APP_URL || 'https://breakpoint.app';
+
+      const response = await fetch(`${apiUrl}/api/create-checkout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          type: 'player_session_fee',
+          sessionId: currentSession.id,
+          source: 'mobile'
+        })
+      });
+
+      const data = await response.json();
+      if (data.url) {
+        Linking.openURL(data.url);
+      } else {
+        Alert.alert("Error", data.error || "Failed to create payment link.");
+      }
+    } catch (e) {
+      console.error("Payment Error:", e);
+      Alert.alert("Error", "Could not start payment.");
+    } finally {
+      setIsPaying(false);
+    }
+  };
 
   if (shouldShowLoader) {
     return <View className="flex-1 bg-background items-center justify-center"><ActivityIndicator color="#D4AF37" /></View>;
@@ -546,10 +581,16 @@ export default function HomeScreen() {
               <View className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-6 flex-row items-center justify-between">
                 <View className="flex-1 mr-4">
                   <Text className="text-red-100 font-bold text-base mb-1" style={{ includeFontPadding: false }}>Session Fee Unpaid</Text>
-                  <Text className="text-red-200 text-xs">All players must pay session fee to start.</Text>
+                  <Text className="text-red-200 text-xs">All players must pay session fee to start.   </Text>
                 </View>
-                <TouchableOpacity onPress={() => Alert.alert("Pay Fee", "Please see your League Operator to pay.")} className="bg-red-500 px-4 py-2 rounded-full">
-                  <Text className="text-white font-bold text-xs" style={{ includeFontPadding: false }}>PAY NOW</Text>
+                <TouchableOpacity
+                  onPress={handlePaySessionFee}
+                  disabled={isPaying}
+                  className="bg-red-500 px-4 py-2 rounded-full"
+                >
+                  <Text className="text-white font-bold text-xs" style={{ includeFontPadding: false }}>
+                    {isPaying ? '...' : 'PAY NOW'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}

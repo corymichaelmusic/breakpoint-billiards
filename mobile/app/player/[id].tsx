@@ -100,12 +100,12 @@ export default function PlayerDetailScreen() {
                 // 8-Ball
                 if (m.status_8ball === 'finalized') {
                     if (m.winner_id_8ball === userId) wins++;
-                    else if (m.winner_id_8ball) losses++;
+                    else if (m.winner_id_8ball === id) losses++;
                 }
                 // 9-Ball
                 if (m.status_9ball === 'finalized') {
                     if (m.winner_id_9ball === userId) wins++;
-                    else if (m.winner_id_9ball) losses++;
+                    else if (m.winner_id_9ball === id) losses++;
                 }
             });
 

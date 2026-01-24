@@ -77,7 +77,9 @@ async function recalcLeagueStats() {
             const p1Score = m.points_8ball_p1 || 0;
             const p2Score = m.points_8ball_p2 || 0;
 
-            if (p1Score > p2Score) { p1.matches_won++; p1Won8 = true; }
+            if (m.winner_id_8ball === m.player1_id) { p1.matches_won++; p1Won8 = true; }
+            else if (m.winner_id_8ball === m.player2_id) { p2.matches_won++; p2Won8 = true; }
+            else if (p1Score > p2Score) { p1.matches_won++; p1Won8 = true; }
             else if (p2Score > p1Score) { p2.matches_won++; p2Won8 = true; }
         }
 
@@ -92,7 +94,9 @@ async function recalcLeagueStats() {
             const p1Score = m.points_9ball_p1 || 0;
             const p2Score = m.points_9ball_p2 || 0;
 
-            if (p1Score > p2Score) { p1.matches_won++; p1Won9 = true; }
+            if (m.winner_id_9ball === m.player1_id) { p1.matches_won++; p1Won9 = true; }
+            else if (m.winner_id_9ball === m.player2_id) { p2.matches_won++; p2Won9 = true; }
+            else if (p1Score > p2Score) { p1.matches_won++; p1Won9 = true; }
             else if (p2Score > p1Score) { p2.matches_won++; p2Won9 = true; }
         }
 

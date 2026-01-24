@@ -88,16 +88,16 @@ export async function submitGameScore(
 
     console.log(`Checking Finalization: P1=${newP1Total}/${raceP1}, P2=${newP2Total}/${raceP2}`);
 
-    if (newP1Total >= raceP1 || newP2Total >= raceP2) {
+    if ((raceP1 > 0 && newP1Total >= raceP1) || (raceP2 > 0 && newP2Total >= raceP2)) {
         subMatchStatus = "finalized";
         console.log("Match Finalized!");
 
         // Determine Winner Logic
-        if (newP1Total >= raceP1 && newP2Total >= raceP2) {
+        if (raceP1 > 0 && newP1Total >= raceP1 && raceP2 > 0 && newP2Total >= raceP2) {
             // Both reached goal (e.g. finish the rack scenario)
             // Winner is the winner of the FINAL game (this game)
             subMatchWinnerId = winnerId;
-        } else if (newP1Total >= raceP1) {
+        } else if (raceP1 > 0 && newP1Total >= raceP1) {
             subMatchWinnerId = match.player1_id;
         } else {
             subMatchWinnerId = match.player2_id;
@@ -284,10 +284,10 @@ export async function updateGameScore(
     let subMatchStatus = "in_progress";
     let subMatchWinnerId = null;
 
-    if (newP1Total >= raceP1 || newP2Total >= raceP2) {
+    if ((raceP1 > 0 && newP1Total >= raceP1) || (raceP2 > 0 && newP2Total >= raceP2)) {
         subMatchStatus = "finalized";
         // Logic: Who reached race?
-        if (newP1Total >= raceP1 && newP2Total >= raceP2) {
+        if (raceP1 > 0 && newP1Total >= raceP1 && raceP2 > 0 && newP2Total >= raceP2) {
             // If both, let's look at the LAST game's winner, or just whoever has more?
             // Usually it's whoever reached it first, but we are editing history.
             // Simple logic: If P1 >= Race, P1 wins. If both, maybe tie or check max?
@@ -295,7 +295,7 @@ export async function updateGameScore(
             if (newP1Total > newP2Total) subMatchWinnerId = match.player1_id;
             else if (newP2Total > newP1Total) subMatchWinnerId = match.player2_id;
             else subMatchWinnerId = winnerId; // Fallback to current game winner
-        } else if (newP1Total >= raceP1) {
+        } else if (raceP1 > 0 && newP1Total >= raceP1) {
             subMatchWinnerId = match.player1_id;
         } else {
             subMatchWinnerId = match.player2_id;

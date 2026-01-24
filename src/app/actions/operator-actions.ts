@@ -43,7 +43,9 @@ export async function submitOperatorApplication(formData: FormData) {
     redirect('/?applicationSubmitted=true');
 }
 
-export async function updatePlayerFargo(playerId: string, fargoRating: number) {
+
+
+export async function updatePlayerBreakpointRating(leagueId: string, playerId: string, rating: number) {
     const { userId } = await auth();
     if (!userId) return { error: "Unauthorized" };
 
@@ -60,37 +62,36 @@ export async function updatePlayerFargo(playerId: string, fargoRating: number) {
         return { error: "Unauthorized: Operator privileges required." };
     }
 
-    // Use Admin Client (bypasses RLS) for the actual update
     const adminClient = createAdminClient();
 
-    console.log(`[updatePlayerFargo] Updating player ${playerId} to fargo_rating: ${fargoRating}`);
+    console.log(`[updatePlayerBreakpointRating] Updating player ${playerId} in league ${leagueId} to rating: ${rating}`);
 
-    const { data: updateData, error } = await adminClient
-        .from("profiles")
-        .update({ fargo_rating: fargoRating })
-        .eq("id", playerId)
-        .select();
+    // Update League Player record
+    const { error: lpError } = await adminClient
+        .from("league_players")
+        .update({ breakpoint_rating: rating })
+        .eq("league_id", leagueId)
+        .eq("player_id", playerId);
 
-    if (error) {
-        console.error("[updatePlayerFargo] Error updating fargo:", error);
-        return { error: "Failed to update Fargo Rating." };
+    if (lpError) {
+        console.error("[updatePlayerBreakpointRating] Error updating league_players:", lpError);
+        return { error: "Failed to update Rating." };
     }
 
-    console.log("[updatePlayerFargo] Update result:", updateData);
-
-    // Verify the update
-    const { data: verify } = await adminClient
+    // Also update Profile to keep them in sync (Global Rating)
+    // In strict theory, BBRS separates them, but for initial setting usually we want global sync.
+    const { error: pError } = await adminClient
         .from("profiles")
-        .select("fargo_rating")
-        .eq("id", playerId)
-        .single();
+        .update({ breakpoint_rating: rating })
+        .eq("id", playerId);
 
-    console.log("[updatePlayerFargo] Verification query:", verify);
+    if (pError) {
+        console.warn("[updatePlayerBreakpointRating] Warning: Failed to sync profile rating:", pError);
+        // Not returning error here as the primary league_player update succeeded
+    }
 
-    revalidatePath("/dashboard");
-    revalidatePath(`/dashboard/admin/players/${playerId}`);
-    revalidatePath("/dashboard/admin/players");
-    revalidatePath("/dashboard/operator", "layout");
+    revalidatePath(`/dashboard/operator/leagues/${leagueId}/players`);
+    revalidatePath(`/dashboard/operator/leagues/${leagueId}`);
     return { success: true };
 }
 
