@@ -5,7 +5,6 @@ import Navbar from "@/components/Navbar";
 import { getPlayerLifetimeStats, getPlayerActiveLeagues } from "@/app/actions/stats-actions";
 import { getBreakpointLevel } from "@/utils/stats-calculator";
 import RoleSelector from "@/components/RoleSelector";
-import FargoEditor from "@/components/FargoEditor";
 import Image from "next/image";
 
 export default async function AdminPlayerPage({ params }: { params: Promise<{ id: string }> }) {
@@ -72,8 +71,8 @@ export default async function AdminPlayerPage({ params }: { params: Promise<{ id
                                 </div>
                             )}
                             <div style={{ display: "flex", gap: "1rem", marginTop: "0.5rem" }}>
-                                <div className="badge">Fargo: {player?.fargo_rating || 500}</div>
-                                <div className="badge secondary">Breakpoint: {breakpointLevel}</div>
+                                <div className="badge">Rating: {rawRating || 500}</div>
+                                <div className="badge secondary">Level: {breakpointLevel}</div>
                                 <div className="badge secondary" style={{ background: "#222", border: "1px solid #444" }}>Conf: {confidence}</div>
                             </div>
                         </div>
@@ -214,6 +213,9 @@ export default async function AdminPlayerPage({ params }: { params: Promise<{ id
 
                 </div>
 
+                {/* Top Statistics Section */}
+                {/* ... (existing stats) ... */}
+
                 {/* Admin Controls */}
                 <div className="card" style={{ padding: "2rem", border: "1px solid #333" }}>
                     <h2 style={{ marginBottom: "1rem", color: "white" }}>Admin Controls</h2>
@@ -222,10 +224,7 @@ export default async function AdminPlayerPage({ params }: { params: Promise<{ id
                             <div style={{ fontWeight: "bold", color: "white" }}>Role:</div>
                             <RoleSelector userId={id} currentRole={player?.role || 'player'} />
                         </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                            <div style={{ fontWeight: "bold", color: "white" }}>Override Fargo:</div>
-                            <FargoEditor playerId={id} currentFargo={player?.fargo_rating} />
-                        </div>
+                        {/* Fargo Editor Removed as per request */}
                     </div>
                 </div>
             </div>
