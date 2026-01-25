@@ -171,7 +171,7 @@ export async function POST(req: Request) {
             }
 
             // In a real app, you'd fetch the price ID from env or DB
-            const priceId = process.env.STRIPE_PRO_PRICE_ID;
+            const priceId = process.env.STRIPE_PRO_PRICE_ID || 'price_1StI4BHkiFQV2JhsaluKxPBm';
             if (!priceId) {
                 console.error('STRIPE_PRO_PRICE_ID is not set');
                 return NextResponse.json({ error: 'Subscription configuration missing' }, { status: 500 });
