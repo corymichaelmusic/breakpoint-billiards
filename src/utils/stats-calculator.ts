@@ -137,7 +137,8 @@ export function aggregateMatchStats(stats: PlayerStats, match: any, playerId: st
     const points = isP1 ? p1Points : p2Points;
 
     stats.totalPoints += points;
-    stats.totalRacksPlayed += (p1Points + p2Points);
+    // stats.totalRacksPlayed will be accumulated in the 8ball/9ball specific blocks using game counts now
+    // stats.totalRacksPlayed += (p1Points + p2Points); // REMOVED: This was summing points
 
     const matchGames = games.filter(g => g.match_id === match.id);
 
@@ -186,30 +187,44 @@ export function aggregateMatchStats(stats: PlayerStats, match: any, playerId: st
 
     if (has8Ball) {
         stats.matchesPlayed_8ball++;
-        const p1_8 = Number(match.points_8ball_p1) || 0;
-        const p2_8 = Number(match.points_8ball_p2) || 0;
-        const myPoints8 = isP1 ? p1_8 : p2_8;
-        const oppPoints8 = isP1 ? p2_8 : p1_8;
+        // Use Games for Rack Counts (Racks Won/Lost)
+        let myRacks = 0;
+        let oppRacks = 0;
 
-        stats.racksWon_8ball += myPoints8;
-        stats.racksPlayed_8ball += (myPoints8 + oppPoints8);
+        matchGames.forEach(g => {
+            if (g.game_type === '8ball') {
+                if (g.winner_id === playerId) myRacks++;
+                else if (g.winner_id) oppRacks++;
+            }
+        });
 
+        stats.racksWon_8ball += myRacks;
+        stats.racksPlayed_8ball += (myRacks + oppRacks);
+        stats.totalRacksPlayed += (myRacks + oppRacks);
+
+        // Calculate Set Win/Loss based on Match Winner field or Points (fallback)
         let isWin = false;
         let isLoss = false;
 
-        if (myPoints8 > oppPoints8) isWin = true;
-        else if (myPoints8 < oppPoints8) isLoss = true;
+        if (match.winner_id_8ball === playerId) isWin = true;
+        else if (match.winner_id_8ball && match.winner_id_8ball !== playerId) isLoss = true;
+        else if (match.winner_id === playerId) isWin = true;
+        else if (match.winner_id && match.winner_id !== playerId) isLoss = true;
         else {
-            if (match.winner_id_8ball === playerId) isWin = true;
-            else if (match.winner_id_8ball && match.winner_id_8ball !== playerId) isLoss = true;
-            else if (match.winner_id === playerId) isWin = true;
-            else if (match.winner_id && match.winner_id !== playerId) isLoss = true;
+            // Fallback to points if no winner set
+            const p1_8 = Number(match.points_8ball_p1) || 0;
+            const p2_8 = Number(match.points_8ball_p2) || 0;
+            const myPoints8 = isP1 ? p1_8 : p2_8;
+            const oppPoints8 = isP1 ? p2_8 : p1_8;
+            if (myPoints8 > oppPoints8) isWin = true;
+            else if (myPoints8 < oppPoints8) isLoss = true;
         }
 
         if (isWin) {
             stats.matchesWon++;
             stats.matchesWon_8ball++;
-            if (oppPoints8 === 0) stats.racklessSets_8ball++;
+            // Rackless set = Opponent won 0 Racks
+            if (oppRacks === 0 && myRacks > 0) stats.racklessSets_8ball++;
         } else if (isLoss) {
             stats.matchesLost++;
             stats.matchesLost_8ball++;
@@ -218,30 +233,42 @@ export function aggregateMatchStats(stats: PlayerStats, match: any, playerId: st
 
     if (has9Ball) {
         stats.matchesPlayed_9ball++;
-        const p1_9 = Number(match.points_9ball_p1) || 0;
-        const p2_9 = Number(match.points_9ball_p2) || 0;
-        const myPoints9 = isP1 ? p1_9 : p2_9;
-        const oppPoints9 = isP1 ? p2_9 : p1_9;
+        // Use Games for Rack Counts
+        let myRacks = 0;
+        let oppRacks = 0;
 
-        stats.racksWon_9ball += myPoints9;
-        stats.racksPlayed_9ball += (myPoints9 + oppPoints9);
+        matchGames.forEach(g => {
+            // 9-Ball games (or empty type if we assume mixed? No, strictly type check)
+            if (g.game_type === '9ball') {
+                if (g.winner_id === playerId) myRacks++;
+                else if (g.winner_id) oppRacks++;
+            }
+        });
+
+        stats.racksWon_9ball += myRacks;
+        stats.racksPlayed_9ball += (myRacks + oppRacks);
+        stats.totalRacksPlayed += (myRacks + oppRacks);
 
         let isWin = false;
         let isLoss = false;
 
-        if (myPoints9 > oppPoints9) isWin = true;
-        else if (myPoints9 < oppPoints9) isLoss = true;
+        if (match.winner_id_9ball === playerId) isWin = true;
+        else if (match.winner_id_9ball && match.winner_id_9ball !== playerId) isLoss = true;
+        else if (match.winner_id === playerId) isWin = true;
+        else if (match.winner_id && match.winner_id !== playerId) isLoss = true;
         else {
-            if (match.winner_id_9ball === playerId) isWin = true;
-            else if (match.winner_id_9ball && match.winner_id_9ball !== playerId) isLoss = true;
-            else if (match.winner_id === playerId) isWin = true;
-            else if (match.winner_id && match.winner_id !== playerId) isLoss = true;
+            const p1_9 = Number(match.points_9ball_p1) || 0;
+            const p2_9 = Number(match.points_9ball_p2) || 0;
+            const myPoints9 = isP1 ? p1_9 : p2_9;
+            const oppPoints9 = isP1 ? p2_9 : p1_9;
+            if (myPoints9 > oppPoints9) isWin = true;
+            else if (myPoints9 < oppPoints9) isLoss = true;
         }
 
         if (isWin) {
             stats.matchesWon++;
             stats.matchesWon_9ball++;
-            if (oppPoints9 === 0) stats.racklessSets_9ball++;
+            if (oppRacks === 0 && myRacks > 0) stats.racklessSets_9ball++;
         } else if (isLoss) {
             stats.matchesLost++;
             stats.matchesLost_9ball++;
