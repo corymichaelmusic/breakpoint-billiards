@@ -40,7 +40,6 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
     const { data: players } = await adminClient
         .from("league_players")
         .select("*, profiles(*), leagues(name)")
-        .in("league_id", allLeagueIds)
         .order("joined_at", { ascending: false });
 
     // Deduplicate players
@@ -109,55 +108,61 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border">
-                                    {playerList.map((p) => (
-                                        <tr key={p.player_id} className="hover:bg-white/5 transition-colors">
-                                            <td className="p-3 font-medium">
-                                                <Link href={`/dashboard/operator/leagues/${id}/players/${p.player_id}`} className="!text-white hover:!text-[#D4AF37] transition-colors font-bold" style={{ color: 'white' }}>
-                                                    {p.profiles?.full_name || "Unknown"}
-                                                </Link>
-                                            </td>
-                                            <td className="p-3 text-sm text-gray-400">
-                                                <div>{p.profiles?.email}</div>
-                                                <div className="text-xs opacity-70">{p.profiles?.phone || "No Phone"}</div>
-                                            </td>
-                                            <td className="p-3">
-                                                <BreakpointRatingEditor
-                                                    leagueId={id}
-                                                    playerId={p.player_id}
-                                                    currentRating={p.profiles?.breakpoint_rating}
-                                                />
-                                            </td>
-                                            <td className="p-3">
-                                                {league.type === 'league' ? (
-                                                    // For Org level, we generally don't have a direct "join request" flow yet, usually it's per session.
-                                                    // But the table logic uses `p.leagueStatus` which is correct for the current context (id).
-                                                    <PlayerStatusControl leagueId={id} playerId={p.player_id} currentStatus={p.leagueStatus} />
-                                                ) : (
-                                                    // If we are in a session context, usually the ID is the session ID.
-                                                    // The logic above sets p.leagueStatus based on p.league_id === id.
-                                                    <PlayerStatusControl leagueId={id} playerId={p.player_id} currentStatus={p.leagueStatus} />
-                                                )}
-                                            </td>
-                                            <td className="p-3">
-                                                <div className="flex flex-wrap gap-2">
-                                                    {p.sessions.map((s: any, idx: number) => {
-                                                        const isPaid = ['paid', 'paid_cash', 'paid_online'].includes(s.payment);
-                                                        const isUnpaid = s.payment === 'unpaid';
+                                    {playerList.map((p) => {
+                                        // Safely extract profile
+                                        const profile = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
+                                        const rating = profile?.breakpoint_rating;
 
-                                                        return (
-                                                            <span key={idx} className={`text-[10px] px-2 py-0.5 rounded border font-semibold
+                                        return (
+                                            <tr key={p.player_id} className="hover:bg-white/5 transition-colors">
+                                                <td className="p-3 font-medium">
+                                                    <Link href={`/dashboard/operator/leagues/${id}/players/${p.player_id}`} className="!text-white hover:!text-[#D4AF37] transition-colors font-bold" style={{ color: 'white' }}>
+                                                        {profile?.full_name || "Unknown"}
+                                                    </Link>
+                                                </td>
+                                                <td className="p-3 text-sm text-gray-400">
+                                                    <div>{profile?.email}</div>
+                                                    <div className="text-xs opacity-70">{profile?.phone || "No Phone"}</div>
+                                                </td>
+                                                <td className="p-3">
+                                                    <BreakpointRatingEditor
+                                                        leagueId={id}
+                                                        playerId={p.player_id}
+                                                        currentRating={rating}
+                                                    />
+                                                </td>
+                                                <td className="p-3">
+                                                    {league.type === 'league' ? (
+                                                        // For Org level, we generally don't have a direct "join request" flow yet, usually it's per session.
+                                                        // But the table logic uses `p.leagueStatus` which is correct for the current context (id).
+                                                        <PlayerStatusControl leagueId={id} playerId={p.player_id} currentStatus={p.leagueStatus} />
+                                                    ) : (
+                                                        // If we are in a session context, usually the ID is the session ID.
+                                                        // The logic above sets p.leagueStatus based on p.league_id === id.
+                                                        <PlayerStatusControl leagueId={id} playerId={p.player_id} currentStatus={p.leagueStatus} />
+                                                    )}
+                                                </td>
+                                                <td className="p-3">
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {p.sessions.map((s: any, idx: number) => {
+                                                            const isPaid = ['paid', 'paid_cash', 'paid_online'].includes(s.payment);
+                                                            const isUnpaid = s.payment === 'unpaid';
+
+                                                            return (
+                                                                <span key={idx} className={`text-[10px] px-2 py-0.5 rounded border font-semibold
                                                                 ${isPaid ? 'bg-[#22c55e]/10 text-[#4ade80] border-[#22c55e]/30' :
-                                                                    isUnpaid ? 'bg-error/10 text-[#ef4444] border-[#ef4444]/50' :
-                                                                        'bg-surface text-gray-300 border-gray-600'}`}>
-                                                                {s.name}
-                                                            </span>
-                                                        );
-                                                    })}
-                                                    {p.sessions.length === 0 && <span className="text-gray-600 text-xs italic">None</span>}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                                        isUnpaid ? 'bg-error/10 text-[#ef4444] border-[#ef4444]/50' :
+                                                                            'bg-surface text-gray-300 border-gray-600'}`}>
+                                                                    {s.name}
+                                                                </span>
+                                                            );
+                                                        })}
+                                                        {p.sessions.length === 0 && <span className="text-gray-600 text-xs italic">None</span>}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
@@ -168,4 +173,5 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
             </div>
         </main>
     );
+
 }
