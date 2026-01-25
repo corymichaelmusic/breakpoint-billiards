@@ -561,8 +561,15 @@ export async function getPlayerLeagueStats(playerId: string, leagueId: string) {
 
     const { data: matches } = await matchesQuery;
 
+    // Fetch Profile Rating for BreakPoint Level (Always fetch this)
+    const { data: profile } = await supabase.from("profiles").select("breakpoint_rating").eq("id", playerId).single();
+    const currentRating = profile?.breakpoint_rating || 500;
+    const breakPointLevel = parseFloat(getBreakpointLevel(currentRating));
+
     if (!matches || matches.length === 0) {
-        return getInitStats(playerId, "Player");
+        const emptyStats = getInitStats(playerId, "Player");
+        emptyStats.breakPoint = breakPointLevel;
+        return emptyStats;
     }
 
     // 3. Fetch Games
@@ -574,6 +581,7 @@ export async function getPlayerLeagueStats(playerId: string, leagueId: string) {
 
     const allGames = games || [];
     const stats = getInitStats(playerId, "Player");
+    stats.breakPoint = breakPointLevel;
 
     matches.forEach(match => {
         aggregateMatchStats(stats, match, playerId, allGames);
@@ -583,11 +591,6 @@ export async function getPlayerLeagueStats(playerId: string, leagueId: string) {
     stats.winRate = stats.matchesPlayed > 0 ? Math.round((stats.matchesWon / stats.matchesPlayed) * 100) : 0;
     stats.winRate_8ball = stats.matchesPlayed_8ball > 0 ? Math.round((stats.matchesWon_8ball / stats.matchesPlayed_8ball) * 100) : 0;
     stats.winRate_9ball = stats.matchesPlayed_9ball > 0 ? Math.round((stats.matchesWon_9ball / stats.matchesPlayed_9ball) * 100) : 0;
-
-    // Fetch Profile Rating for BreakPoint Level
-    const { data: profile } = await supabase.from("profiles").select("breakpoint_rating").eq("id", playerId).single();
-    const currentRating = profile?.breakpoint_rating || 500;
-    stats.breakPoint = parseFloat(getBreakpointLevel(currentRating));
 
     return stats;
 }
