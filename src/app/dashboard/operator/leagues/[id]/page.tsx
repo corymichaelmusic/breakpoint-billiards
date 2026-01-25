@@ -167,7 +167,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                                 const { approvePlayer } = await import("@/app/actions/league-actions");
                                                 await approvePlayer(request.league_id, request.player_id);
                                             }}>
-                                                <button type="submit" className="btn bg-green-600 text-white px-4 py-1.5 text-sm font-bold hover:bg-green-500 rounded transition-colors uppercase tracking-wide">Approve</button>
+                                                <button type="submit" className="btn bg-green-600 text-white px-4 py-1.5 text-sm font-bold hover:bg-green-500 rounded transition-colors uppercase tracking-wide" style={{ color: 'white' }}>Approve</button>
                                             </form>
                                             <form action={async () => {
                                                 'use server';
