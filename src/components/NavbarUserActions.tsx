@@ -25,7 +25,7 @@ export default function NavbarUserActions({ role }: { role: string | null }) {
                 )}
 
                 <Suspense fallback={null}>
-                    <DashboardLink role={role || ""} className="mr-4 text-sm font-bold text-[#D4AF37] hover:underline transition-all" />
+                    <DashboardLink role={role || ""} className="mr-4 text-sm font-bold !text-[#D4AF37] hover:!text-white hover:underline transition-all" />
                 </Suspense>
                 <UserButton afterSignOutUrl="/" />
             </SignedIn>
