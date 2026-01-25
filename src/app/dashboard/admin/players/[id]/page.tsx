@@ -7,6 +7,7 @@ import { getBreakpointLevel } from "@/utils/stats-calculator";
 import RoleSelector from "@/components/RoleSelector";
 import SubscriptionManager from "@/components/SubscriptionManager";
 import Image from "next/image";
+import BreakpointRatingEditor from "@/components/BreakpointRatingEditor";
 
 export default async function AdminPlayerPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -72,7 +73,14 @@ export default async function AdminPlayerPage({ params }: { params: Promise<{ id
                                 </div>
                             )}
                             <div style={{ display: "flex", gap: "1rem", marginTop: "0.5rem" }}>
-                                <div className="badge">Rating: {rawRating || 500}</div>
+                                <div className="badge" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    Rating:
+                                    <BreakpointRatingEditor
+                                        leagueId="admin"
+                                        playerId={id}
+                                        currentRating={rawRating}
+                                    />
+                                </div>
                                 <div className="badge secondary">Level: {breakpointLevel}</div>
                                 <div className="badge secondary" style={{ background: "#222", border: "1px solid #444" }}>Conf: {confidence}</div>
                             </div>

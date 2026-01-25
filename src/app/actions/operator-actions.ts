@@ -79,6 +79,7 @@ export async function updatePlayerBreakpointRating(leagueId: string, playerId: s
 
     revalidatePath(`/dashboard/operator/leagues/${leagueId}/players`);
     revalidatePath(`/dashboard/operator/leagues/${leagueId}`);
+    revalidatePath(`/dashboard/admin/players/${playerId}`);
     return { success: true };
 }
 
