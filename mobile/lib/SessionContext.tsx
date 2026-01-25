@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
 import { createClient } from '@supabase/supabase-js';
 
@@ -163,6 +164,20 @@ export function SessionProvider({ children }: SessionProviderProps) {
         // We trust fetchSessions execution is safe to re-run if these change.
         // To be safe against "Maximum update depth", we should check if we really need to run.
     }, [userId, isLoaded, isSignedIn]); // <--- CHANGED DEPS: Removed fetchSessions, added primitives
+
+    // Add AppState listener to refresh when coming to foreground
+    useEffect(() => {
+        const subscription = AppState.addEventListener('change', (nextAppState) => {
+            if (nextAppState === 'active') {
+                console.log('[SessionContext] App became active. Refreshing sessions...');
+                fetchSessions();
+            }
+        });
+
+        return () => {
+            subscription.remove();
+        };
+    }, [fetchSessions]);
 
     const setCurrentSession = useCallback((session: Session) => {
         setCurrentSessionState(session);

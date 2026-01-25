@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Alert, Linking } from "react-native";
+import { View, Text, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Alert, Linking, AppState } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useAuth, useUser } from "@clerk/clerk-expo";
@@ -433,6 +433,20 @@ export default function HomeScreen() {
   }, [sessionLoading]);
 
   const onRefresh = useCallback(() => { setRefreshing(true); fetchData(true); }, [fetchData]);
+
+  // Force refresh when coming from background
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'active') {
+        console.log('[Dashboard] App resumed - forcing data refresh');
+        fetchData(true); // Force refresh, bypass cache
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [fetchData]);
 
   // Loading Guard: Prevent stutter or flash of "No Session"
   // Keep showing loader until:

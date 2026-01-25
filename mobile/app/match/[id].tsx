@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, RefreshControl, Alert, Image, Animated, ActivityIndicator, Modal, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, RefreshControl, Alert, Image, Animated, ActivityIndicator, Modal, Platform, AppState } from 'react-native';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter, useFocusEffect, Stack } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
@@ -248,6 +248,20 @@ export default function MatchScreen() {
             clearInterval(interval);
         };
     }, [isFocused, id, submitting]);
+
+    // Force data refresh when coming from background
+    useEffect(() => {
+        const subscription = AppState.addEventListener('change', nextAppState => {
+            if (nextAppState === 'active' && isFocused && id && !submitting) {
+                console.log('[MatchScreen] App resumed - forcing match data refresh');
+                fetchMatchData();
+            }
+        });
+
+        return () => {
+            subscription.remove();
+        };
+    }, [isFocused, id, submitting, fetchMatchData]);
 
     // REALTIME SUBSCRIPTION
     // REALTIME SUBSCRIPTION

@@ -2,7 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Navbar from "@/components/Navbar";
-import { getPlayerSessionStats, getPlayerLifetimeStats } from "@/app/actions/stats-actions";
+import { getPlayerLeagueStats, getPlayerLifetimeStats } from "@/app/actions/stats-actions";
 import BackButton from "@/components/BackButton";
 import { PlayerStats } from "@/utils/stats-calculator";
 
@@ -20,8 +20,9 @@ export default async function OperatorPlayerSessionPage({ params }: { params: Pr
     }
 
     // Fetch Data in Initial Load
+    // Use getPlayerLeagueStats to handle Parent League aggregation if 'sessionId' is actually a League ID
     const [stats, lifetimeStats, playerResponse, sessionResponse] = await Promise.all([
-        getPlayerSessionStats(playerId, sessionId),
+        getPlayerLeagueStats(playerId, sessionId),
         getPlayerLifetimeStats(playerId),
         supabase.from("profiles").select("*").eq("id", playerId).single(),
         supabase.from("leagues").select("name").eq("id", sessionId).single()

@@ -16,14 +16,15 @@ const createTokenCache = (): TokenCache => {
                 return item;
             } catch (error) {
                 console.error('[TokenCache] SecureStore Get Error:', error);
-                // If we can't read it, delete it to be safe
-                await SecureStore.deleteItemAsync(key).catch((e) => console.log("Delete failed", e));
+                // Do NOT delete token on read error - this causes logout on lock screen
                 return null;
             }
         },
         saveToken: async (key: string, token: string) => {
             try {
-                await SecureStore.setItemAsync(key, token);
+                await SecureStore.setItemAsync(key, token, {
+                    keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK,
+                });
                 console.log(`[TokenCache] SAVE ${key} SUCCESS`);
             } catch (e) {
                 console.error('[TokenCache] SecureStore Write Error:', e);
