@@ -130,7 +130,7 @@ export default async function OperatorPlayerSessionPage({ params }: { params: Pr
                             <div className="text-sm text-gray-400">Confidence Score</div>
                         </div>
                         <div className="card-glass p-6 text-center">
-                            <div className="text-2xl font-bold text-white">{stats.breakPoint}</div>
+                            <div className="text-2xl font-bold text-white">{stats.breakPoint?.toFixed(1) || "5.0"}</div>
                             <div className="text-sm text-gray-400">BreakPoint Level</div>
                         </div>
                     </div>

@@ -584,6 +584,11 @@ export async function getPlayerLeagueStats(playerId: string, leagueId: string) {
     stats.winRate_8ball = stats.matchesPlayed_8ball > 0 ? Math.round((stats.matchesWon_8ball / stats.matchesPlayed_8ball) * 100) : 0;
     stats.winRate_9ball = stats.matchesPlayed_9ball > 0 ? Math.round((stats.matchesWon_9ball / stats.matchesPlayed_9ball) * 100) : 0;
 
+    // Fetch Profile Rating for BreakPoint Level
+    const { data: profile } = await supabase.from("profiles").select("breakpoint_rating").eq("id", playerId).single();
+    const currentRating = profile?.breakpoint_rating || 500;
+    stats.breakPoint = parseFloat(getBreakpointLevel(currentRating));
+
     return stats;
 }
 
