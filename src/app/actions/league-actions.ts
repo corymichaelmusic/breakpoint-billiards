@@ -21,14 +21,47 @@ export async function createSession(
     if (!userId) return { error: "Unauthorized" };
 
     // 1. Verify parent league ownership
+    // 1. Fetch parent league
     const { data: parent } = await supabase
         .from("leagues")
         .select("*")
         .eq("id", parentLeagueId)
-        .eq("operator_id", userId)
         .single();
 
     if (!parent) return { error: "Parent league not found." };
+
+    // 2. Verify permission (Operator, Assigned Operator, or Admin)
+    let isAuthorized = false;
+
+    // Check if owner
+    if (parent.operator_id === userId) {
+        isAuthorized = true;
+    } else {
+        // Check if assigned operator
+        const { data: assignedOp } = await supabase
+            .from("league_operators")
+            .select("id")
+            .eq("league_id", parentLeagueId)
+            .eq("user_id", userId)
+            .single();
+
+        if (assignedOp) {
+            isAuthorized = true;
+        } else {
+            // Check if global admin
+            const { data: profile } = await supabase
+                .from("profiles")
+                .select("role")
+                .eq("id", userId)
+                .single();
+
+            if (profile?.role === 'admin') {
+                isAuthorized = true;
+            }
+        }
+    }
+
+    if (!isAuthorized) return { error: "Unauthorized. You do not have permission to create a session for this league." };
 
     // 2. Check for active sessions (limit 3 active sessions per league)
     const { count } = await supabase
@@ -128,11 +161,23 @@ export async function addPlayersToSession(sessionId: string, playerIds: string[]
     // If RLS is missing for operators, `createClient` might fail.
     // SAFE APPROACH: Explicitly check operator_id here.
 
-    // Check Admin Role too
+    // Check Admin Role
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
     const isAdmin = profile?.role === 'admin';
 
-    if (parentLeague.operator_id !== userId && !isAdmin) {
+    let isAuthorized = parentLeague.operator_id === userId || isAdmin;
+
+    if (!isAuthorized) {
+        const { data: assigned } = await supabase
+            .from("league_operators")
+            .select("id")
+            .eq("league_id", session.parent_league_id)
+            .eq("user_id", userId)
+            .single();
+        if (assigned) isAuthorized = true;
+    }
+
+    if (!isAuthorized) {
         return { error: "Unauthorized. Only the League Operator can add players." };
     }
 
@@ -181,7 +226,19 @@ export async function syncSessionPlayers(sessionId: string, playerIds: string[])
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
     const isAdmin = profile?.role === 'admin';
 
-    if (parentLeague.operator_id !== userId && !isAdmin) {
+    let isAuthorized = parentLeague.operator_id === userId || isAdmin;
+
+    if (!isAuthorized) {
+        const { data: assigned } = await supabase
+            .from("league_operators")
+            .select("id")
+            .eq("league_id", session.parent_league_id)
+            .eq("user_id", userId)
+            .single();
+        if (assigned) isAuthorized = true;
+    }
+
+    if (!isAuthorized) {
         return { error: "Unauthorized. Only the League Operator can sync players." };
     }
 
@@ -518,7 +575,7 @@ export async function deleteLeague(leagueId: string) {
     if (!userId) return { error: "Unauthorized" };
 
     // Fetch league to check type
-    const { data: league } = await supabase.from("leagues").select("type, operator_id").eq("id", leagueId).single();
+    const { data: league } = await supabase.from("leagues").select("type, operator_id, parent_league_id").eq("id", leagueId).single();
 
     if (!league) return { error: "League not found" };
 
@@ -537,8 +594,20 @@ export async function deleteLeague(leagueId: string) {
             return { error: "Only Administrators can delete a League Organization." };
         }
     } else {
-        // For sessions: allow operator or admin
-        if (league.operator_id !== userId && !isAdmin) {
+        // For sessions: allow operator or admin or assigned operator of parent
+        let isAuthorized = league.operator_id === userId || isAdmin;
+
+        if (!isAuthorized && league.parent_league_id) {
+            const { data: assigned } = await supabase
+                .from("league_operators")
+                .select("id")
+                .eq("league_id", league.parent_league_id)
+                .eq("user_id", userId)
+                .single();
+            if (assigned) isAuthorized = true;
+        }
+
+        if (!isAuthorized) {
             return { error: "Only the operator or an administrator can delete this session." };
         }
     }
@@ -734,12 +803,30 @@ export async function resetSchedule(leagueId: string) {
     // 1. Verify ownership
     const { data: league } = await supabase
         .from("leagues")
-        .select("operator_id, status")
+        .select("operator_id, status, parent_league_id")
         .eq("id", leagueId)
         .single();
 
     if (!league) return { error: "League not found" };
-    if (league.operator_id !== userId) return { error: "Unauthorized" };
+
+    // Check permissions
+    let isAuthorized = league.operator_id === userId;
+
+    if (!isAuthorized) {
+        // Check Admin
+        const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
+        if (profile?.role === 'admin') {
+            isAuthorized = true;
+        } else {
+            // Check Assigned Operator (if session, check parent; if league, check self)
+            // But normally resetSchedule is for sessions.
+            const targetId = league.parent_league_id || leagueId;
+            const { data: assigned } = await supabase.from("league_operators").select("id").eq("league_id", targetId).eq("user_id", userId).single();
+            if (assigned) isAuthorized = true;
+        }
+    }
+
+    if (!isAuthorized) return { error: "Unauthorized" };
     if (league.status !== 'setup') return { error: "Can only reset schedule in setup mode." };
 
     // 2. Delete matches (and games via cascade or manual)
@@ -788,15 +875,33 @@ export async function updateLeague(leagueId: string, updates: any) {
     if (!league) return { error: "League not found" };
 
     // If it's a session, check parent league operator
+    let targetLeagueId = leagueId;
     let operatorId = league.operator_id;
+
     if (league.parent_league_id) {
+        targetLeagueId = league.parent_league_id;
         const { data: parent } = await supabase.from("leagues").select("operator_id").eq("id", league.parent_league_id).single();
         operatorId = parent?.operator_id;
     }
 
     if (operatorId !== userId) {
+        // Check if global admin
         const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
-        if (profile?.role !== 'admin') return { error: "Unauthorized" };
+        if (profile?.role === 'admin') {
+            // Authorized
+        } else {
+            // Check if assigned operator for the TARGET league (Parent)
+            const { data: assigned } = await supabase
+                .from("league_operators")
+                .select("id")
+                .eq("league_id", targetLeagueId)
+                .eq("user_id", userId)
+                .single();
+
+            if (!assigned) {
+                return { error: "Unauthorized" };
+            }
+        }
     }
 
     const { error } = await supabase
