@@ -12,7 +12,9 @@ import "../global.css";
 import { applyRealtimeAuth } from "../lib/realtimeAuth";
 import { authSignal } from "../lib/authSignal";
 import * as NavigationBar from 'expo-navigation-bar';
+import * as SystemUI from 'expo-system-ui';
 import { SessionProvider } from "../lib/SessionContext";
+import { SubscriptionProvider } from "../lib/SubscriptionContext";
 
 // Handle OAuth redirects instantly
 try {
@@ -48,10 +50,15 @@ const InitialLayout = () => {
   useEffect(() => {
     if (Platform.OS === 'android') {
       try {
+        // Set root view background to dark to prevent white flashes or underlays
+        SystemUI.setBackgroundColorAsync("#121212");
+
         // Set to dark color to match app theme
         NavigationBar.setBackgroundColorAsync("#121212");
         // Ensure icons are light-colored
         NavigationBar.setButtonStyleAsync("light");
+        // Hide fine separator line by matching color (or making transparent if supported)
+        NavigationBar.setBorderColorAsync("#121212");
       } catch (e) {
         console.log("Failed to configure Android navigation bar:", e);
       }
@@ -133,7 +140,6 @@ const InitialLayout = () => {
         <Stack.Screen name="match/[id]" options={{ headerShown: true }} />
         <Stack.Screen name="oauth-native-callback" options={{ presentation: 'modal', headerShown: false }} />
       </Stack>
-
     </View>
   );
 };
@@ -158,9 +164,11 @@ export default function Layout() {
         tokenCache={tokenCache}
       >
         <SessionProvider>
-          <ThemeProvider value={DarkTheme}>
-            <InitialLayout />
-          </ThemeProvider>
+          <SubscriptionProvider>
+            <ThemeProvider value={DarkTheme}>
+              <InitialLayout />
+            </ThemeProvider>
+          </SubscriptionProvider>
         </SessionProvider>
       </ClerkProvider>
     </SafeAreaProvider>

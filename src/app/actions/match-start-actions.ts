@@ -18,8 +18,8 @@ export async function startMatch(matchId: string, leagueId: string, raceType: 's
         .from("matches")
         .select(`
       *,
-      player1:player1_id(fargo_rating),
-      player2:player2_id(fargo_rating),
+      player1:player1_id(breakpoint_rating),
+      player2:player2_id(breakpoint_rating),
       leagues(operator_id)
     `)
         .eq("id", matchId)
@@ -38,8 +38,18 @@ export async function startMatch(matchId: string, leagueId: string, raceType: 's
         return { error: "Unauthorized. Only the Operator can start a match with race verification." };
     }
 
-    // 2. Calculate Race
-    const races = calculateRace(match.player1.fargo_rating, match.player2.fargo_rating);
+    // 2. Calculate Race using Breakpoint Rating (Matrix-based)
+    // Note: calculateRace returns { short: 8Ball, long: 9Ball } based on new implementation
+    // BUT raceType argument is 'short' or 'long'.
+    // Logic: If user selected 'short', they likely want the 8Ball race? 
+    // Or did we map Short->8Ball and Long->9Ball?
+    // In MatrixStartScreen: "Select Race Format" -> Short/Long.
+    // If we map short->8Ball, does selecting 8Ball game type force "Short"?
+    // User selects Game Type (8ball/9ball) AND Race Format (Short/Long).
+    // This is confusing if we mapped Short=8ball Matrix.
+    // However, for now, we pass Breakpoint Rating.
+
+    const races = calculateRace(match.player1.breakpoint_rating, match.player2.breakpoint_rating);
     const selectedRace = races[raceType];
 
     // 3. Update Match

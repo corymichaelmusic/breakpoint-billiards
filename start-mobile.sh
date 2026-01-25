@@ -1,6 +1,6 @@
 #!/bin/bash
 # Absolute path to the mobile project
-PROJECT_DIR="/Users/cm/Breakpoint Billiards/mobile"
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/mobile"
 
 # Check if directory exists
 if [ ! -d "$PROJECT_DIR" ]; then
@@ -22,4 +22,4 @@ echo "Starting Breakpoint Billiards Mobile App..."
 echo "Directory: $(pwd)"
 
 # Start Expo
-npm start -- --clear
+npx expo start --go --tunnel

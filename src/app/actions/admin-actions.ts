@@ -243,6 +243,31 @@ export async function adminUpdateUserRole(userId: string, newRole: string) {
     return { success: true };
 }
 
+
+export async function adminUpdateUserSubscription(userId: string, newStatus: string) {
+    const { supabase, error: authError } = await verifyAdmin();
+    if (authError || !supabase) return { error: authError };
+
+    // When admin manually sets to 'pro', we set expires_at to NULL (active indefinite)
+    // When sets to 'free', we set expires_at to NOW
+    const updates: any = { subscription_status: newStatus };
+    if (newStatus === 'pro') {
+        updates.subscription_expires_at = null;
+    } else {
+        updates.subscription_expires_at = new Date().toISOString();
+    }
+
+    const { error } = await supabase.from("profiles").update(updates).eq("id", userId);
+
+    if (error) {
+        console.error("Error updating user subscription:", error);
+        return { error: "Failed to update subscription" };
+    }
+
+    revalidatePath("/dashboard/admin");
+    return { success: true };
+}
+
 export async function deleteApplication(applicationId: string) {
     const { supabase, error: authError } = await verifyAdmin();
     if (authError || !supabase) return { error: authError };

@@ -5,6 +5,7 @@ import Navbar from "@/components/Navbar";
 import { getPlayerLifetimeStats, getPlayerActiveLeagues } from "@/app/actions/stats-actions";
 import { getBreakpointLevel } from "@/utils/stats-calculator";
 import RoleSelector from "@/components/RoleSelector";
+import SubscriptionManager from "@/components/SubscriptionManager";
 import Image from "next/image";
 
 export default async function AdminPlayerPage({ params }: { params: Promise<{ id: string }> }) {
@@ -224,6 +225,7 @@ export default async function AdminPlayerPage({ params }: { params: Promise<{ id
                             <div style={{ fontWeight: "bold", color: "white" }}>Role:</div>
                             <RoleSelector userId={id} currentRole={player?.role || 'player'} />
                         </div>
+                        <SubscriptionManager userId={id} currentStatus={player?.subscription_status} expiresAt={player?.subscription_expires_at} />
                         {/* Fargo Editor Removed as per request */}
                     </div>
                 </div>

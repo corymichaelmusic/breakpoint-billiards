@@ -392,7 +392,7 @@ export default function GameScoring({ match, games, gameType, readOnly, p1Breakp
                 >
                     <span className={styles.name}>{match.player1.full_name}</span>
                     <div style={{ fontSize: "0.8rem", color: "#888", marginBottom: "0.5rem" }}>
-                        Fargo: {match.player1.fargo_rating} • BP: {p1BreakpointRating || 'N/A'}
+                        Rating: {p1BreakpointRating || 'N/A'}
                     </div>
                     <div className={styles.points}>
                         <span className={styles.current}>{currentP1 || 0}</span>
@@ -428,7 +428,7 @@ export default function GameScoring({ match, games, gameType, readOnly, p1Breakp
                 >
                     <span className={styles.name}>{match.player2.full_name}</span>
                     <div style={{ fontSize: "0.8rem", color: "#888", marginBottom: "0.5rem" }}>
-                        Fargo: {match.player2.fargo_rating} • BP: {p2BreakpointRating || 'N/A'}
+                        Rating: {p2BreakpointRating || 'N/A'}
                     </div>
                     <div className={styles.points}>
                         <span className={styles.current}>{currentP2 || 0}</span>

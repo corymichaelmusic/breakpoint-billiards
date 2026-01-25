@@ -1,6 +1,6 @@
 import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -10,13 +10,19 @@ import NextMatchCard from "../components/NextMatchCard";
 export default function MatchHistoryScreen() {
     const { userId, getToken } = useAuth();
     const router = useRouter();
+    const { playerId: rawPlayerId } = useLocalSearchParams();
+    const playerId = Array.isArray(rawPlayerId) ? rawPlayerId[0] : rawPlayerId;
+
     const [loading, setLoading] = useState(true);
     const [matches, setMatches] = useState<any[]>([]);
+    const [playerName, setPlayerName] = useState<string>("");
+
+    const targetId = playerId || userId;
 
     useEffect(() => {
         const fetchHistory = async () => {
             try {
-                if (!userId) return;
+                if (!targetId) return;
                 const token = await getToken({ template: 'supabase' });
                 const authHeader = token ? { Authorization: `Bearer ${token}` } : undefined;
 
@@ -26,7 +32,17 @@ export default function MatchHistoryScreen() {
                     { global: { headers: authHeader } }
                 );
 
-                // Fetch ONLY FINISHED matches involving user
+                // If viewing someone else, fetch their name for the header
+                if (playerId) {
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('full_name')
+                        .eq('id', playerId)
+                        .single();
+                    if (profile) setPlayerName(profile.full_name);
+                }
+
+                // Fetch ONLY FINISHED matches involving targetId
                 const { data: fetchedMatches } = await supabase
                     .from("matches")
                     .select(`
@@ -36,7 +52,7 @@ export default function MatchHistoryScreen() {
                         leagues(name, parent_league:parent_league_id(name)),
                         games (winner_id, is_break_and_run, is_9_on_snap, game_type)
                     `)
-                    .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
+                    .or(`player1_id.eq.${targetId},player2_id.eq.${targetId}`)
                     .or('status_8ball.eq.finalized,status_9ball.eq.finalized')
                     .order("scheduled_date", { ascending: false });
 
@@ -49,14 +65,13 @@ export default function MatchHistoryScreen() {
         };
 
         fetchHistory();
-    }, [userId]);
+    }, [targetId, playerId]);
 
     return (
         <SafeAreaView className="flex-1 bg-background">
             {/* Header */}
-            {/* Header */}
             <View className="px-4 py-4 bg-background border-b border-white/5 flex-row justify-between items-center">
-                <View className="flex-row items-center">
+                <View className="flex-row items-center flex-1 mr-4">
                     <TouchableOpacity onPress={() => router.back()} className="mr-4 p-2 -ml-2">
                         <FontAwesome5 name="arrow-left" size={20} color="#D4AF37" />
                     </TouchableOpacity>
@@ -65,7 +80,7 @@ export default function MatchHistoryScreen() {
                             Match History
                         </Text>
                         <Text className="text-gray-400 uppercase tracking-widest text-[10px]">
-                            All Sessions
+                            {playerId ? (playerName || 'Loading...') : 'All Sessions'}
                         </Text>
                     </View>
                 </View>
@@ -84,7 +99,7 @@ export default function MatchHistoryScreen() {
                 <ScrollView className="flex-1 p-4" contentContainerStyle={{ paddingBottom: 40 }}>
                     {matches.length > 0 ? (
                         matches.map((match) => {
-                            const isP1 = match.player1_id === userId;
+                            const isP1 = match.player1_id === targetId;
                             const opponentName = isP1 ? match.player2?.full_name : match.player1?.full_name || 'Unknown';
 
                             const scores = {
@@ -125,9 +140,6 @@ export default function MatchHistoryScreen() {
                                 p1_9br, p2_9br,
                                 p1_snap, p2_snap
                             };
-
-                            // Determine status strictly for display purposes
-                            let effectiveStatus = match.status;
 
                             return (
                                 <NextMatchCard

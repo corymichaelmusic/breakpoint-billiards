@@ -60,12 +60,12 @@ export default function MatchStartScreen({ match, races, onSelectGame, backLink,
                 <div className={styles.matchup}>
                     <div className={styles.player}>
                         <span className={styles.playerName}>{match.player1.full_name}</span>
-                        <span className={styles.rating}>Rating: {match.player1.fargo_rating}</span>
+                        <span className={styles.rating}>Rating: {match.player1.breakpoint_rating}</span>
                     </div>
                     <div className={styles.vs}>VS</div>
                     <div className={styles.player}>
                         <span className={styles.playerName}>{match.player2.full_name}</span>
-                        <span className={styles.rating}>Rating: {match.player2.fargo_rating}</span>
+                        <span className={styles.rating}>Rating: {match.player2.breakpoint_rating}</span>
                     </div>
                 </div>
 

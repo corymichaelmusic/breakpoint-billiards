@@ -157,7 +157,7 @@ export default function Header() {
                 </View>
 
                 {/* Right: Logo */}
-                <View>
+                <View className="items-end">
                     <View>
                         <Image
                             source={require('../assets/header-logo.png')}
@@ -165,29 +165,29 @@ export default function Header() {
                             resizeMode="contain"
                         />
                     </View>
+
+                    {/* Session Indicator */}
+                    {currentSession && sessions.length > 0 && (
+                        <TouchableOpacity
+                            onPress={() => setShowSessionSwitcher(true)}
+                            className="flex-row items-center mt-1"
+                            activeOpacity={0.7}
+                        >
+                            <View className="bg-background/50 border border-border/50 rounded-full px-2 py-0.5 flex-row items-center">
+                                {currentSession.isPrimary && (
+                                    <Ionicons name="star" size={10} color="#D4AF37" style={{ marginRight: 3 }} />
+                                )}
+                                <Text className="text-gray-300 text-[10px] font-medium" numberOfLines={1} style={{ includeFontPadding: false }}>
+                                    {currentSession.name}
+                                </Text>
+                                {sessions.length > 1 && (
+                                    <Ionicons name="chevron-down" size={12} color="#9CA3AF" style={{ marginLeft: 3 }} />
+                                )}
+                            </View>
+                        </TouchableOpacity>
+                    )}
                 </View>
             </View>
-
-            {/* Session Indicator */}
-            {currentSession && sessions.length > 0 && (
-                <TouchableOpacity
-                    onPress={() => setShowSessionSwitcher(true)}
-                    className="flex-row items-center justify-center px-4 py-1 mt-1"
-                    activeOpacity={0.7}
-                >
-                    <View className="bg-background/50 border border-border/50 rounded-full px-3 py-1 flex-row items-center">
-                        {currentSession.isPrimary && (
-                            <Ionicons name="star" size={12} color="#D4AF37" style={{ marginRight: 4 }} />
-                        )}
-                        <Text className="text-gray-300 text-xs font-medium" numberOfLines={1} style={{ includeFontPadding: false }}>
-                            {currentSession.name}
-                        </Text>
-                        {sessions.length > 1 && (
-                            <Ionicons name="chevron-down" size={14} color="#9CA3AF" style={{ marginLeft: 4 }} />
-                        )}
-                    </View>
-                </TouchableOpacity>
-            )}
 
             {/* Session Switcher Modal */}
             <SessionSwitcherModal

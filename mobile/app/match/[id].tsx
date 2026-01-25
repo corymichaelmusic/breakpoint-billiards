@@ -131,14 +131,14 @@ export default function MatchScreen() {
             if (matchData.player1) {
                 matchData.player1.id = matchData.player1_id; // Ensure ID is present
                 matchData.player1.racks = lp1?.breakpoint_racks_played || 0;
-                matchData.player1.rating = matchData.player1.fargo_rating || matchData.player1.breakpoint_rating || INITIAL_RATING;
+                matchData.player1.rating = matchData.player1.breakpoint_rating || matchData.player1.fargo_rating || INITIAL_RATING;
             }
 
             // Enrich Player 2
             if (matchData.player2) {
                 matchData.player2.id = matchData.player2_id; // Ensure ID is present
                 matchData.player2.racks = lp2?.breakpoint_racks_played || 0;
-                matchData.player2.rating = matchData.player2.fargo_rating || matchData.player2.breakpoint_rating || INITIAL_RATING;
+                matchData.player2.rating = matchData.player2.breakpoint_rating || matchData.player2.fargo_rating || INITIAL_RATING;
             }
 
             setMatch(matchData);
@@ -627,7 +627,7 @@ export default function MatchScreen() {
                                         )}
                                     </View>
                                     <Text className="text-white font-bold text-sm text-center w-full mb-1" numberOfLines={1} adjustsFontSizeToFit>{match.player1.nickname || match.player1.full_name?.split(' ')[0]}</Text>
-                                    <Text className="text-yellow-400 font-bold text-base text-center w-full" numberOfLines={1} adjustsFontSizeToFit>{match.player1.rating}</Text>
+                                    <Text className="text-yellow-400 font-bold text-base text-center w-full" numberOfLines={1} adjustsFontSizeToFit>{getBreakpointLevel(match.player1.rating)}</Text>
                                 </View>
 
                                 {/* VS */}
@@ -647,7 +647,7 @@ export default function MatchScreen() {
                                         )}
                                     </View>
                                     <Text className="text-white font-bold text-sm text-center w-full mb-1" numberOfLines={1} adjustsFontSizeToFit>{match.player2.nickname || match.player2.full_name?.split(' ')[0]}</Text>
-                                    <Text className="text-yellow-400 font-bold text-base text-center w-full" numberOfLines={1} adjustsFontSizeToFit>{match.player2.rating}</Text>
+                                    <Text className="text-yellow-400 font-bold text-base text-center w-full" numberOfLines={1} adjustsFontSizeToFit>{getBreakpointLevel(match.player2.rating)}</Text>
                                 </View>
                             </View>
 

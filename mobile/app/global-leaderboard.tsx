@@ -49,7 +49,7 @@ export default function LeaderboardScreen() {
     return (
         <SafeAreaView className="flex-1 bg-background">
             <View className="px-4 py-4 bg-background border-b border-white/5 flex-row justify-between items-center">
-                <View className="flex-row items-center">
+                <View className="flex-row items-center flex-1 mr-4">
                     <TouchableOpacity onPress={() => router.replace('/stats')} className="mr-4 p-2 -ml-2">
                         <FontAwesome5 name="arrow-left" size={20} color="#D4AF37" />
                     </TouchableOpacity>

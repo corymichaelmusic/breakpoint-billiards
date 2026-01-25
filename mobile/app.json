@@ -30,7 +30,7 @@
       },
       "package": "com.breakpoint.billiards",
       "versionCode": 20,
-      "edgeToEdgeEnabled": true,
+      "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false,
       "androidNavigationBar": {
         "backgroundColor": "#121212",

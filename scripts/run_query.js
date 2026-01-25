@@ -1,24 +1,31 @@
+require('dotenv').config({ path: '.env.local' });
 const { Client } = require('pg');
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../.env.local') });
+
+const sql = process.argv[2];
+
+if (!sql) {
+    console.error('Please provide a SQL query as an argument');
+    process.exit(1);
+}
 
 async function run() {
+    console.log('Connecting to database...');
     const client = new Client({
         connectionString: process.env.DATABASE_URL,
-        ssl: { rejectUnauthorized: false }
+        ssl: {
+            rejectUnauthorized: false
+        }
     });
 
     try {
         await client.connect();
-        const query = process.argv[2];
-        if (!query) {
-            console.error("Usage: node scripts/run_query.js 'SELECT ...'");
-            process.exit(1);
-        }
-        const res = await client.query(query);
-        console.log(JSON.stringify(res.rows, null, 2));
+        console.log('Connected!');
+
+        console.log('Executing query:', sql);
+        const res = await client.query(sql);
+        console.table(res.rows);
     } catch (err) {
-        console.error("Error:", err);
+        console.error('Error executing query:', err);
     } finally {
         await client.end();
     }

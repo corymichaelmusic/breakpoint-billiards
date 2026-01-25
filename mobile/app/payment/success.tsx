@@ -1,10 +1,20 @@
 import { View, Text, TouchableOpacity } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useEffect } from "react";
+import { useSubscription } from "../../lib/SubscriptionContext";
 
 export default function PaymentSuccess() {
     const router = useRouter();
-    const { match_id } = useLocalSearchParams();
+    const { match_id, type } = useLocalSearchParams();
+    const { refreshSubscription } = useSubscription();
+
+    useEffect(() => {
+        // Refresh subscription in case it was a Pro upgrade
+        refreshSubscription();
+    }, []);
+
+    const isPro = type === 'pro';
 
     return (
         <View className="flex-1 bg-background justify-center items-center p-6">
@@ -15,7 +25,9 @@ export default function PaymentSuccess() {
 
                 <Text className="text-white text-2xl font-bold mb-2 text-center">Payment Successful</Text>
                 <Text className="text-gray-400 text-center mb-8">
-                    Your match fee has been processed. You are now ready to play!
+                    {isPro
+                        ? "Your Pro subscription is now active! Enjoy full access to stats and more."
+                        : "Your match fee has been processed. You are now ready to play!"}
                 </Text>
 
                 <TouchableOpacity
@@ -29,7 +41,7 @@ export default function PaymentSuccess() {
                     className="bg-primary w-full py-4 rounded-xl active:opacity-90"
                 >
                     <Text className="text-black font-bold text-center text-lg uppercase tracking-wider">
-                        Return to Action
+                        {isPro ? "Go to Dashboard" : "Return to Action"}
                     </Text>
                 </TouchableOpacity>
             </View>

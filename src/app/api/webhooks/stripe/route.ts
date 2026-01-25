@@ -107,7 +107,42 @@ export async function POST(req: Request) {
                         return NextResponse.json({ error: 'Database update failed' }, { status: 500 });
                     }
                     // Player session fee processed successfully
+                } else if (metadata.type === 'pro_subscription' && metadata.player_id) {
+                    const { error } = await supabase
+                        .from('profiles')
+                        .update({
+                            subscription_status: 'pro',
+                            subscription_expires_at: null, // Active subscription
+                            stripe_customer_id: session.customer as string // Save customer ID for later (cancellations/updates)
+                        })
+                        .eq('id', metadata.player_id);
+
+                    if (error) {
+                        console.error('Failed to update pro subscription status:', error);
+                        return NextResponse.json({ error: 'Database update failed' }, { status: 500 });
+                    }
                 }
+            }
+        } else if (event.type === 'customer.subscription.deleted') {
+            const subscription = event.data.object as Stripe.Subscription;
+            const supabase = createAdminClient();
+
+            // We need to find the user by Stripe Customer ID or Metadata
+            const customerId = subscription.customer as string;
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('stripe_customer_id', customerId)
+                .single();
+
+            if (profile) {
+                await supabase
+                    .from('profiles')
+                    .update({
+                        subscription_status: 'free',
+                        subscription_expires_at: new Date().toISOString()
+                    })
+                    .eq('id', profile.id);
             }
         }
 

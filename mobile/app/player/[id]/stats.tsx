@@ -1,24 +1,24 @@
-import { View, Text, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { View, Text, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { useAuth } from "@clerk/clerk-expo";
-import { useRouter } from "expo-router";
-import { getBreakpointLevel } from "../../utils/rating";
-import { useSession } from "../../lib/SessionContext";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { FontAwesome5, Ionicons } from "@expo/vector-icons";
+import { getBreakpointLevel } from "../../../utils/rating";
 
-export default function StatsScreen() {
-    const { userId, getToken } = useAuth();
+export default function PlayerStatsScreen() {
+    const { id: rawId } = useLocalSearchParams();
+    const id = Array.isArray(rawId) ? rawId[0] : rawId;
+    const { getToken } = useAuth();
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [stats, setStats] = useState<any>(null);
-    const { currentSession } = useSession();
 
     const fetchStats = async () => {
         try {
-            if (!userId) return;
+            if (!id) return;
 
             const token = await getToken({ template: 'supabase' });
             const authHeader = token ? { Authorization: `Bearer ${token}` } : undefined;
@@ -29,40 +29,26 @@ export default function StatsScreen() {
                 { global: { headers: authHeader } }
             );
 
-            // Fetch User Profile for current rating
+            // Fetch Profile for current rating and name
             const { data: profile } = await supabase
                 .from('profiles')
                 .select('breakpoint_rating, full_name')
-                .eq('id', userId)
+                .eq('id', id)
                 .single();
             const currentRating = profile?.breakpoint_rating || 500;
 
-            // Calculate Global Rank (Consistent with Leaderboard)
-            const { data: topPlayers } = await supabase
+            // Calculate Global Rank
+            const { count: higherRankedCount } = await supabase
                 .from('profiles')
-                .select('id')
-                .order('breakpoint_rating', { ascending: false })
-                .limit(50);
-
-            let rank = 0;
-            const topIndex = topPlayers?.findIndex(p => p.id === userId);
-
-            if (topIndex !== undefined && topIndex !== -1) {
-                rank = topIndex + 1;
-            } else {
-                // Fallback for outside top 50
-                const { count: higherRankedCount } = await supabase
-                    .from('profiles')
-                    .select('*', { count: 'exact', head: true })
-                    .gt('breakpoint_rating', currentRating);
-                rank = (higherRankedCount || 0) + 1;
-            }
+                .select('*', { count: 'exact', head: true })
+                .gt('breakpoint_rating', currentRating);
+            const rank = (higherRankedCount || 0) + 1;
 
             // 1. Fetch Aggregated Stats from league_players
             const { data: leagueStats, error: leagueError } = await supabase
                 .from('league_players')
                 .select('*')
-                .eq('player_id', userId);
+                .eq('player_id', id);
 
             if (leagueError) console.error("Error fetching league stats:", leagueError);
 
@@ -76,27 +62,13 @@ export default function StatsScreen() {
                 winRate: 0,
                 ppm: "0.00",
                 bp: getBreakpointLevel(currentRating),
-                rank: 0,
+                rank: rank,
                 racksPlayed: 0,
                 shutouts: 0
             };
 
-            let totalPlayed = 0;
-            let totalWins = 0;
-            let totalPoints = 0;
-            lifetime.rank = rank;
-
-            // Granular from DB
-            let db_br8 = 0;
-            let db_br9 = 0;
-            let db_rr8 = 0;
-            let db_rr9 = 0;
-
-            let db_snap = 0;
-
-            // Aggregation Vars for Lifetime
-            let totalRacksPlayed = 0;
-            let totalShutouts = 0;
+            let totalPlayed = 0, totalWins = 0, totalRacksPlayed = 0, totalShutouts = 0;
+            let db_br8 = 0, db_br9 = 0, db_rr8 = 0, db_rr9 = 0, db_snap = 0;
 
             if (leagueStats) {
                 leagueStats.forEach(ls => {
@@ -105,79 +77,58 @@ export default function StatsScreen() {
                     totalRacksPlayed += ls.breakpoint_racks_played || 0;
                     totalShutouts += ls.shutouts || 0;
 
-                    // Sum Split Stats
                     db_br8 += ls.total_break_and_runs_8ball || 0;
                     db_br9 += ls.total_break_and_runs_9ball || 0;
                     db_rr8 += ls.total_rack_and_runs_8ball || 0;
                     db_rr9 += ls.total_rack_and_runs_9ball || 0;
-
-
                     db_snap += ls.total_nine_on_snap || 0;
                 });
             }
 
-            // Populate the UI objects with accurate split counts
             stats8.br = db_br8;
             stats8.rr = db_rr8;
-
             stats9.br = db_br9;
             stats9.rr = db_rr9;
             stats9.snap = db_snap;
-
-            // Assign lifetime aggregated values
             lifetime.racksPlayed = totalRacksPlayed;
             lifetime.shutouts = totalShutouts;
 
             const matchQuery = await supabase
                 .from("matches")
                 .select("*")
-                .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
+                .or(`player1_id.eq.${id},player2_id.eq.${id}`)
                 .or('status_8ball.eq.finalized,status_9ball.eq.finalized');
 
             if (matchQuery.data) {
                 matchQuery.data.forEach(m => {
-                    const isP1 = m.player1_id === userId;
+                    const isP1 = m.player1_id === id;
                     const myPtsMatch = isP1 ? (m.points_8ball_p1 + m.points_9ball_p1) : (m.points_8ball_p2 + m.points_9ball_p2);
                     lifetime.points += myPtsMatch;
 
-                    // 8-Ball Stats
                     const p1_8 = Number(m.points_8ball_p1) || 0;
                     const p2_8 = Number(m.points_8ball_p2) || 0;
-                    const status8 = m.status_8ball;
-
-                    if (status8 === 'finalized') {
+                    if (m.status_8ball === 'finalized') {
                         stats8.played++;
-                        // Use authoritative winner_id
-                        if (m.winner_id_8ball === userId) stats8.wins++;
-
+                        if (m.winner_id_8ball === id) stats8.wins++;
                         stats8.racksWon += (isP1 ? p1_8 : p2_8);
                         stats8.racksLost += (isP1 ? p2_8 : p1_8);
                     }
 
-                    // 9-Ball Stats
                     const p1_9 = Number(m.points_9ball_p1) || 0;
                     const p2_9 = Number(m.points_9ball_p2) || 0;
-                    const status9 = m.status_9ball;
-
-                    if (status9 === 'finalized') {
+                    if (m.status_9ball === 'finalized') {
                         stats9.played++;
-                        if (m.winner_id_9ball === userId) stats9.wins++;
-
+                        if (m.winner_id_9ball === id) stats9.wins++;
                         stats9.racksWon += (isP1 ? p1_9 : p2_9);
                         stats9.racksLost += (isP1 ? p2_9 : p1_9);
                     }
                 });
             }
 
-            // Recalculate Aggregates
             lifetime.played = stats8.played + stats9.played;
             lifetime.wins = stats8.wins + stats9.wins;
             lifetime.winRate = lifetime.played > 0 ? Math.round((lifetime.wins / lifetime.played) * 100) : 0;
             lifetime.ppm = lifetime.played > 0 ? (lifetime.points / lifetime.played).toFixed(2) : "0.00";
-
-            // If leagueStats RacksPlayed is 0 (missing data), fallback to crude calculation?
-            // Crude: 1 point = 1 rack won approx? No.
-            // Let's trust leagueStats.
 
             stats8.winRate = stats8.played > 0 ? Math.round((stats8.wins / stats8.played) * 100) : 0;
             stats9.winRate = stats9.played > 0 ? Math.round((stats9.wins / stats9.played) * 100) : 0;
@@ -200,7 +151,7 @@ export default function StatsScreen() {
 
     useEffect(() => {
         fetchStats();
-    }, [userId, currentSession]);
+    }, [id]);
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
@@ -210,45 +161,62 @@ export default function StatsScreen() {
     if (loading) return <View className="flex-1 bg-background items-center justify-center"><ActivityIndicator color="#D4AF37" /></View>;
 
     return (
-        <SafeAreaView className="flex-1 bg-background" edges={['bottom', 'left', 'right']}>
+        <SafeAreaView className="flex-1 bg-background">
+            {/* Header */}
+            <View className="px-4 py-4 bg-background border-b border-white/5 flex-row justify-between items-center">
+                <View className="flex-row items-center flex-1 mr-4">
+                    <TouchableOpacity onPress={() => router.back()} className="mr-4 p-2 -ml-2">
+                        <FontAwesome5 name="arrow-left" size={20} color="#D4AF37" />
+                    </TouchableOpacity>
+                    <View>
+                        <Text className="text-xl font-bold text-white uppercase tracking-wide" style={{ includeFontPadding: false }}>
+                            Player Stats
+                        </Text>
+                        <Text className="text-gray-400 uppercase tracking-widest text-[10px]" style={{ includeFontPadding: false }}>
+                            {stats?.fullName || 'Loading...'}
+                        </Text>
+                    </View>
+                </View>
+                <Image
+                    source={require('../../../assets/branding-text-gold.png')}
+                    style={{ width: 100, height: 22 }}
+                    resizeMode="contain"
+                />
+            </View>
 
             <ScrollView
                 className="flex-1"
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#D4AF37" />}
             >
                 <View className="p-6">
-
-                    {/* Lifetime Stats (Matches) */}
+                    {/* Lifetime Stats */}
                     <View className="bg-surface border border-border rounded-xl p-4 mb-6">
                         <View className="flex-row justify-between items-center mb-4 border-b border-border pb-2">
-                            <Text className="text-foreground text-lg font-bold max-w-[70%]">
-                                Lifetime Stats
-                            </Text>
-                            <TouchableOpacity onPress={() => router.push('/global-leaderboard')}>
+                            <Text className="text-foreground text-lg font-bold max-w-[70%]">Lifetime Stats</Text>
+                            <View>
                                 <Text className="text-primary font-bold text-base" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
                                     Rank: {stats?.lifetime?.rank || '-'}
                                 </Text>
-                            </TouchableOpacity>
+                            </View>
                         </View>
                         <View className="flex-row flex-wrap justify-between">
                             <StatBox label="Win %" value={`${stats?.lifetime?.winRate || 0}%`} />
                             <StatBox label="W-L" value={`${stats?.lifetime?.wins || 0}-${(stats?.lifetime?.played || 0) - (stats?.lifetime?.wins || 0)}`} />
                             <StatBox label="Sets Played" value={stats?.lifetime?.played || 0} />
-
                             <StatBox label="Confidence" value={stats?.lifetime?.racksPlayed || 0} />
                             <StatBox label="BP Level" value={stats?.lifetime?.bp || 1} highlight />
                             <StatBox label="Shutouts" value={stats?.lifetime?.shutouts || 0} />
                         </View>
 
                         <TouchableOpacity
-                            onPress={() => router.push('/match-history')}
+                            onPress={() => router.push(`/match-history?playerId=${id}`)}
                             className="mt-4 bg-primary/10 border border-primary p-3 rounded-lg items-center"
                         >
                             <Text className="text-primary font-bold uppercase text-xs tracking-widest" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>View Match History  </Text>
                         </TouchableOpacity>
                     </View>
 
-                    {/* 8-Ball Stats (Games) */}
+                    {/* 8-Ball Stats */}
                     <View className="bg-surface border border-border rounded-xl p-4 mb-6">
                         <View className="flex-row justify-between items-center border-b border-border pb-2 mb-4">
                             <Text className="text-foreground text-base font-bold shrink" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>8-Ball Sets</Text>
@@ -265,7 +233,7 @@ export default function StatsScreen() {
                         <StatRow label="Rack & Runs" value={stats?.stats8?.rr || 0} />
                     </View>
 
-                    {/* 9-Ball Stats (Games) */}
+                    {/* 9-Ball Stats */}
                     <View className="bg-surface border border-border rounded-xl p-4 mb-6">
                         <View className="flex-row justify-between items-center border-b border-border pb-2 mb-4">
                             <Text className="text-foreground text-base font-bold shrink" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>9-Ball Sets</Text>
@@ -279,20 +247,8 @@ export default function StatsScreen() {
                         <StatRow label="Win %" value={`${stats?.stats9?.winRate || 0}%`} />
                         <StatRow label="W-L" value={`${stats?.stats9?.wins || 0}-${(stats?.stats9?.played || 0) - (stats?.stats9?.wins || 0)}`} />
                         <StatRow label="Break & Run" value={stats?.stats9?.br || 0} />
-
                         <StatRow label="9 on the Snap" value={stats?.stats9?.snap || 0} />
                     </View>
-
-                    <TouchableOpacity
-                        onPress={() => router.push('/player/lookup')}
-                        className="bg-primary py-4 rounded-xl items-center mb-10 shadow-lg"
-                    >
-                        <View className="flex-row items-center gap-2">
-                            <Ionicons name="search" size={20} color="black" />
-                            <Text className="text-black font-bold uppercase tracking-widest text-base" style={{ includeFontPadding: false }}>Lookup Player  </Text>
-                        </View>
-                    </TouchableOpacity>
-
                 </View>
             </ScrollView>
         </SafeAreaView>

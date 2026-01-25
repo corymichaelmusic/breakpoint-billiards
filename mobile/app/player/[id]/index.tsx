@@ -5,8 +5,10 @@ import { useAuth } from "@clerk/clerk-expo";
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { FontAwesome5 } from "@expo/vector-icons";
-import { getBreakpointLevel } from "../../utils/rating";
-import NextMatchCard from "../../components/NextMatchCard";
+import { getBreakpointLevel } from "../../../utils/rating";
+import NextMatchCard from "../../../components/NextMatchCard";
+import { useSubscription } from "../../../lib/SubscriptionContext";
+import UpgradeModal from "../../../components/UpgradeModal";
 
 export default function PlayerDetailScreen() {
     const { id } = useLocalSearchParams();
@@ -16,6 +18,8 @@ export default function PlayerDetailScreen() {
     const [profile, setProfile] = useState<any>(null);
     const [matches, setMatches] = useState<any[]>([]);
     const [stats, setStats] = useState({ wins: 0, losses: 0, winRate: 0 });
+    const { isPro } = useSubscription();
+    const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
 
     useEffect(() => {
         fetchData();
@@ -137,7 +141,7 @@ export default function PlayerDetailScreen() {
                     </View>
                 </View>
                 <Image
-                    source={require('../../assets/branding-text-gold.png')}
+                    source={require('../../../assets/branding-text-gold.png')}
                     style={{ width: 100, height: 22 }}
                     resizeMode="contain"
                 />
@@ -161,6 +165,11 @@ export default function PlayerDetailScreen() {
                                     BP: {getBreakpointLevel(profile?.breakpoint_rating || 500)}
                                 </Text>
                             </View>
+                            <View className="bg-blue-500/20 px-3 py-1 rounded shrink-1">
+                                <Text className="text-blue-500 font-bold" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>
+                                    CONF: {profile?.confidence || 0}
+                                </Text>
+                            </View>
                             <View className="bg-white/10 px-3 py-1 rounded border border-white/20 shrink-1">
                                 <Text className="text-white font-bold" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>
                                     RANK: {profile?.rank || '-'}
@@ -171,20 +180,34 @@ export default function PlayerDetailScreen() {
                         <View className="flex-row justify-around w-full px-2">
                             <View className="items-center flex-1">
                                 <Text className="text-3xl font-bold text-white" style={{ includeFontPadding: false }}>{stats.winRate}%  </Text>
-                                <Text className="text-gray-400 text-xs uppercase tracking-widest" style={{ includeFontPadding: false }}>Win Rate</Text>
+                                <Text className="text-gray-400 text-xs uppercase tracking-widest" style={{ includeFontPadding: false }}>Win Rate vs.</Text>
                             </View>
                             <View className="w-[1px] bg-white/10" />
                             <View className="items-center flex-1 px-1">
                                 <Text className="text-3xl font-bold text-white text-center" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>{stats.wins}-{stats.losses} </Text>
-                                <Text className="text-gray-400 text-xs uppercase tracking-widest" style={{ includeFontPadding: false }}>Record</Text>
-                            </View>
-                            <View className="w-[1px] bg-white/10" />
-                            <View className="items-center flex-1">
-                                <Text className="text-3xl font-bold text-white" style={{ includeFontPadding: false }}>{profile?.confidence || 0} </Text>
-                                <Text className="text-gray-400 text-xs uppercase tracking-widest" style={{ includeFontPadding: false }}>Confidence</Text>
+                                <Text className="text-gray-400 text-xs uppercase tracking-widest" style={{ includeFontPadding: false }}>Record vs.</Text>
                             </View>
                         </View>
                     </View>
+
+                    {/* COMPLETE STATS BUTTON */}
+                    <TouchableOpacity
+                        onPress={() => {
+                            if (isPro) {
+                                router.push(`/player/${id}/stats`);
+                            } else {
+                                setUpgradeModalVisible(true);
+                            }
+                        }}
+                        className="bg-primary/10 border border-primary/50 py-3 rounded-xl items-center mb-6 active:bg-primary/20"
+                    >
+                        <View className="flex-row items-center gap-2">
+                            <FontAwesome5 name={isPro ? "chart-bar" : "lock"} size={16} color="#D4AF37" />
+                            <Text className="text-primary font-bold uppercase tracking-widest text-sm" style={{ includeFontPadding: false }}>
+                                See Complete Stats {!isPro && "(PRO)"}
+                            </Text>
+                        </View>
+                    </TouchableOpacity>
 
                     <Text className="text-white font-bold text-lg mb-4">Match History</Text>
 
@@ -255,6 +278,7 @@ export default function PlayerDetailScreen() {
                 </ScrollView>
             )
             }
+            <UpgradeModal visible={upgradeModalVisible} onClose={() => setUpgradeModalVisible(false)} />
         </SafeAreaView >
     );
 }

@@ -179,8 +179,8 @@ export default function HomeScreen() {
       if (matches.length > 0) {
         const inputs = matches.map((m: any) => ({
           id: m.id,
-          p1Rating: m.player1?.fargo_rating || m.player1?.breakpoint_rating || 500,
-          p2Rating: m.player2?.fargo_rating || m.player2?.breakpoint_rating || 500
+          p1Rating: m.player1?.breakpoint_rating || 500,
+          p2Rating: m.player2?.breakpoint_rating || 500
         }));
 
         fetchMatchRaces(inputs).then(raceData => {
@@ -647,7 +647,7 @@ export default function HomeScreen() {
                   </View>
                 </View>
                 <StatRow label="Break & Run" value={stats.stats9?.br || 0} />
-                <StatRow label="Rack & Run" value={stats.stats9?.rr || 0} />
+
                 <StatRow label="9 on Snap" value={stats.stats9?.snap || 0} />
 
               </View>
@@ -689,9 +689,12 @@ export default function HomeScreen() {
                   p1_9: matchRaces.race9.p1, p2_9: matchRaces.race9.p2
                 } : undefined;
 
+                const opponent = nextMatch.player1_id === userId ? nextMatch.player2 : nextMatch.player1;
+
                 return (
                   <NextMatchCard
-                    opponentName={nextMatch.player1_id === userId ? nextMatch.player2?.full_name : nextMatch.player1?.full_name || 'Unknown'}
+                    opponentName={opponent?.full_name || 'Unknown'}
+                    opponentRating={opponent?.breakpoint_rating}
                     date={formattedDate}
                     isLocked={isMatchLocked}
                     matchId={nextMatch.id}

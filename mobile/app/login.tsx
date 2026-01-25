@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, Image, Alert, ActivityIndicator, TextInput, TouchableWithoutFeedback, Keyboard, DeviceEventEmitter, ScrollView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Alert, ActivityIndicator, TextInput, TouchableWithoutFeedback, Keyboard, DeviceEventEmitter, ScrollView, Platform, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOAuth, useAuth, useUser, useSignIn, useSignUp, useClerk } from '@clerk/clerk-expo';
 import { useRouter, useSegments } from 'expo-router';
@@ -366,178 +366,184 @@ export default function Login() {
 
     return (
         <SafeAreaView className="flex-1 bg-background">
-            <ScrollView
-                contentContainerStyle={{ flexGrow: 1 }}
-                keyboardShouldPersistTaps="handled"
-                scrollEnabled={false}
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
             >
-                <View className="flex-1 justify-center items-center p-6">
-                    <View className="w-full max-w-sm">
-                        <View className="items-center mb-10">
-                            <Image
-                                source={require('../assets/branding-logo.png')}
-                                style={{ width: 200, height: 200 }}
-                                resizeMode="contain"
-                            />
-                        </View>
+                <ScrollView
+                    contentContainerStyle={{ flexGrow: 1 }}
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="on-drag"
+                    scrollEnabled={true}
+                >
+                    <View className="flex-1 justify-center items-center p-6">
+                        <View className="w-full max-w-sm">
+                            <View className="items-center mb-10">
+                                <Image
+                                    source={require('../assets/branding-logo.png')}
+                                    style={{ width: 200, height: 200 }}
+                                    resizeMode="contain"
+                                />
+                            </View>
 
-                        {!pendingVerification ? (
-                            <>
-                                <View style={{ marginTop: 20 }}>
-                                    <Text style={{ color: 'gray', textAlign: 'center', fontSize: 12 }}>
-                                        By continuing, you agree to our Terms of Service and Privacy Policy.
-                                    </Text>
-                                </View>
+                            {!pendingVerification ? (
+                                <>
+                                    <View style={{ marginTop: 20 }}>
+                                        <Text style={{ color: 'gray', textAlign: 'center', fontSize: 12 }}>
+                                            By continuing, you agree to our Terms of Service and Privacy Policy.
+                                        </Text>
+                                    </View>
 
-                                {mode === "signup" && (
-                                    <View className="flex-col gap-4 mb-4">
-                                        <View className="flex-row gap-2">
+                                    {mode === "signup" && (
+                                        <View className="flex-col gap-4 mb-4">
+                                            <View className="flex-row gap-2">
+                                                <TextInput
+                                                    value={firstName}
+                                                    placeholder="First Name"
+                                                    placeholderTextColor="#666"
+                                                    onChangeText={setFirstName}
+                                                    className="flex-1 bg-surface border border-border rounded-lg p-4 text-foreground text-base"
+                                                />
+                                                <TextInput
+                                                    value={lastName}
+                                                    placeholder="Last Name"
+                                                    placeholderTextColor="#666"
+                                                    onChangeText={setLastName}
+                                                    className="flex-1 bg-surface border border-border rounded-lg p-4 text-foreground text-base"
+                                                />
+                                            </View>
                                             <TextInput
-                                                value={firstName}
-                                                placeholder="First Name"
+                                                value={phoneNumber}
+                                                placeholder="Mobile Number (optional)"
                                                 placeholderTextColor="#666"
-                                                onChangeText={setFirstName}
-                                                className="flex-1 bg-surface border border-border rounded-lg p-4 text-foreground text-base"
-                                            />
-                                            <TextInput
-                                                value={lastName}
-                                                placeholder="Last Name"
-                                                placeholderTextColor="#666"
-                                                onChangeText={setLastName}
-                                                className="flex-1 bg-surface border border-border rounded-lg p-4 text-foreground text-base"
+                                                keyboardType="phone-pad"
+                                                onChangeText={setPhoneNumber}
+                                                className="w-full bg-surface border border-border rounded-lg p-4 text-foreground text-base"
                                             />
                                         </View>
-                                        <TextInput
-                                            value={phoneNumber}
-                                            placeholder="Mobile Number (optional)"
-                                            placeholderTextColor="#666"
-                                            keyboardType="phone-pad"
-                                            onChangeText={setPhoneNumber}
-                                            className="w-full bg-surface border border-border rounded-lg p-4 text-foreground text-base"
-                                        />
-                                    </View>
-                                )}
-
-                                <TextInput
-                                    autoCapitalize="none"
-                                    value={emailAddress}
-                                    placeholder="Email Address"
-                                    placeholderTextColor="#666"
-                                    onChangeText={(emailAddress) => setEmailAddress(emailAddress)}
-                                    className="w-full bg-surface border border-border rounded-lg p-4 mb-4 text-foreground text-base"
-                                />
-                                <TextInput
-                                    value={password}
-                                    placeholder="Password"
-                                    placeholderTextColor="#666"
-                                    secureTextEntry={true}
-                                    onChangeText={(password) => setPassword(password)}
-                                    className="w-full bg-surface border border-border rounded-lg p-4 mb-6 text-foreground text-base"
-                                />
-
-
-                                <TouchableOpacity
-                                    onPress={mode === "signin" ? onSignInPress : onSignUpPress}
-                                    disabled={loading}
-                                    className="w-full bg-primary rounded-lg p-4 justify-center mb-4"
-                                >
-                                    {loading ? (
-                                        <ActivityIndicator color="#000" />
-                                    ) : (
-                                        <Text
-                                            className="text-black font-bold text-lg uppercase tracking-wider text-center w-full"
-                                            style={{ includeFontPadding: false }}
-                                            numberOfLines={1}
-                                            adjustsFontSizeToFit
-                                        >
-                                            {mode === "signin" ? "Sign In" : "Sign Up"}
-                                        </Text>
                                     )}
-                                </TouchableOpacity>
 
-                                <TouchableOpacity
-                                    onPress={onGoogleSignInPress}
-                                    disabled={loading}
-                                    className="w-full bg-surface border border-border rounded-lg p-4 justify-center mb-2"
-                                >
-                                    <Text
-                                        className="text-white font-bold text-base text-center w-full"
-                                        style={{ includeFontPadding: false }}
-                                        numberOfLines={1}
-                                        adjustsFontSizeToFit
-                                    >
-                                        Sign in with Google
-                                    </Text>
-                                </TouchableOpacity>
+                                    <TextInput
+                                        autoCapitalize="none"
+                                        value={emailAddress}
+                                        placeholder="Email Address"
+                                        placeholderTextColor="#666"
+                                        onChangeText={(emailAddress) => setEmailAddress(emailAddress)}
+                                        className="w-full bg-surface border border-border rounded-lg p-4 mb-4 text-foreground text-base"
+                                    />
+                                    <TextInput
+                                        value={password}
+                                        placeholder="Password"
+                                        placeholderTextColor="#666"
+                                        secureTextEntry={true}
+                                        onChangeText={(password) => setPassword(password)}
+                                        className="w-full bg-surface border border-border rounded-lg p-4 mb-6 text-foreground text-base"
+                                    />
 
-                                {Platform.OS === 'ios' && (
+
                                     <TouchableOpacity
-                                        onPress={onAppleSignInPress}
+                                        onPress={mode === "signin" ? onSignInPress : onSignUpPress}
                                         disabled={loading}
-                                        className="w-full bg-white border border-white rounded-lg p-4 justify-center mb-6"
+                                        className="w-full bg-primary rounded-lg p-4 justify-center mb-4"
+                                    >
+                                        {loading ? (
+                                            <ActivityIndicator color="#000" />
+                                        ) : (
+                                            <Text
+                                                className="text-black font-bold text-lg uppercase tracking-wider text-center w-full"
+                                                style={{ includeFontPadding: false }}
+                                                numberOfLines={1}
+                                                adjustsFontSizeToFit
+                                            >
+                                                {mode === "signin" ? "Sign In" : "Sign Up"}
+                                            </Text>
+                                        )}
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        onPress={onGoogleSignInPress}
+                                        disabled={loading}
+                                        className="w-full bg-surface border border-border rounded-lg p-4 justify-center mb-2"
                                     >
                                         <Text
-                                            className="text-black font-bold text-base text-center w-full"
+                                            className="text-white font-bold text-base text-center w-full"
                                             style={{ includeFontPadding: false }}
                                             numberOfLines={1}
                                             adjustsFontSizeToFit
                                         >
-                                            Sign in with Apple
+                                            Sign in with Google
                                         </Text>
                                     </TouchableOpacity>
-                                )}
 
-                                <TouchableOpacity onPress={toggleMode} className="items-center">
-                                    <Text className="text-gray-500 text-sm">
-                                        {mode === "signin" ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
-                                    </Text>
-                                </TouchableOpacity>
-
-                                {mode === "signin" && (
-                                    <TouchableOpacity className="mt-4 items-center">
-                                        <Text className="text-gray-500 text-sm">Forgot Password?</Text>
-                                    </TouchableOpacity>
-                                )}
-                            </>
-                        ) : (
-                            <>
-                                <Text className="text-white text-xl font-bold mb-6 text-center">Verify Email</Text>
-                                <Text className="text-gray-400 mb-6 text-center">
-                                    We've sent a verification code to {emailAddress}. Please enter it below.
-                                </Text>
-
-                                <TextInput
-                                    value={code}
-                                    placeholder="Verification Code"
-                                    placeholderTextColor="#666"
-                                    keyboardType="number-pad"
-                                    onChangeText={(c) => setCode(c)}
-                                    className="w-full bg-surface border border-border rounded-lg p-4 mb-6 text-foreground text-base text-center font-bold tracking-widest text-xl"
-                                />
-
-                                <TouchableOpacity
-                                    onPress={onPressVerify}
-                                    disabled={loading}
-                                    className="w-full bg-primary rounded-lg p-4 items-center mb-4"
-                                >
-                                    {loading ? (
-                                        <ActivityIndicator color="#000" />
-                                    ) : (
-                                        <Text className="text-black font-bold text-lg uppercase tracking-wider">
-                                            Verify Email
-                                        </Text>
+                                    {Platform.OS === 'ios' && (
+                                        <TouchableOpacity
+                                            onPress={onAppleSignInPress}
+                                            disabled={loading}
+                                            className="w-full bg-white border border-white rounded-lg p-4 justify-center mb-6"
+                                        >
+                                            <Text
+                                                className="text-black font-bold text-base text-center w-full"
+                                                style={{ includeFontPadding: false }}
+                                                numberOfLines={1}
+                                                adjustsFontSizeToFit
+                                            >
+                                                Sign in with Apple
+                                            </Text>
+                                        </TouchableOpacity>
                                     )}
-                                </TouchableOpacity>
 
-                                <TouchableOpacity onPress={() => setPendingVerification(false)} className="items-center mt-4">
-                                    <Text className="text-primary text-sm font-bold">Back to Sign Up</Text>
-                                </TouchableOpacity>
-                            </>
-                        )}
+                                    <TouchableOpacity onPress={toggleMode} className="items-center">
+                                        <Text className="text-gray-500 text-sm">
+                                            {mode === "signin" ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
+                                        </Text>
+                                    </TouchableOpacity>
 
+                                    {mode === "signin" && (
+                                        <TouchableOpacity className="mt-4 items-center">
+                                            <Text className="text-gray-500 text-sm">Forgot Password?</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                </>
+                            ) : (
+                                <>
+                                    <Text className="text-white text-xl font-bold mb-6 text-center">Verify Email</Text>
+                                    <Text className="text-gray-400 mb-6 text-center">
+                                        We've sent a verification code to {emailAddress}. Please enter it below.
+                                    </Text>
+
+                                    <TextInput
+                                        value={code}
+                                        placeholder="Verification Code"
+                                        placeholderTextColor="#666"
+                                        keyboardType="number-pad"
+                                        onChangeText={(c) => setCode(c)}
+                                        className="w-full bg-surface border border-border rounded-lg p-4 mb-6 text-foreground text-base text-center font-bold tracking-widest text-xl"
+                                    />
+
+                                    <TouchableOpacity
+                                        onPress={onPressVerify}
+                                        disabled={loading}
+                                        className="w-full bg-primary rounded-lg p-4 items-center mb-4"
+                                    >
+                                        {loading ? (
+                                            <ActivityIndicator color="#000" />
+                                        ) : (
+                                            <Text className="text-black font-bold text-lg uppercase tracking-wider">
+                                                Verify Email
+                                            </Text>
+                                        )}
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity onPress={() => setPendingVerification(false)} className="items-center mt-4">
+                                        <Text className="text-primary text-sm font-bold">Back to Sign Up</Text>
+                                    </TouchableOpacity>
+                                </>
+                            )}
+
+                        </View>
                     </View>
-                </View>
-            </ScrollView>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }

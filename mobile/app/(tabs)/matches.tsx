@@ -77,8 +77,8 @@ export default function MatchesScreen() {
                 // Bulk Fetch Races
                 const inputs = fetchedMatches.map((m: any) => ({
                     id: m.id,
-                    p1Rating: m.player1?.fargo_rating || m.player1?.breakpoint_rating || 500,
-                    p2Rating: m.player2?.fargo_rating || m.player2?.breakpoint_rating || 500
+                    p1Rating: m.player1?.breakpoint_rating || 500,
+                    p2Rating: m.player2?.breakpoint_rating || 500
                 }));
 
                 fetchMatchRaces(inputs).then(raceData => {
@@ -150,6 +150,7 @@ export default function MatchesScreen() {
                         const isMatchLocked = !match.is_manually_unlocked && !isTimeOpen && effectiveStatus !== 'finalized' && effectiveStatus !== 'in_progress';
 
                         const isP1 = match.player1_id === userId;
+                        const opponent = isP1 ? match.player2 : match.player1;
                         const scores = {
                             p1_8: match.points_8ball_p1 || 0,
                             p2_8: match.points_8ball_p2 || 0,
@@ -199,7 +200,8 @@ export default function MatchesScreen() {
                             <NextMatchCard
                                 key={match.id}
                                 matchId={match.id}
-                                opponentName={match.player1_id === userId ? match.player2?.full_name : match.player1?.full_name || 'Unknown'}
+                                opponentName={opponent?.full_name || 'Unknown'}
+                                opponentRating={opponent?.breakpoint_rating}
                                 date={match.scheduled_date ? new Date(match.scheduled_date).toLocaleDateString() : 'TBD'}
                                 isLocked={isMatchLocked}
                                 weekNumber={undefined}

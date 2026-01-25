@@ -3,10 +3,12 @@ import { useRouter } from "expo-router";
 import { useState, useEffect } from "react";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { createClient } from "@supabase/supabase-js";
+import { getBreakpointLevel } from "../utils/rating";
 
 
 interface NextMatchCardProps {
     opponentName: string;
+    opponentRating?: number | string;
     date: string;
     isLocked?: boolean;
     matchId: string;
@@ -43,7 +45,7 @@ interface NextMatchCardProps {
 }
 
 export default function NextMatchCard({
-    opponentName, date, isLocked, matchId, leagueName, sessionName, weekNumber, status,
+    opponentName, opponentRating, date, isLocked, matchId, leagueName, sessionName, weekNumber, status,
     player1Id, player2Id, paymentStatusP1, paymentStatusP2, label, scores, specialStats, verificationStatus,
     p1SubmittedAt, p2SubmittedAt, races
 }: NextMatchCardProps) {
@@ -294,7 +296,16 @@ export default function NextMatchCard({
                 )}
                 {date && <Text className="text-gray-400 text-xs uppercase" style={{ includeFontPadding: false }}>{date}</Text>}
             </View>
-            <Text className="text-foreground text-xl font-bold mb-1" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>vs {opponentName}</Text>
+            <View className="flex-row items-baseline gap-2 mb-1">
+                <Text className="text-foreground text-xl font-bold" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
+                    vs {opponentName}
+                </Text>
+                {opponentRating && (
+                    <Text className="text-[#D4AF37] text-sm font-bold">
+                        {typeof opponentRating === 'number' ? getBreakpointLevel(opponentRating) : opponentRating}
+                    </Text>
+                )}
+            </View>
             {leagueName && <Text className="text-gray-300 text-sm">{leagueName}</Text>}
             {sessionName && <Text className="text-gray-500 text-xs mb-2">{sessionName}</Text>}
 
@@ -432,6 +443,12 @@ export default function NextMatchCard({
                     </View>
                 )
             )}
+
+            <View className="absolute bottom-4 right-4">
+                <Text className="text-gray-600 text-[10px] font-bold uppercase tracking-widest" style={{ includeFontPadding: false }}>
+                    ID: {matchId.substring(0, 8).toUpperCase()}
+                </Text>
+            </View>
         </View >
     );
 }

@@ -158,13 +158,41 @@ export async function POST(req: Request) {
                 quantity: 1,
             });
 
+        } else if (type === 'pro_subscription') {
+            // Check if user already has pro subscription
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('subscription_status')
+                .eq('id', userId)
+                .single();
+
+            if (profile?.subscription_status === 'pro') {
+                return NextResponse.json({ error: 'You already have a Pro subscription' }, { status: 400 });
+            }
+
+            // In a real app, you'd fetch the price ID from env or DB
+            const priceId = process.env.STRIPE_PRO_PRICE_ID;
+            if (!priceId) {
+                console.error('STRIPE_PRO_PRICE_ID is not set');
+                return NextResponse.json({ error: 'Subscription configuration missing' }, { status: 500 });
+            }
+
+            metadata.type = 'pro_subscription';
+            successUrl = isMobile ? `${baseUrl}/payment/success?type=pro${sourceParam}` : `${baseUrl}/dashboard`;
+            cancelUrl = isMobile ? `${baseUrl}/dashboard?source=mobile` : `${baseUrl}/dashboard`;
+
+            lineItems.push({
+                price: priceId,
+                quantity: 1,
+            });
+
         } else {
             return NextResponse.json({ error: 'Invalid checkout type' }, { status: 400 });
         }
 
         const session = await stripe.checkout.sessions.create({
             line_items: lineItems,
-            mode: 'payment',
+            mode: type === 'pro_subscription' ? 'subscription' : 'payment',
             success_url: successUrl,
             cancel_url: cancelUrl,
             metadata: metadata,
