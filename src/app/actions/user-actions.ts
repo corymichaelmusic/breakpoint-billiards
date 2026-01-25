@@ -16,21 +16,34 @@ export async function syncUserProfile(data: { id: string, email?: string, fullNa
     if (data.imageUrl) updateData.avatar_url = data.imageUrl;
     if (data.phone) updateData.phone = data.phone;
 
-    const { data: profile, error } = await supabase
+    // Try to update first to avoid overwriting existing data fields not in updateData (like role)
+    const { data: updatedProfile, error: updateError } = await supabase
         .from("profiles")
-        .upsert({
+        .update(updateData)
+        .eq("id", data.id)
+        .select("is_active")
+        .single();
+
+    if (updatedProfile) {
+        return { is_active: updatedProfile.is_active };
+    }
+
+    // If update failed (likely didn't exist), insert
+    const { data: newProfile, error: insertError } = await supabase
+        .from("profiles")
+        .insert({
             id: data.id,
             ...updateData
         })
         .select("is_active")
         .single();
 
-    if (error) {
-        console.error("Error syncing user profile:", error);
-        return { is_active: true }; // Default to true if error, or handle gracefully
+    if (insertError) {
+        console.error("Error syncing user profile:", insertError);
+        return { is_active: true };
     }
 
-    return { is_active: profile.is_active };
+    return { is_active: newProfile?.is_active ?? true };
 }
 
 export async function updateUserRole(role: 'player' | 'operator' | 'both') {

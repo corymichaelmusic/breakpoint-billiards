@@ -25,7 +25,8 @@ export async function approveOperator(operatorId: string) {
     const { supabase, error: authError } = await verifyAdmin();
     if (authError || !supabase) return { error: authError };
 
-    const { error } = await supabase
+    const adminSupabase = createAdminClient();
+    const { error } = await adminSupabase
         .from("profiles")
         .update({ operator_status: 'approved' })
         .eq("id", operatorId);
@@ -43,7 +44,8 @@ export async function rejectOperator(operatorId: string) {
     const { supabase, error: authError } = await verifyAdmin();
     if (authError || !supabase) return { error: authError };
 
-    const { error } = await supabase
+    const adminSupabase = createAdminClient();
+    const { error } = await adminSupabase
         .from("profiles")
         .update({ operator_status: 'rejected' })
         .eq("id", operatorId);
@@ -61,7 +63,8 @@ export async function approveApplication(applicationId: string) {
     const { supabase, error: authError } = await verifyAdmin();
     if (authError || !supabase) return { error: authError };
 
-    const { error } = await supabase
+    const adminSupabase = createAdminClient();
+    const { error } = await adminSupabase
         .from("operator_applications")
         .update({ status: 'approved' })
         .eq("id", applicationId);
@@ -79,7 +82,8 @@ export async function rejectApplication(applicationId: string) {
     const { supabase, error: authError } = await verifyAdmin();
     if (authError || !supabase) return { error: authError };
 
-    const { error } = await supabase
+    const adminSupabase = createAdminClient();
+    const { error } = await adminSupabase
         .from("operator_applications")
         .update({ status: 'rejected' })
         .eq("id", applicationId);
@@ -174,7 +178,8 @@ export async function updateSystemSetting(key: string, value: string) {
     const { supabase, error: authError } = await verifyAdmin();
     if (authError || !supabase) return { error: authError };
 
-    const { error } = await supabase
+    const adminSupabase = createAdminClient();
+    const { error } = await adminSupabase
         .from("system_settings")
         .upsert({ key, value });
 
@@ -191,7 +196,8 @@ export async function deactivatePlayer(playerId: string) {
     const { supabase, error: authError } = await verifyAdmin();
     if (authError || !supabase) return { error: authError };
 
-    const { error } = await supabase.from("profiles").update({ is_active: false }).eq("id", playerId);
+    const adminSupabase = createAdminClient();
+    const { error } = await adminSupabase.from("profiles").update({ is_active: false }).eq("id", playerId);
     if (error) {
         console.error("Error deactivating player:", error);
         return { error: "Failed to deactivate player" };
@@ -204,7 +210,8 @@ export async function reactivatePlayer(playerId: string) {
     const { supabase, error: authError } = await verifyAdmin();
     if (authError || !supabase) return { error: authError };
 
-    const { error } = await supabase.from("profiles").update({ is_active: true }).eq("id", playerId);
+    const adminSupabase = createAdminClient();
+    const { error } = await adminSupabase.from("profiles").update({ is_active: true }).eq("id", playerId);
     if (error) {
         console.error("Error reactivating player:", error);
         return { error: "Failed to reactivate player" };
@@ -217,7 +224,8 @@ export async function deletePlayer(playerId: string) {
     const { supabase, error: authError } = await verifyAdmin();
     if (authError || !supabase) return { error: authError };
 
-    const { error } = await supabase.from("profiles").delete().eq("id", playerId);
+    const adminSupabase = createAdminClient();
+    const { error } = await adminSupabase.from("profiles").delete().eq("id", playerId);
     if (error) {
         console.error("Error deleting player:", error);
         // Usually fails due to FK constraints if matches exist
@@ -232,7 +240,8 @@ export async function adminUpdateUserRole(userId: string, newRole: string) {
     const { supabase, error: authError } = await verifyAdmin();
     if (authError || !supabase) return { error: authError };
 
-    const { error } = await supabase.from("profiles").update({ role: newRole }).eq("id", userId);
+    const adminSupabase = createAdminClient();
+    const { error } = await adminSupabase.from("profiles").update({ role: newRole }).eq("id", userId);
 
     if (error) {
         console.error("Error updating user role:", error);
@@ -248,6 +257,8 @@ export async function adminUpdateUserSubscription(userId: string, newStatus: str
     const { supabase, error: authError } = await verifyAdmin();
     if (authError || !supabase) return { error: authError };
 
+    const adminSupabase = createAdminClient();
+
     // When admin manually sets to 'pro', we set expires_at to NULL (active indefinite)
     // When sets to 'free', we set expires_at to NOW
     const updates: any = { subscription_status: newStatus };
@@ -257,7 +268,7 @@ export async function adminUpdateUserSubscription(userId: string, newStatus: str
         updates.subscription_expires_at = new Date().toISOString();
     }
 
-    const { error } = await supabase.from("profiles").update(updates).eq("id", userId);
+    const { error } = await adminSupabase.from("profiles").update(updates).eq("id", userId);
 
     if (error) {
         console.error("Error updating user subscription:", error);
@@ -272,7 +283,8 @@ export async function deleteApplication(applicationId: string) {
     const { supabase, error: authError } = await verifyAdmin();
     if (authError || !supabase) return { error: authError };
 
-    const { error } = await supabase
+    const adminSupabase = createAdminClient();
+    const { error } = await adminSupabase
         .from("operator_applications")
         .delete()
         .eq("id", applicationId);
@@ -380,8 +392,9 @@ export async function archiveLeague(leagueId: string) {
     const { supabase, error: authError } = await verifyAdmin();
     if (authError || !supabase) return { error: authError };
 
+    const adminSupabase = createAdminClient();
     // Using 'inactive' as the archive status since we couldn't run the migration for 'archived'
-    const { error } = await supabase
+    const { error } = await adminSupabase
         .from("leagues")
         .update({ status: 'inactive' })
         .eq("id", leagueId);
@@ -399,7 +412,8 @@ export async function assignOperatorToLeague(operatorId: string, leagueId: strin
     const { supabase, error: authError } = await verifyAdmin();
     if (authError || !supabase) return { error: authError };
 
-    const { error } = await supabase
+    const adminSupabase = createAdminClient();
+    const { error } = await adminSupabase
         .from("league_operators")
         .insert({
             league_id: leagueId,
