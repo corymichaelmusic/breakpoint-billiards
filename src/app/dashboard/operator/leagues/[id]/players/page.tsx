@@ -124,7 +124,7 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
                                                 <BreakpointRatingEditor
                                                     leagueId={id}
                                                     playerId={p.player_id}
-                                                    currentRating={p.breakpoint_rating}
+                                                    currentRating={p.profiles?.breakpoint_rating}
                                                 />
                                             </td>
                                             <td className="p-3">

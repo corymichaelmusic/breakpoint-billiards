@@ -13,8 +13,8 @@ async function inspect() {
         const res = await client.query(`
             SELECT column_name, data_type 
             FROM information_schema.columns 
-            WHERE table_name = 'league_players'
-        `);
+            WHERE table_name = $1
+        `, [process.argv[2] || 'league_players']);
         console.table(res.rows);
     } catch (e) {
         console.error(e);
