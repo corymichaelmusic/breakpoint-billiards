@@ -56,16 +56,30 @@ export async function POST(req: Request) {
             const user = await client.users.getUser(userId);
 
             // Normalize phone (Server might need it normalized too, but Clerk usually handles it or complains)
-            // Let's assume input matches expected format or let Clerk validate.
+            // Fix: "unsupported country code" error by enforcing E.164
+            let normalizedPhone = phone.replace(/[^\d+]/g, ''); // Strip space, dash, parens
 
-            const existingPhone = user.phoneNumbers.find(p => p.phoneNumber === phone);
+            // If it's a standard US 10-digit number (e.g. 5551234567), make it +15551234567
+            if (normalizedPhone.match(/^\d{10}$/)) {
+                normalizedPhone = `+1${normalizedPhone}`;
+            }
+            // If it's 11 digits starting with 1 (e.g. 15551234567), make it +15551234567
+            else if (normalizedPhone.match(/^1\d{10}$/)) {
+                normalizedPhone = `+${normalizedPhone}`;
+            }
+            // If it doesn't start with +, add it (attempt to fix)
+            else if (!normalizedPhone.startsWith('+')) {
+                normalizedPhone = `+${normalizedPhone}`;
+            }
+
+            const existingPhone = user.phoneNumbers.find(p => p.phoneNumber === normalizedPhone);
             let phoneId = existingPhone?.id;
 
             if (!existingPhone) {
                 try {
                     const newPhone = await client.phoneNumbers.createPhoneNumber({
                         userId,
-                        phoneNumber: phone,
+                        phoneNumber: normalizedPhone,
                         verified: true
                     });
                     phoneId = newPhone.id;
