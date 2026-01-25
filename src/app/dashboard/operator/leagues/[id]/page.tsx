@@ -153,28 +153,40 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                             </h2>
                             <div className="grid gap-2">
                                 {pendingRequests.map((request) => (
-                                    <div key={request.id} className="bg-surface/50 p-4 rounded border border-blue-500/50 flex justify-between items-center shadow-sm shadow-blue-500/10">
+                                    <div key={request.id} className="bg-surface/40 p-5 rounded-lg border border-white/5 flex flex-col sm:flex-row justify-between items-center shadow-lg shadow-black/50 gap-4 transition-all hover:bg-surface/60">
                                         <div>
-                                            <div className="font-bold text-white">{request.profiles?.full_name || "Unknown User"}</div>
-                                            <div className="text-sm text-gray-400">{request.profiles?.email}</div>
-                                            <div className="text-xs text-[#D4AF37] mt-1">
-                                                To Join: {request.leagues?.name || "Unknown League"}
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-gray-800 to-black flex items-center justify-center border border-white/10 text-xs font-bold text-gray-400">
+                                                    {request.profiles?.full_name?.charAt(0) || "?"}
+                                                </div>
+                                                <div>
+                                                    <div className="font-bold text-white text-lg">{request.profiles?.full_name || "Unknown User"}</div>
+                                                    <div className="text-xs text-gray-500 font-mono">{request.profiles?.email}</div>
+                                                </div>
+                                            </div>
+                                            <div className="mt-2 inline-flex items-center gap-2 bg-[#D4AF37]/10 border border-[#D4AF37]/20 px-3 py-1 rounded-full">
+                                                <span className="text-[10px] text-[#D4AF37] uppercase tracking-wider font-bold">Requesting to Join:</span>
+                                                <span className="text-xs text-white font-bold">{request.leagues?.name || "Unknown League"}</span>
                                             </div>
                                         </div>
-                                        <div className="flex gap-2">
+                                        <div className="flex gap-3 w-full sm:w-auto">
                                             <form action={async () => {
                                                 'use server';
                                                 const { approvePlayer } = await import("@/app/actions/league-actions");
                                                 await approvePlayer(request.league_id, request.player_id);
-                                            }}>
-                                                <button type="submit" className="btn bg-green-600 text-white px-4 py-1.5 text-sm font-bold hover:bg-green-500 rounded transition-colors uppercase tracking-wide" style={{ color: 'white' }}>Approve</button>
+                                            }} className="flex-1 sm:flex-none">
+                                                <button type="submit" className="btn w-full sm:w-auto !bg-green-600 !text-white hover:!bg-green-500 !border-none shadow-lg shadow-green-900/20 px-6 py-2.5 text-xs font-bold rounded uppercase tracking-wide transform hover:scale-105 transition-all">
+                                                    Accept
+                                                </button>
                                             </form>
                                             <form action={async () => {
                                                 'use server';
                                                 const { rejectPlayer } = await import("@/app/actions/league-actions");
                                                 await rejectPlayer(request.league_id, request.player_id);
-                                            }}>
-                                                <button type="submit" className="btn bg-red-500/10 text-red-500 border border-red-500 px-4 py-1.5 text-sm font-bold hover:bg-red-500 hover:text-white rounded transition-colors uppercase tracking-wide">Reject</button>
+                                            }} className="flex-1 sm:flex-none">
+                                                <button type="submit" className="btn w-full sm:w-auto !bg-red-600 !text-white hover:!bg-red-500 !border-none shadow-lg shadow-red-900/20 px-6 py-2.5 text-xs font-bold rounded uppercase tracking-wide transform hover:scale-105 transition-all">
+                                                    Reject
+                                                </button>
                                             </form>
                                         </div>
                                     </div>
