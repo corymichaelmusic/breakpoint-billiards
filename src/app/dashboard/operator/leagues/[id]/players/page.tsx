@@ -18,14 +18,41 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
     const adminClient = createAdminClient();
 
     // Verify ownership
-    const { data: league } = await supabase
+    // Verify ownership or access
+    const { data: league } = await adminClient
         .from("leagues")
         .select("*")
         .eq("id", id)
-        .eq("operator_id", userId)
         .single();
 
     if (!league) redirect("/dashboard/operator");
+
+    // Check permissions
+    let hasAccess = league.operator_id === userId;
+
+    if (!hasAccess) {
+        // Check if assigned operator
+        const { count } = await adminClient
+            .from("league_operators")
+            .select("*", { count: 'exact', head: true })
+            .eq("league_id", id)
+            .eq("user_id", userId);
+
+        if (count && count > 0) hasAccess = true;
+    }
+
+    if (!hasAccess) {
+        // Check if global admin
+        const { data: profile } = await adminClient
+            .from("profiles")
+            .select("role")
+            .eq("id", userId)
+            .single();
+
+        if (profile?.role === 'admin') hasAccess = true;
+    }
+
+    if (!hasAccess) redirect("/dashboard/operator");
 
     // Fetch all sessions for this league org
     const { data: sessions } = await supabase
