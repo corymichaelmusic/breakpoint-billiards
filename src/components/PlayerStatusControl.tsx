@@ -32,22 +32,26 @@ export default function PlayerStatusControl({ leagueId, playerId, currentStatus 
 
     if (currentStatus === 'pending') {
         return (
-            <div className="flex gap-2 items-center">
-                <span className="text-yellow-500 text-xs font-bold uppercase animate-pulse">Pending Request</span>
-                <button
-                    disabled={loading}
-                    onClick={() => handleStatusChange('active')}
-                    className="bg-green-600 hover:bg-green-500 text-white text-xs px-3 py-1 rounded font-bold transition-colors"
-                >
-                    {loading ? '...' : 'Approve'}
-                </button>
-                <button
-                    disabled={loading}
-                    onClick={() => handleStatusChange('rejected')}
-                    className="bg-red-600 hover:bg-red-500 text-white text-xs px-3 py-1 rounded font-bold transition-colors"
-                >
-                    {loading ? '...' : 'Reject'}
-                </button>
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider animate-pulse">
+                    Pending Join Request
+                </div>
+                <div className="flex gap-2">
+                    <button
+                        disabled={loading}
+                        onClick={() => handleStatusChange('active')}
+                        className="btn !bg-green-600 !text-white hover:!bg-green-500 !border-green-600 !py-1.5 !px-4 !text-[10px] !rounded shadow-lg shadow-green-900/20"
+                    >
+                        {loading ? '...' : 'Accept'}
+                    </button>
+                    <button
+                        disabled={loading}
+                        onClick={() => handleStatusChange('rejected')}
+                        className="btn !bg-red-600/10 !text-red-500 hover:!bg-red-600 hover:!text-white !border-red-600/30 !py-1.5 !px-4 !text-[10px] !rounded hover:shadow-lg hover:shadow-red-900/20"
+                    >
+                        {loading ? '...' : 'Reject'}
+                    </button>
+                </div>
             </div>
         );
     }
