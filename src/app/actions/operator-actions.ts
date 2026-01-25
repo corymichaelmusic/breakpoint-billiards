@@ -66,28 +66,15 @@ export async function updatePlayerBreakpointRating(leagueId: string, playerId: s
 
     console.log(`[updatePlayerBreakpointRating] Updating player ${playerId} in league ${leagueId} to rating: ${rating}`);
 
-    // Update League Player record
-    const { error: lpError } = await adminClient
-        .from("league_players")
-        .update({ breakpoint_rating: rating })
-        .eq("league_id", leagueId)
-        .eq("player_id", playerId);
-
-    if (lpError) {
-        console.error("[updatePlayerBreakpointRating] Error updating league_players:", lpError);
-        return { error: "Failed to update Rating." };
-    }
-
-    // Also update Profile to keep them in sync (Global Rating)
-    // In strict theory, BBRS separates them, but for initial setting usually we want global sync.
+    // Update Profile (Global Rating) - Use Admin Client to bypass any RLS restrictions
     const { error: pError } = await adminClient
         .from("profiles")
         .update({ breakpoint_rating: rating })
         .eq("id", playerId);
 
     if (pError) {
-        console.warn("[updatePlayerBreakpointRating] Warning: Failed to sync profile rating:", pError);
-        // Not returning error here as the primary league_player update succeeded
+        console.error("[updatePlayerBreakpointRating] Error updating profiles:", pError);
+        return { error: "Failed to update Rating." };
     }
 
     revalidatePath(`/dashboard/operator/leagues/${leagueId}/players`);

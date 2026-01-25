@@ -57,14 +57,14 @@ export default function BreakpointRatingEditor({ leagueId, playerId, currentRati
                 <button
                     onClick={handleSave}
                     disabled={isLoading}
-                    className="bg-green-600 hover:bg-green-500 text-white px-2 py-1 rounded text-xs font-bold"
+                    className="btn !bg-green-600 hover:!bg-green-500 !text-white px-3 py-1 text-xs font-bold rounded shadow-md"
                 >
                     Save
                 </button>
                 <button
                     onClick={() => setIsEditing(false)}
                     disabled={isLoading}
-                    className="bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded text-xs"
+                    className="btn bg-transparent border border-white hover:bg-white/20 !text-white px-3 py-1 text-xs rounded shadow-md"
                 >
                     Cancel
                 </button>
