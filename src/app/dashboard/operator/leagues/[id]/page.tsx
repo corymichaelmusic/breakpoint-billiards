@@ -147,17 +147,17 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
 
                     {hasPending && (
                         <div className="card-glass p-6 mb-8 border-primary/30">
-                            <h2 className="text-lg font-bold text-primary mb-4 flex items-center gap-2">
+                            <h2 className="text-lg font-bold text-[#D4AF37] mb-4 flex items-center gap-2">
                                 Pending Join Requests
-                                <span className="bg-primary text-black text-xs px-2 py-0.5 rounded-full">{pendingRequests.length}</span>
+                                <span className="bg-[#D4AF37] text-black text-xs px-2 py-0.5 rounded-full">{pendingRequests.length}</span>
                             </h2>
                             <div className="grid gap-2">
                                 {pendingRequests.map((request) => (
-                                    <div key={request.id} className="bg-surface/50 p-4 rounded border border-border flex justify-between items-center">
+                                    <div key={request.id} className="bg-surface/50 p-4 rounded border border-white/10 flex justify-between items-center">
                                         <div>
                                             <div className="font-bold text-white">{request.profiles?.full_name || "Unknown User"}</div>
                                             <div className="text-sm text-gray-400">{request.profiles?.email}</div>
-                                            <div className="text-xs text-primary mt-1">
+                                            <div className="text-xs text-[#D4AF37] mt-1">
                                                 To Join: {request.leagues?.name || "Unknown League"}
                                             </div>
                                         </div>

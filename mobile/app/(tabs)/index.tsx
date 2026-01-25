@@ -461,7 +461,7 @@ export default function HomeScreen() {
     setIsPaying(true);
     try {
       const token = await getToken();
-      const apiUrl = process.env.EXPO_PUBLIC_APP_URL || 'https://breakpoint.app';
+      const apiUrl = process.env.EXPO_PUBLIC_APP_URL || 'https://breakpointbilliardsleague.com';
 
       const response = await fetch(`${apiUrl}/api/create-checkout`, {
         method: 'POST',
