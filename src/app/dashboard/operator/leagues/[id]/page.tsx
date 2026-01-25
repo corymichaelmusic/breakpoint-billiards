@@ -153,7 +153,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                             </h2>
                             <div className="grid gap-2">
                                 {pendingRequests.map((request) => (
-                                    <div key={request.id} className="bg-surface/50 p-4 rounded border border-white/10 flex justify-between items-center">
+                                    <div key={request.id} className="bg-surface/50 p-4 rounded border border-blue-500/50 flex justify-between items-center shadow-sm shadow-blue-500/10">
                                         <div>
                                             <div className="font-bold text-white">{request.profiles?.full_name || "Unknown User"}</div>
                                             <div className="text-sm text-gray-400">{request.profiles?.email}</div>
@@ -167,14 +167,14 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                                 const { approvePlayer } = await import("@/app/actions/league-actions");
                                                 await approvePlayer(request.league_id, request.player_id);
                                             }}>
-                                                <button type="submit" className="btn bg-success text-black px-3 py-1 text-sm font-bold hover:bg-success/90">Approve</button>
+                                                <button type="submit" className="btn bg-green-600 text-white px-4 py-1.5 text-sm font-bold hover:bg-green-500 rounded transition-colors uppercase tracking-wide">Approve</button>
                                             </form>
                                             <form action={async () => {
                                                 'use server';
                                                 const { rejectPlayer } = await import("@/app/actions/league-actions");
                                                 await rejectPlayer(request.league_id, request.player_id);
                                             }}>
-                                                <button type="submit" className="btn bg-error/10 text-error border border-error px-3 py-1 text-sm font-bold hover:bg-error hover:text-white">Reject</button>
+                                                <button type="submit" className="btn bg-red-500/10 text-red-500 border border-red-500 px-4 py-1.5 text-sm font-bold hover:bg-red-500 hover:text-white rounded transition-colors uppercase tracking-wide">Reject</button>
                                             </form>
                                         </div>
                                     </div>
