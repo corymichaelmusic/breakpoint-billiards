@@ -31,7 +31,7 @@ export default function LandingPageSettingsForm({ titleLine1, titleLine2, locati
     return (
         <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             <div className="card">
-                <h3 className="text-lg font-bold text-primary mb-2">Announcement Title Line 1</h3>
+                <h3 className="text-lg font-bold text-[#D4AF37] mb-2">Announcement Title Line 1</h3>
                 <p className="text-sm text-gray-400 mb-4">
                     The main headline inside the box (e.g. MONEY MONDAYS...)
                 </p>
@@ -50,7 +50,7 @@ export default function LandingPageSettingsForm({ titleLine1, titleLine2, locati
             </div>
 
             <div className="card">
-                <h3 className="text-lg font-bold text-primary mb-2">Announcement Location</h3>
+                <h3 className="text-lg font-bold text-[#D4AF37] mb-2">Announcement Location</h3>
                 <p className="text-sm text-gray-400 mb-4">
                     Location text (e.g. Fort Worth, TX)
                 </p>
@@ -69,7 +69,7 @@ export default function LandingPageSettingsForm({ titleLine1, titleLine2, locati
             </div>
 
             <div className="card">
-                <h3 className="text-lg font-bold text-primary mb-2">Announcement Title Line 2</h3>
+                <h3 className="text-lg font-bold text-[#D4AF37] mb-2">Announcement Title Line 2</h3>
                 <p className="text-sm text-gray-400 mb-4">
                     The highlighted sub-headline (e.g. STARTS FEBRUARY 16)
                 </p>
@@ -88,7 +88,7 @@ export default function LandingPageSettingsForm({ titleLine1, titleLine2, locati
             </div>
 
             <div className="card md:col-span-2 lg:col-span-1">
-                <h3 className="text-lg font-bold text-primary mb-2">Announcement Text</h3>
+                <h3 className="text-lg font-bold text-[#D4AF37] mb-2">Announcement Text</h3>
                 <p className="text-sm text-gray-400 mb-4">
                     The descriptive text below the title.
                 </p>
