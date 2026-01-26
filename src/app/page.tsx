@@ -95,7 +95,7 @@ export default async function Home() {
               {/* Spacer */}
               <div className="h-8 md:h-12 w-full" />
 
-              <p className="text-gray-300 font-medium tracking-widest text-xs md:text-sm uppercase max-w-lg mx-auto leading-relaxed whitespace-pre-line">
+              <p className="text-gray-300 font-medium tracking-widest text-xs md:text-sm uppercase leading-relaxed whitespace-pre-line px-4">
                 {boxText}
               </p>
 
