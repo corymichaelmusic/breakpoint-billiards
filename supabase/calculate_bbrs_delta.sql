@@ -4,7 +4,10 @@
 -- SECURITY DEFINER ensures it runs with elevated privileges
 
 -- Drop old signature to prevent ambiguity
+-- Drop old signatures to prevent ambiguity
 DROP FUNCTION IF EXISTS calculate_bbrs_delta(numeric, numeric, int, int, int, boolean);
+DROP FUNCTION IF EXISTS calculate_bbrs_delta(numeric, numeric, int, int, int, boolean, boolean);
+
 
 -- Core calculation function
 CREATE OR REPLACE FUNCTION calculate_bbrs_delta(
@@ -14,7 +17,9 @@ CREATE OR REPLACE FUNCTION calculate_bbrs_delta(
     p_opponent_score INT,
     p_player_racks_played INT,
     p_is_league BOOLEAN DEFAULT TRUE,
-    p_did_win BOOLEAN DEFAULT NULL -- Explicit win status for handicaps
+    p_did_win BOOLEAN DEFAULT NULL, -- Explicit win status for handicaps
+    p_player_race_to INT DEFAULT 0, -- New: Handicap Race Target for Player
+    p_opponent_race_to INT DEFAULT 0 -- New: Handicap Race Target for Opponent
 )
 RETURNS NUMERIC
 LANGUAGE plpgsql
@@ -35,8 +40,14 @@ DECLARE
     v_event_weight NUMERIC;
     v_final_delta NUMERIC;
 BEGIN
-    -- 1. Calculate Expected Win Probability (Elo-derived)
-    v_expected_win_prob := 1.0 / (1.0 + POWER(10, (p_opponent_rating - p_player_rating) / 400.0));
+    -- 1. Calculate Expected Win Probability
+    -- If races differ (and are non-zero), assume perfect handicap -> 50/50 chance
+    IF p_player_race_to > 0 AND p_opponent_race_to > 0 AND p_player_race_to != p_opponent_race_to THEN
+        v_expected_win_prob := 0.5;
+    ELSE
+        -- Standard Elo Expectation for Even Races
+        v_expected_win_prob := 1.0 / (1.0 + POWER(10, (p_opponent_rating - p_player_rating) / 400.0));
+    END IF;
     
     -- 2. Determine K-Factor based on experience (racks played)
     IF p_player_racks_played < 100 THEN
@@ -81,7 +92,18 @@ BEGIN
     
     -- Calculate bonus/penalty capped at +/- 10%
     v_match_modifier := 1.0 + GREATEST(-0.10, LEAST(0.10, (v_actual_diff - v_expected_diff) / 20.0));
-    v_final_delta := v_final_delta * v_match_modifier;
+    
+    -- Apply Modifier
+    -- If winning (Positive Delta): Better performance (>1.0) = More points.
+    -- If losing (Negative Delta): Better performance (>1.0) = Less points lost.
+    IF v_final_delta >= 0 THEN
+        v_final_delta := v_final_delta * v_match_modifier;
+    ELSE
+        -- Invert modifier for losses so that:
+        -- Bad performance (<1.0) -> Multiplier > 1.0 (More penalty)
+        -- Good performance (>1.0) -> Multiplier < 1.0 (Less penalty)
+        v_final_delta := v_final_delta * (2.0 - v_match_modifier);
+    END IF;
     
     -- 7. Apply Event Weight
     IF p_is_league THEN

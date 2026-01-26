@@ -14,6 +14,11 @@ All players start at **500** (displayed as Breakpoint Level **5.0**)
 Expected = 1 / (1 + 10^((OpponentRating - PlayerRating) / 400))
 ```
 
+### 2a. Handicap Adjustment
+If the match is played with a **handicap** (where the race targets differ, e.g., 7-5), the systems assumes the handicap perfectly levels the playing field:
+- **Expected Win Probability** is forced to **50% (0.5)**.
+- This ensures higher-rated players are not penalized for playing against a handicap.
+
 ### 3. K-Factor (Based on Experience Level)
 The K-Factor determines how much a player's rating can change. Less experienced players have higher volatility:
 

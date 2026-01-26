@@ -29,14 +29,23 @@ async function runMigration() {
         await client.query(bbrsCalcSQL);
         console.log("   ✓ calculate_bbrs_delta created\n");
 
-        // 2. Deploy updated finalize_match_stats function
-        console.log("2. Updating finalize_match_stats function...");
+        // 1.5 Deploy get_race_target function (Dependency)
+        console.log("1.5 Creating get_race_target function...");
+        const raceTargetSQL = fs.readFileSync(
+            path.join(__dirname, '..', 'supabase', 'get_race_target.sql'),
+            'utf8'
+        );
+        await client.query(raceTargetSQL);
+        console.log("   ✓ get_race_target created\n");
+
+        // 2. Deploy updated finalize_match_stats_v2 function
+        console.log("2. Updating finalize_match_stats_v2 function...");
         const finalizeSQL = fs.readFileSync(
-            path.join(__dirname, '..', 'supabase', 'finalize_match_stats.sql'),
+            path.join(__dirname, '..', 'supabase', 'finalize_match_stats_v2.sql'),
             'utf8'
         );
         await client.query(finalizeSQL);
-        console.log("   ✓ finalize_match_stats updated\n");
+        console.log("   ✓ finalize_match_stats_v2 updated\n");
 
         // 3. Force schema cache reload
         await client.query("NOTIFY pgrst, 'reload schema';");

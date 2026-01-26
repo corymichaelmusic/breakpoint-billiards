@@ -39,6 +39,11 @@ DECLARE
     v_p2_racks_played int;
     v_p1_delta numeric;
     v_p2_delta numeric;
+    
+    -- Race Target Variables
+    v_race_targets jsonb;
+    v_p1_race int;
+    v_p2_race int;
 BEGIN
     -- 1. Get Match Info
     SELECT player1_id, player2_id, league_id INTO v_player1_id, v_player2_id, v_league_id
@@ -62,6 +67,11 @@ BEGIN
     v_p1_racks_played := COALESCE(v_p1_racks_played, 0);
     v_p2_racks_played := COALESCE(v_p2_racks_played, 0);
 
+    -- 2.5 Calculate Race Targets (Handicaps)
+    v_race_targets := get_race_target(v_p1_rating, v_p2_rating, p_game_type);
+    v_p1_race := (v_race_targets->>'p1')::int;
+    v_p2_race := (v_race_targets->>'p2')::int;
+
     -- 3. Calculate BBRS Deltas SERVER-SIDE (the secret sauce!)
     v_p1_delta := calculate_bbrs_delta(
         v_p1_rating,           -- p_player_rating
@@ -70,7 +80,9 @@ BEGIN
         p_p1_racks_lost,       -- p_opponent_score
         v_p1_racks_played,     -- p_player_racks_played
         TRUE,                  -- p_is_league
-        (v_player1_id = p_winner_id) -- p_did_win
+        (v_player1_id = p_winner_id), -- p_did_win
+        v_p1_race,             -- p_player_race_to
+        v_p2_race              -- p_opponent_race_to
     );
     
     v_p2_delta := calculate_bbrs_delta(
@@ -80,7 +92,9 @@ BEGIN
         p_p2_racks_lost,       -- p_opponent_score
         v_p2_racks_played,     -- p_player_racks_played
         TRUE,                  -- p_is_league
-        (v_player2_id = p_winner_id) -- p_did_win
+        (v_player2_id = p_winner_id), -- p_did_win
+        v_p2_race,             -- p_player_race_to
+        v_p1_race              -- p_opponent_race_to (Note: swap for opponent perspective)
     );
 
     -- 4. Update Match Status & Scoped Verification Flags
