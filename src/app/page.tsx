@@ -2,10 +2,21 @@ import Link from "next/link";
 import Image from "next/image";
 import { auth } from "@clerk/nextjs/server";
 import Navbar from "@/components/Navbar";
-import PreregistrationForm from "@/components/PreregistrationForm";
+import { createClient } from "@/utils/supabase/server";
+
 
 export default async function Home() {
   const { userId } = await auth();
+  const supabase = await createClient();
+
+  const { data: settings } = await supabase
+    .from("system_settings")
+    .select("key, value")
+    .in("key", ["landing_page_box_title_line_1", "landing_page_box_title_line_2", "landing_page_box_text"]);
+
+  const titleLine1 = settings?.find(s => s.key === "landing_page_box_title_line_1")?.value || "MONEY MONDAYS @ FAT'S BILLIARDS";
+  const titleLine2 = settings?.find(s => s.key === "landing_page_box_title_line_2")?.value || "STARTS FEBRUARY 16";
+  const boxText = settings?.find(s => s.key === "landing_page_box_text")?.value || "Secure Your Spot Today! \nDownload the app, create an account and join the session!";
 
   return (
     <main className="min-h-screen flex flex-col bg-background text-foreground overflow-hidden">
@@ -77,24 +88,40 @@ export default async function Home() {
 
             <div className="px-6 md:px-12">
               <h2 className="text-xl md:text-3xl font-bold text-white font-cinzel leading-relaxed tracking-wide">
-                MONEY MONDAYS @ FAT'S BILLIARDS<br />
-                <span className="text-[#D4AF37]">STARTS FEBRUARY 16</span>
+                {titleLine1}<br />
+                <span className="text-[#D4AF37]">{titleLine2}</span>
               </h2>
 
               {/* Spacer */}
               <div className="h-8 md:h-12 w-full" />
 
-              <p className="text-gray-300 font-medium tracking-widest text-xs md:text-sm uppercase">
-                Secure Your Spot. Get Notified When Registration Opens!
+              <p className="text-gray-300 font-medium tracking-widest text-xs md:text-sm uppercase max-w-lg mx-auto leading-relaxed whitespace-pre-line">
+                {boxText}
               </p>
 
               {/* Spacer */}
               <div className="h-8 md:h-10 w-full" />
 
-              <div className="flex justify-center w-full">
-                <div className="w-full max-w-md">
-                  <PreregistrationForm />
-                </div>
+              <div className="flex flex-wrap justify-center gap-6">
+                {/* iOS Store Button */}
+                <a href="https://apps.apple.com/us/app/breakpoint-billiards/id6757766853" target="_blank" rel="noopener noreferrer" className="relative w-44 h-14 cursor-pointer hover:scale-105 transition-transform duration-300 block">
+                  <Image
+                    src="/app-store-badge.png"
+                    alt="Download on the App Store"
+                    fill
+                    className="object-contain"
+                  />
+                </a>
+
+                {/* Android Store Button */}
+                <a href="https://play.google.com/store/apps/details?id=com.breakpoint.billiards&hl=en_US" target="_blank" rel="noopener noreferrer" className="relative w-44 h-14 cursor-pointer hover:scale-105 transition-transform duration-300 block">
+                  <Image
+                    src="/google-play-badge.png"
+                    alt="Get it on Google Play"
+                    fill
+                    className="object-contain"
+                  />
+                </a>
               </div>
             </div>
 
@@ -195,14 +222,14 @@ export default async function Home() {
             </a>
 
             {/* Android Store Button */}
-            <div className="relative w-48 h-16 cursor-pointer hover:scale-105 transition-transform duration-300">
+            <a href="https://play.google.com/store/apps/details?id=com.breakpoint.billiards&hl=en_US" target="_blank" rel="noopener noreferrer" className="relative w-48 h-16 cursor-pointer hover:scale-105 transition-transform duration-300 block">
               <Image
                 src="/google-play-badge.png"
                 alt="Get it on Google Play"
                 fill
                 className="object-contain"
               />
-            </div>
+            </a>
           </div>
         </div>
       </section>

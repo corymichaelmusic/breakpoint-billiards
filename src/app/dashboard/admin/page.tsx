@@ -15,6 +15,7 @@ import AssignLeagueButton from "@/components/AssignLeagueButton";
 import PreregistrationManager from "@/components/PreregistrationManager";
 import DeletionRequestManager from "@/components/DeletionRequestManager";
 import DeleteSessionButton from "@/components/DeleteSessionButton";
+import LandingPageSettingsForm from "@/components/LandingPageSettingsForm";
 
 // Force dynamic rendering to ensure fresh data on each request
 export const dynamic = 'force-dynamic';
@@ -45,12 +46,19 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     const { data: settings } = await supabase
         .from("system_settings")
         .select("key, value")
-        .in("key", ["default_session_fee", "default_creation_fee", "default_match_fee", "leaderboard_limit"]);
+        .in("key", [
+            "default_session_fee", "default_creation_fee", "default_match_fee", "leaderboard_limit",
+            "landing_page_box_title_line_1", "landing_page_box_title_line_2", "landing_page_box_text"
+        ]);
 
     const sessionFee = settings?.find(s => s.key === "default_session_fee")?.value || "25";
     const creationFee = settings?.find(s => s.key === "default_creation_fee")?.value || "100";
     const matchFee = settings?.find(s => s.key === "default_match_fee")?.value || "20";
     const leaderboardLimit = settings?.find(s => s.key === "leaderboard_limit")?.value || "25";
+
+    const lpTitle1 = settings?.find(s => s.key === "landing_page_box_title_line_1")?.value || "MONEY MONDAYS @ FAT'S BILLIARDS";
+    const lpTitle2 = settings?.find(s => s.key === "landing_page_box_title_line_2")?.value || "STARTS FEBRUARY 16";
+    const lpText = settings?.find(s => s.key === "landing_page_box_text")?.value || "Secure Your Spot Today! \nDownload the app, create an account and join the session!";
 
     // Application View Logic
     const showAllApps = resolvedSearchParams.app_view === 'all';
@@ -323,6 +331,18 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                 {preregs && preregs.length > 0 && (
                     <PreregistrationManager preregs={preregs as any[]} />
                 )}
+
+                <div className="h-5"></div>
+
+                {/* Landing Page Settings */}
+                <div className="card-glass mb-16 border-primary/30">
+                    <h2 className="text-xl font-bold text-white mb-6 border-b border-transparent pb-4">Landing Page Announcement</h2>
+                    <LandingPageSettingsForm
+                        titleLine1={lpTitle1}
+                        titleLine2={lpTitle2}
+                        boxText={lpText}
+                    />
+                </div>
 
                 <div className="h-5"></div>
 

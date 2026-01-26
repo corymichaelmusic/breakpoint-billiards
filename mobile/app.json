@@ -30,7 +30,7 @@
       },
       "package": "com.breakpoint.billiards",
       "icon": "./assets/icon.png",
-      "versionCode": 24,
+      "versionCode": 26,
       "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false,
       "androidNavigationBar": {
