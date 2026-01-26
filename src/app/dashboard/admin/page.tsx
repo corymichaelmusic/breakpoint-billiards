@@ -48,7 +48,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
         .select("key, value")
         .in("key", [
             "default_session_fee", "default_creation_fee", "default_match_fee", "leaderboard_limit",
-            "landing_page_box_title_line_1", "landing_page_box_title_line_2", "landing_page_box_text"
+            "landing_page_box_title_line_1", "landing_page_box_title_line_2", "landing_page_box_text", "landing_page_box_location"
         ]);
 
     const sessionFee = settings?.find(s => s.key === "default_session_fee")?.value || "25";
@@ -58,6 +58,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
 
     const lpTitle1 = settings?.find(s => s.key === "landing_page_box_title_line_1")?.value || "MONEY MONDAYS @ FAT'S BILLIARDS";
     const lpTitle2 = settings?.find(s => s.key === "landing_page_box_title_line_2")?.value || "STARTS FEBRUARY 16";
+    const lpLocation = settings?.find(s => s.key === "landing_page_box_location")?.value || "Fort Worth, TX";
     const lpText = settings?.find(s => s.key === "landing_page_box_text")?.value || "Secure Your Spot Today! \nDownload the app, create an account and join the session!";
 
     // Application View Logic
@@ -340,6 +341,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                     <LandingPageSettingsForm
                         titleLine1={lpTitle1}
                         titleLine2={lpTitle2}
+                        location={lpLocation}
                         boxText={lpText}
                     />
                 </div>

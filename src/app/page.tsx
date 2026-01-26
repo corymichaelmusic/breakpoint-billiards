@@ -12,10 +12,11 @@ export default async function Home() {
   const { data: settings } = await supabase
     .from("system_settings")
     .select("key, value")
-    .in("key", ["landing_page_box_title_line_1", "landing_page_box_title_line_2", "landing_page_box_text"]);
+    .in("key", ["landing_page_box_title_line_1", "landing_page_box_title_line_2", "landing_page_box_text", "landing_page_box_location"]);
 
   const titleLine1 = settings?.find(s => s.key === "landing_page_box_title_line_1")?.value || "MONEY MONDAYS @ FAT'S BILLIARDS";
   const titleLine2 = settings?.find(s => s.key === "landing_page_box_title_line_2")?.value || "STARTS FEBRUARY 16";
+  const location = settings?.find(s => s.key === "landing_page_box_location")?.value || "Fort Worth, TX";
   const boxText = settings?.find(s => s.key === "landing_page_box_text")?.value || "Secure Your Spot Today! \nDownload the app, create an account and join the session!";
 
   return (
@@ -89,6 +90,7 @@ export default async function Home() {
             <div className="px-6 md:px-12">
               <h2 className="text-xl md:text-3xl font-bold text-white font-cinzel leading-relaxed tracking-wide">
                 {titleLine1}<br />
+                <span className="text-sm md:text-lg text-gray-300 block my-1 font-sans tracking-normal opacity-80">{location}</span>
                 <span className="text-[#D4AF37]">{titleLine2}</span>
               </h2>
 

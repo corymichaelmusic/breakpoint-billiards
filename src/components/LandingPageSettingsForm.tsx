@@ -6,10 +6,11 @@ import { updateSystemSetting } from '@/app/actions/admin-actions';
 interface LandingPageSettingsFormProps {
     titleLine1: string;
     titleLine2: string;
+    location: string;
     boxText: string;
 }
 
-export default function LandingPageSettingsForm({ titleLine1, titleLine2, boxText }: LandingPageSettingsFormProps) {
+export default function LandingPageSettingsForm({ titleLine1, titleLine2, location, boxText }: LandingPageSettingsFormProps) {
     const [loading, setLoading] = useState<string | null>(null);
 
     const handleUpdate = async (formData: FormData) => {
@@ -44,6 +45,25 @@ export default function LandingPageSettingsForm({ titleLine1, titleLine2, boxTex
                     />
                     <button type="submit" className="btn btn-primary" disabled={loading === 'landing_page_box_title_line_1'}>
                         {loading === 'landing_page_box_title_line_1' ? "..." : "Save"}
+                    </button>
+                </form>
+            </div>
+
+            <div className="card">
+                <h3 className="text-lg font-bold text-primary mb-2">Announcement Location</h3>
+                <p className="text-sm text-gray-400 mb-4">
+                    Location text (e.g. Fort Worth, TX)
+                </p>
+                <form action={handleUpdate} className="flex gap-4">
+                    <input type="hidden" name="key" value="landing_page_box_location" />
+                    <input
+                        name="value"
+                        defaultValue={location}
+                        required
+                        className="input flex-1"
+                    />
+                    <button type="submit" className="btn btn-primary" disabled={loading === 'landing_page_box_location'}>
+                        {loading === 'landing_page_box_location' ? "..." : "Save"}
                     </button>
                 </form>
             </div>
