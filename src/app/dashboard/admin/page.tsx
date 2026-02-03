@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import AdminPlayerFilters from "@/components/AdminPlayerFilters";
 import Navbar from "@/components/Navbar";
-import { approveOperator, rejectOperator, createLeagueForOperator, updateSessionFeeStatus, approveApplication, rejectApplication, deleteApplication, deleteLeague, archiveLeague } from "@/app/actions/admin-actions";
+import { approveOperator, rejectOperator, createLeagueForOperator, updateSessionFeeStatus, approveApplication, rejectApplication, deleteApplication } from "@/app/actions/admin-actions";
 import { createAdminClient } from "@/utils/supabase/admin";
 import PlayerActions from "@/components/PlayerActions";
 import RoleSelector from "@/components/RoleSelector";
@@ -16,6 +16,7 @@ import PreregistrationManager from "@/components/PreregistrationManager";
 import DeletionRequestManager from "@/components/DeletionRequestManager";
 import DeleteSessionButton from "@/components/DeleteSessionButton";
 import LandingPageSettingsForm from "@/components/LandingPageSettingsForm";
+import AdminLeagueCard from "@/components/AdminLeagueCard";
 
 // Force dynamic rendering to ensure fresh data on each request
 export const dynamic = 'force-dynamic';
@@ -295,33 +296,9 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                     <h3 className="text-xl font-bold text-gray-300 mb-8">Active Organizations</h3>
                     <div className="grid gap-6">
                         {leagues?.map((l) => (
-                            <div key={l.id} className="p-6 border border-transparent rounded bg-surface/30">
-                                <div className="flex justify-between items-center mb-4">
-                                    <div className="font-bold text-white text-lg">
-                                        {l.name} <span className="font-normal text-gray-500">- {
-                                            l.league_operators && l.league_operators.length > 0
-                                                ? l.league_operators.map((op: any) => op.profiles?.full_name).join(", ")
-                                                : l.profiles?.full_name
-                                        } ({l.location})</span>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="text-xs text-white uppercase font-bold tracking-wider mr-2">{l.schedule_day}s</div>
-                                        <form action={async () => {
-                                            'use server';
-                                            await archiveLeague(l.id);
-                                        }}>
-                                            <button className="btn h-8 text-[10px] uppercase tracking-widest px-3 border !border-yellow-500/50 !text-yellow-500 hover:!bg-yellow-500/10 hover:!text-yellow-400 hover:!border-yellow-400 transition-colors">Archive</button>
-                                        </form>
-                                        <form action={async () => {
-                                            'use server';
-                                            await deleteLeague(l.id);
-                                        }}>
-                                            <button className="btn h-8 text-[10px] uppercase tracking-widest px-3 border !border-red-500/50 !text-red-500 hover:!bg-red-500/10 hover:!text-red-400 hover:!border-red-400 transition-colors">Delete</button>
-                                        </form>
-                                    </div>
-                                </div>
+                            <AdminLeagueCard key={l.id} league={l} operators={approvedOperators}>
                                 <SuspenseSessions leagueId={l.id} />
-                            </div>
+                            </AdminLeagueCard>
                         ))}
                     </div>
                 </div>

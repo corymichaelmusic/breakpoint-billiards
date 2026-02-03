@@ -153,6 +153,50 @@ export async function createLeagueForOperator(operatorId: string, name: string, 
     return { success: true };
 }
 
+export async function updateLeague(leagueId: string, data: { name: string, location: string, city: string, state: string, schedule: string, operatorId: string }) {
+    const { supabase, error: authError } = await verifyAdmin();
+    if (authError || !supabase) return { error: authError };
+
+    const adminSupabase = createAdminClient();
+
+    // 1. Update League Details
+    const { error } = await adminSupabase
+        .from("leagues")
+        .update({
+            name: data.name,
+            location: data.location,
+            city: data.city,
+            state: data.state,
+            schedule_day: data.schedule,
+            operator_id: data.operatorId
+        })
+        .eq("id", leagueId);
+
+    if (error) {
+        console.error("Error updating league:", error);
+        return { error: "Failed to update league." };
+    }
+
+    // 2. Ensure Operator is in League Operators (if changed)
+    if (data.operatorId) {
+        const { error: assignError } = await adminSupabase
+            .from("league_operators")
+            .upsert({
+                league_id: leagueId,
+                user_id: data.operatorId,
+                role: 'admin'
+            }, { onConflict: 'league_id, user_id' });
+
+        if (assignError) {
+            console.error("Error updating league operator:", assignError);
+            // Non-critical, league updated anyway
+        }
+    }
+
+    revalidatePath("/dashboard/admin");
+    return { success: true };
+}
+
 export async function updateSessionFeeStatus(sessionId: string, status: 'paid' | 'waived' | 'unpaid') {
     const { supabase, error: authError } = await verifyAdmin();
     if (authError || !supabase) return { error: authError };
