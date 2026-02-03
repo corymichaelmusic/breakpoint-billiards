@@ -25,8 +25,8 @@ const RATING_LEVELS = [
     { level: 4, name: "Good League Player" },
     { level: 5, name: "Advanced" },
     { level: 6, name: "Advanced+" },
-    { level: 7, name: "Semi-Pro" },
-    { level: 8, name: "Top Regional" },
+    { level: 7, name: "Top Regional" },
+    { level: 8, name: "Semi-Pro" },
     { level: 9, name: "World Class" },
 ];
 

@@ -67,104 +67,77 @@ BreakpointLevel = floor(rating / 10) / 10
 ```
 A rating of **523** displays as **5.2**
 
----
-
-## Example: Rating 7.9 vs Rating 5.3
-
-### Players
-- **Player A**: Breakpoint 7.9 (internal rating: **790**)
-- **Player B**: Breakpoint 5.3 (internal rating: **530**)
-
-**Assumptions:** League match, both players "Established" (K = 20)
-
----
-
-### Step 1: Expected Win Probability
-
-```
-Expected_A = 1 / (1 + 10^((530 - 790) / 400))
-           = 1 / (1 + 10^(-0.65))
-           = 1 / (1 + 0.224)
-           = 0.817 (81.7%)
-
-Expected_B = 1 - 0.817 = 0.183 (18.3%)
-```
-
-**Player A is heavily favored** with an 81.7% win expectation.
+### Rating Categories
+| Rating | Breakpoint | Category |
+|--------|------------|----------|
+| 0-344  | 0.0 - 3.4  | Beginner |
+| 345-436| 3.5 - 4.3  | Intermediate |
+| 437-499| 4.4 - 4.9  | Intermediate+ |
+| 500-561| 5.0 - 5.6  | Good League Player |
+| 562-624| 5.7 - 6.2  | Advanced |
+| 625-686| 6.3 - 6.8  | Advanced+ |
+| 687-749| 6.9 - 7.4  | Top Regional |
+| 750-875| 7.5 - 8.7  | Semi-Pro |
+| 876+   | 8.8+       | World Class |
 
 ---
 
-### Step 2: Opponent Strength Scaling
+## Example 1: Even Race (Standard Elo)
+**Context:** Match played with **NO Handicap** (e.g. Tournament play).
+**Expectation:** Player A (Rating 790) is heavily favored (81.7%) vs Player B (530).
 
-```
-Scale_A = 1 + (530 - 790) / 1000 = 0.74 → capped at 0.85
-Scale_B = 1 + (790 - 530) / 1000 = 1.26 → capped at 1.15
-```
+### Outcome A: Close Win (7-6)
+Player A barely squeaks by.
+- **Rack Diff:** +1 (Small margin) -> **+2.5% Bonus**
+- **Player A:** **+3 pts** (Small gain, expected win + poor margin)
+- **Player B:** **-4 pts** (Small loss)
 
-- Player A gets **lower scaling (0.85)** for beating a weaker opponent
-- Player B gets **higher scaling (1.15)** for beating a stronger opponent
-
----
-
-### Scenario 1: Player A (7.9) Wins 7-4
-
-**Player A's Rating Change:**
-```
-BaseDelta_A = 20 × (1 - 0.817) = +3.66
-Scaled = 3.66 × 0.85 = +3.11
-With match modifier = ~+3 points
-```
-**Result:** 790 → 793 (still 7.9)
-
-**Player B's Rating Change:**
-```
-BaseDelta_B = 20 × (0 - 0.183) = -3.66
-Scaled = -3.66 × 1.15 = -4.21
-With match modifier = ~-4 points
-```
-**Result:** 530 → 526 (now 5.2)
+### Outcome B: Big Win (7-0)
+Player A dominates as expected.
+- **Rack Diff:** +7 (Large margin) -> **+10% Bonus (Max)**
+- **Player A:** **+5 pts** (Maximum possible for this match up)
+- **Player B:** **-6 pts**
 
 ---
 
-### Scenario 2: Player B (5.3) Upsets and Wins 7-5
+## Example 2: Handicapped Race (New System)
+**Context:** League match, Race 7-4.
+**Expectation:** **50% Win Probability** (Coin Flip).
 
-**Player B's Rating Change:**
-```
-BaseDelta_B = 20 × (1 - 0.183) = +16.34
-Scaled = 16.34 × 1.15 = +18.79
-With match modifier = ~+21 points
-```
-**Result:** 530 → 551 (now **5.5**!)
+### Outcome A: Close Win (7-3)
+Player A wins on the hill (P2 had 3, needed 4).
+- **Player A:** **+9.4 pts** (Wins coin flip + Margin Bonus)
+- **Player B:** **-12.7 pts**
 
-**Player A's Rating Change:**
-```
-BaseDelta_A = 20 × (0 - 0.817) = -16.34
-Scaled = -16.34 × 0.85 = -13.89
-With match modifier = ~-15 points
-```
-**Result:** 790 → 775 (now **7.7**)
+### Outcome B: "Winning Big" (7-0)
+Player A shuts out Player B.
+- **Player A:** **+9.4 pts** (Still capped at max bonus)
+- **Player B:** **-12.7 pts**
+*Note: In handicapped matches, the favorite winning often hits the max margin bonus automatically.*
+
+### Outcome C: "Losing Big" (P2 Wins 4-0)
+Player B dominates Player A.
+- **Player B:** **+14.0 pts** (Wins coin flip + Max Bonus)
+- **Player A:** **-11.0 pts** (Loses coin flip + Max Penalty)
 
 ---
 
 ## Summary Table
 
-| Outcome | Player A (7.9) | Player B (5.3) |
-|---------|----------------|----------------|
-| **A wins 7-4** (expected) | +3 pts → 7.9 | -4 pts → 5.2 |
-| **A wins 7-0** (dominant) | +5 pts → 7.9 | -6 pts → 5.2 |
-| **B wins 7-5** (upset!) | -15 pts → 7.7 | +21 pts → 5.5 |
-| **B wins 7-0** (blowout upset!) | -18 pts → 7.7 | +25 pts → 5.7 |
+| Scenario | Race | Winner | Player A (7.9) | Player B (5.3) |
+|----------|------|--------|----------------|----------------|
+| **Even Race** | 7-7 | A Wins | **+3 pts** (Expected) | **-4 pts** |
+| **Handicap** | 7-4 | A Wins | **+9.5 pts** (Beat Handicap) | **-12.7 pts** |
+| **Handicap** | 7-4 | B Wins | **-9.5 pts** (Lost Coin Flip) | **+12.7 pts** |
 
 ---
 
 ## Key Takeaways
 
-1. **Beating weaker opponents = small gains** - Higher-rated players barely move for expected wins
-2. **Upsets are rewarding** - Lower-rated players get massive points for beating higher-rated players
-3. **Margin of victory matters** - Winning by more than expected adds up to 10% bonus
-4. **The system protects higher-rated players** - Losses to strong upsets hurt less (0.85 scaling)
-5. **Lower-rated players risk less** - Expected losses cost fewer points (they weren't favored anyway)
+1.  **Handicaps Matter**: If you give spots, the system treats the match as 50/50.
+2.  **Beating the Handicap pays**: High-rated players now earn full points for winning handicapped matches (instead of getting 1-2 points).
+3.  **Splitting Sets is Safe**: If two players split sets in handicapped play, their ratings will largely remain unchanged.
 
 ---
 
-*Breakpoint Billiards Rating System v1.0*
+*Breakpoint Billiards Rating System v1.1*

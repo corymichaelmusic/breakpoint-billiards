@@ -21,9 +21,8 @@ export function getBreakpointRatingDescription(rating: number): string {
     if (rating <= 561) return "Good League Player";
     if (rating <= 624) return "Advanced";
     if (rating <= 686) return "Advanced+";
-    if (rating <= 749) return "Semi-Pro";
-    if (rating <= 875) return "Top Regional";
-    if (rating <= 875) return "Top Regional";
+    if (rating <= 749) return "Top Regional";
+    if (rating <= 875) return "Semi-Pro";
     return "World Class";
 }
 

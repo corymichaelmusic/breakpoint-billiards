@@ -15,14 +15,41 @@ export default async function AddPlayersPage({ params }: { params: Promise<{ id:
     const supabase = createAdminClient();
 
     // 1. Verify ownership of Parent League
+    // 1. Verify ownership of Parent League
     const { data: parentLeague } = await supabase
         .from("leagues")
-        .select("name")
+        .select("name, operator_id")
         .eq("id", id)
-        .eq("operator_id", userId)
         .single();
 
     if (!parentLeague) redirect("/dashboard/operator");
+
+    // Check permissions
+    let hasAccess = parentLeague.operator_id === userId;
+
+    if (!hasAccess) {
+        // Check if assigned operator
+        const { count } = await supabase
+            .from("league_operators")
+            .select("*", { count: 'exact', head: true })
+            .eq("league_id", id)
+            .eq("user_id", userId);
+
+        if (count && count > 0) hasAccess = true;
+    }
+
+    if (!hasAccess) {
+        // Check if global admin
+        const { data: profile } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", userId)
+            .single();
+
+        if (profile?.role === 'admin') hasAccess = true;
+    }
+
+    if (!hasAccess) redirect("/dashboard/operator");
 
     // 2. Fetch Session Name and Status
     const { data: session } = await supabase
