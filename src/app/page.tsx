@@ -144,7 +144,7 @@ export default async function Home() {
           <div className="grid md:grid-cols-3 gap-12 md:gap-20 text-center max-w-7xl mx-auto">
 
             {/* Feature 1 */}
-            <div className="group p-10 rounded-3xl bg-white/[0.03] border border-white/5 hover:border-yellow-600/30 hover:bg-white/[0.05] transition-all duration-500 hover:-translate-y-2">
+            <Link href="/rating-system" className="group p-10 rounded-3xl bg-white/[0.03] border border-white/5 hover:border-yellow-600/30 hover:bg-white/[0.05] transition-all duration-500 hover:-translate-y-2 block">
               <div className="w-20 h-20 mx-auto mb-8 bg-gradient-to-br from-slate-900 to-black rounded-2xl flex items-center justify-center border border-white/10 group-hover:border-yellow-500/50 group-hover:shadow-[0_0_40px_rgba(234,179,8,0.15)] transition-all">
                 <svg className="w-10 h-10 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -154,7 +154,7 @@ export default async function Home() {
               <p className="text-slate-400 leading-relaxed text-sm md:text-base">
                 Our proprietary <strong>Breakpoint Billiards Rating System (BBRS)</strong> focuses on your wins and loses, giving players an accurate rating and ensuring fair handicap races every time.
               </p>
-            </div>
+            </Link>
 
             {/* Feature 2 */}
             <div className="group p-10 rounded-3xl bg-white/[0.03] border border-white/5 hover:border-emerald-600/30 hover:bg-white/[0.05] transition-all duration-500 hover:-translate-y-2">
