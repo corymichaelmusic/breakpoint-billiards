@@ -148,9 +148,9 @@ export default function RatingSystem() {
                                             <span className="text-slate-400">7.5 - 8.7</span>
                                             <span className="text-[#D4AF37] font-bold">Top Regional</span>
                                         </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-slate-400">8.8+</span>
-                                            <span className="text-[#D4AF37] font-bold">World Class</span>
+                                        <div className="flex justify-between items-center text-[#D4AF37]">
+                                            <span className="">8.7+</span>
+                                            <span className="font-bold">World Class</span>
                                         </div>
                                     </div>
                                 </div>
