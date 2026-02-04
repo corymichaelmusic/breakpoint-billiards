@@ -63,12 +63,14 @@ export default function RatingSystem() {
 
                     {/* Elo System */}
                     <section className="w-full group rounded-[3rem] bg-white/[0.03] border border-white/5 hover:border-blue-500/30 hover:bg-white/[0.05] transition-all duration-500 hover:-translate-y-1 shadow-2xl backdrop-blur-sm text-center" style={{ padding: '40px' }}>
-                        <div className="max-w-3xl mx-auto mb-16">
+                        <div className="max-w-3xl mx-auto flex flex-col items-center text-center">
                             <h2 className="text-4xl font-bold text-white mb-8 font-cinzel">Dynamic Evolution</h2>
                             <p className="text-slate-300 text-xl leading-relaxed">
                                 We use a modified <strong>Elo rating system</strong>. Your rating isn't static—it's alive. It adapts based on <em>who</em> you play and the outcome of every single match.
                             </p>
                         </div>
+
+                        <div style={{ height: '20px' }} />
 
                         <div className="w-full flex flex-col md:flex-row justify-center items-center gap-8 mx-auto">
                             <div className="bg-emerald-900/10 p-10 rounded-3xl hover:bg-emerald-900/20 transition-all duration-300 flex flex-col items-center text-center group/card flex-1 w-full">
