@@ -42,7 +42,7 @@ export default function RatingSystem() {
                     {/* The Scale */}
                     <section className="w-full group rounded-[3rem] bg-white/[0.03] border border-white/5 hover:border-[#D4AF37]/30 hover:bg-white/[0.05] transition-all duration-500 hover:-translate-y-1 shadow-2xl backdrop-blur-sm text-center" style={{ padding: '40px' }}>
                         <div className="flex flex-col items-center gap-10">
-                            <div className="relative w-48 h-48 flex items-center justify-center mb-2">
+                            <div className="flex items-center justify-center mb-2">
                                 <div className="text-center">
                                     <div className="text-2xl font-bold text-white font-mono tracking-tighter">10.0 (1000)</div>
                                     <div className="text-[10px] uppercase tracking-[0.3em] text-[#D4AF37] mt-2 font-bold">Max Rating</div>
