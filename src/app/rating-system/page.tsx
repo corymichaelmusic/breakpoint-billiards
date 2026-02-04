@@ -113,7 +113,7 @@ export default function RatingSystem() {
 
                             <div className="grid md:grid-cols-2 gap-12 w-full text-left">
                                 {/* Skill Levels */}
-                                <div className="bg-black/20 rounded-3xl p-8 border border-white/5">
+                                <div className="bg-black/20 rounded-3xl p-5 border border-white/5">
                                     <h3 className="text-2xl font-bold text-white mb-6 font-cinzel text-center">Skill Levels</h3>
                                     <div className="space-y-4">
                                         <div className="flex justify-between items-center border-b border-white/5 pb-2">
@@ -130,11 +130,11 @@ export default function RatingSystem() {
                                         </div>
                                         <div className="flex justify-between items-center border-b border-white/5 pb-2">
                                             <span className="text-slate-400">500 - 561</span>
-                                            <span className="text-emerald-400 font-bold">Good League Player</span>
+                                            <span className="text-green-500 font-bold">Good League Player</span>
                                         </div>
                                         <div className="flex justify-between items-center border-b border-white/5 pb-2">
                                             <span className="text-slate-400">562 - 624</span>
-                                            <span className="text-emerald-400 font-bold">Advanced</span>
+                                            <span className="text-green-500 font-bold">Advanced</span>
                                         </div>
                                         <div className="flex justify-between items-center border-b border-white/5 pb-2">
                                             <span className="text-slate-400">625 - 686</span>
@@ -157,31 +157,28 @@ export default function RatingSystem() {
 
                                 {/* K-Factors */}
                                 <div className="flex flex-col gap-6">
-                                    <div className="bg-black/20 rounded-3xl p-8 border border-white/5 flex-1">
-                                        <h3 className="text-2xl font-bold text-white mb-6 font-cinzel text-center">Volatility (K-Factor)</h3>
+                                    <div className="bg-black/20 rounded-3xl p-5 border border-white/5 flex-1">
+                                        <h3 className="text-2xl font-bold text-white mb-6 font-cinzel text-center">Volatility</h3>
                                         <p className="text-slate-400 text-sm mb-6 text-center">
-                                            Newer players have higher volatility (K-Factor) to help them find their true rating faster.
+                                            Newer players have higher volatility to help them find their true rating faster.
                                         </p>
                                         <div className="space-y-4">
                                             <div className="flex justify-between items-center border-b border-white/5 pb-2">
                                                 <span className="text-slate-400">&lt; 100 Racks</span>
                                                 <div className="text-right">
-                                                    <span className="text-white font-bold block">K = 28</span>
-                                                    <span className="text-xs text-yellow-500 uppercase tracking-wider">Provisional</span>
+                                                    <span className="text-xs text-yellow-500 uppercase tracking-wider font-bold text-sm">Provisional</span>
                                                 </div>
                                             </div>
                                             <div className="flex justify-between items-center border-b border-white/5 pb-2">
                                                 <span className="text-slate-400">100 - 300 Racks</span>
                                                 <div className="text-right">
-                                                    <span className="text-white font-bold block">K = 20</span>
-                                                    <span className="text-xs text-blue-500 uppercase tracking-wider">Established</span>
+                                                    <span className="text-xs text-blue-500 uppercase tracking-wider font-bold text-sm">Established</span>
                                                 </div>
                                             </div>
                                             <div className="flex justify-between items-center">
                                                 <span className="text-slate-400">&gt; 300 Racks</span>
                                                 <div className="text-right">
-                                                    <span className="text-white font-bold block">K = 14</span>
-                                                    <span className="text-xs text-green-500 uppercase tracking-wider">Stable</span>
+                                                    <span className="text-xs text-green-500 uppercase tracking-wider font-bold text-sm">Stable</span>
                                                 </div>
                                             </div>
                                         </div>
