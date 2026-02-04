@@ -37,7 +37,7 @@ export default function ManagePlayersList({ sessionId, players, isSessionActive 
     const handleToggleFee = async (player: Player) => {
         if (!player.isSelected) return;
         setLoadingId(player.id);
-        const newStatus = player.paymentStatus === 'paid' ? false : true;
+        const newStatus = ['paid', 'paid_online', 'waived'].includes(player.paymentStatus) ? false : true;
         await togglePlayerFee(sessionId, player.id, newStatus);
         setLoadingId(null);
         router.refresh();
@@ -58,7 +58,7 @@ export default function ManagePlayersList({ sessionId, players, isSessionActive 
                     }}
                 >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        {!isSessionActive && player.paymentStatus !== 'paid' && (
+                        {!isSessionActive && !['paid', 'paid_online', 'waived'].includes(player.paymentStatus) && (
                             <input
                                 type="checkbox"
                                 checked={player.isSelected}
@@ -67,7 +67,7 @@ export default function ManagePlayersList({ sessionId, players, isSessionActive 
                                 style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer' }}
                             />
                         )}
-                        {player.paymentStatus === 'paid' && (
+                        {['paid', 'paid_online', 'waived'].includes(player.paymentStatus) && (
                             <div style={{ width: '1.2rem', height: '1.2rem' }} /> /* Spacer */
                         )}
                         <div>
@@ -81,7 +81,7 @@ export default function ManagePlayersList({ sessionId, players, isSessionActive 
                             <button
                                 onClick={() => handleToggleFee(player)}
                                 disabled={loadingId === player.id}
-                                title={player.paymentStatus === 'paid' ? "Mark as Unpaid" : "Mark as Paid"}
+                                title={['paid', 'paid_online', 'waived'].includes(player.paymentStatus) ? "Mark as Unpaid" : "Mark as Paid"}
                                 style={{
                                     background: 'none',
                                     border: 'none',
@@ -99,14 +99,14 @@ export default function ManagePlayersList({ sessionId, players, isSessionActive 
                                     width: '2rem',
                                     height: '2rem',
                                     borderRadius: '50%',
-                                    border: `2px solid ${player.paymentStatus === 'paid' ? 'var(--success)' : '#ccc'}`,
-                                    color: player.paymentStatus === 'paid' ? 'var(--success)' : '#ccc',
+                                    border: `2px solid ${['paid', 'paid_online', 'waived'].includes(player.paymentStatus) ? 'var(--success)' : '#ccc'}`,
+                                    color: ['paid', 'paid_online', 'waived'].includes(player.paymentStatus) ? 'var(--success)' : '#ccc',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     fontWeight: 'bold',
                                     fontSize: '1.2rem',
-                                    boxShadow: player.paymentStatus === 'paid' ? '0 0 10px rgba(76, 175, 80, 0.3)' : 'none'
+                                    boxShadow: ['paid', 'paid_online', 'waived'].includes(player.paymentStatus) ? '0 0 10px rgba(76, 175, 80, 0.3)' : 'none'
                                 }}>
                                     $
                                 </div>
