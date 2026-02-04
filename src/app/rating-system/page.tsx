@@ -117,39 +117,39 @@ export default function RatingSystem() {
                                     <h3 className="text-2xl font-bold text-white mb-6 font-cinzel text-center">Skill Levels</h3>
                                     <div className="space-y-4">
                                         <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                                            <span className="text-slate-400">0 - 344</span>
+                                            <span className="text-slate-400">0 - 3.4</span>
                                             <span className="text-white font-bold">Beginner</span>
                                         </div>
                                         <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                                            <span className="text-slate-400">345 - 436</span>
+                                            <span className="text-slate-400">3.4 - 4.3</span>
                                             <span className="text-white font-bold">Intermediate</span>
                                         </div>
                                         <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                                            <span className="text-slate-400">437 - 499</span>
+                                            <span className="text-slate-400">4.3 - 4.9</span>
                                             <span className="text-white font-bold">Intermediate+</span>
                                         </div>
                                         <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                                            <span className="text-slate-400">500 - 561</span>
+                                            <span className="text-slate-400">5.0 - 5.6</span>
                                             <span className="text-white font-bold">Intermediate++</span>
                                         </div>
                                         <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                                            <span className="text-slate-400">562 - 624</span>
+                                            <span className="text-slate-400">5.6 - 6.2</span>
                                             <span className="text-purple-400 font-bold">Advanced</span>
                                         </div>
                                         <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                                            <span className="text-slate-400">625 - 686</span>
+                                            <span className="text-slate-400">6.2 - 6.8</span>
                                             <span className="text-purple-400 font-bold">Advanced+</span>
                                         </div>
                                         <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                                            <span className="text-slate-400">687 - 749</span>
+                                            <span className="text-slate-400">6.8 - 7.4</span>
                                             <span className="text-purple-400 font-bold">Advanced++</span>
                                         </div>
                                         <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                                            <span className="text-slate-400">750 - 875</span>
+                                            <span className="text-slate-400">7.5 - 8.7</span>
                                             <span className="text-[#D4AF37] font-bold">Top Regional</span>
                                         </div>
                                         <div className="flex justify-between items-center">
-                                            <span className="text-slate-400">876+</span>
+                                            <span className="text-slate-400">8.8+</span>
                                             <span className="text-[#D4AF37] font-bold">World Class</span>
                                         </div>
                                     </div>

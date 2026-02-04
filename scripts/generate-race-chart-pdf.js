@@ -18,10 +18,10 @@ const RANGES = [
     { idx: 0, range: '0 - 344', desc: 'Beginner' },
     { idx: 1, range: '345 - 436', desc: 'Intermediate' },
     { idx: 2, range: '437 - 499', desc: 'Intermediate+' },
-    { idx: 3, range: '500 - 561', desc: 'Good League Player' },
+    { idx: 3, range: '500 - 561', desc: 'Intermediate++' },
     { idx: 4, range: '562 - 624', desc: 'Advanced' },
     { idx: 5, range: '625 - 686', desc: 'Advanced+' },
-    { idx: 6, range: '687 - 749', desc: 'Semi-Pro' },
+    { idx: 6, range: '687 - 749', desc: 'Advanced++' },
     { idx: 7, range: '750 - 875', desc: 'Top Regional' },
     { idx: 8, range: '876 - 1000+', desc: 'World Class' }
 ];
