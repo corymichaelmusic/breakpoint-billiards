@@ -63,37 +63,37 @@ export default function RatingSystem() {
 
                     {/* Elo System */}
                     <section className="w-full group rounded-[3rem] bg-white/[0.03] border border-white/5 hover:border-blue-500/30 hover:bg-white/[0.05] transition-all duration-500 hover:-translate-y-1 shadow-2xl backdrop-blur-sm text-center" style={{ padding: '40px' }}>
-                        <div className="max-w-3xl mx-auto text-center">
-                            <h2 className="text-4xl font-bold text-white mb-8 font-cinzel">Dynamic Evolution</h2>
-                            <p className="text-slate-300 text-xl leading-relaxed">
-                                We use a modified <strong>Elo rating system</strong>. Your rating isn't static—it's alive. It adapts based on <em>who</em> you play and the outcome of every single match.
-                            </p>
-                        </div>
-
-                        <div style={{ height: '20px' }} />
-
-                        <div className="w-full flex flex-col md:flex-row justify-center items-center gap-8 mx-auto">
-                            <div className="bg-emerald-900/10 p-10 rounded-3xl hover:bg-emerald-900/20 transition-all duration-300 flex flex-col items-center text-center group/card flex-1 w-full">
-                                <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mb-6 text-emerald-500 group-hover/card:scale-110 transition-transform">
-                                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                                    </svg>
-                                </div>
-                                <h3 className="text-emerald-500 text-2xl font-bold font-cinzel mb-4">Rising Up</h3>
-                                <p className="text-base text-slate-300 leading-relaxed">
-                                    Beating a higher-rated player proves you're undervalued. The system rewards this with a <strong className="text-white">significant rating boost</strong>.
+                        <div className="flex flex-col items-center gap-10">
+                            <div className="max-w-3xl text-center">
+                                <h2 className="text-4xl font-bold text-white mb-8 font-cinzel">Dynamic Evolution</h2>
+                                <p className="text-slate-300 text-xl leading-relaxed">
+                                    We use a modified <strong>Elo rating system</strong>. Your rating isn't static—it's alive. It adapts based on <em>who</em> you play and the outcome of every single match.
                                 </p>
                             </div>
-                            <div className="bg-red-900/10 p-10 rounded-3xl hover:bg-red-900/20 transition-all duration-300 flex flex-col items-center text-center group/card flex-1 w-full">
-                                <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mb-6 text-red-500 group-hover/card:scale-110 transition-transform">
-                                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
-                                    </svg>
+
+                            <div className="w-full flex flex-col md:flex-row justify-center items-center gap-8">
+                                <div className="bg-emerald-900/10 p-10 rounded-3xl hover:bg-emerald-900/20 transition-all duration-300 flex flex-col items-center text-center group/card flex-1 w-full">
+                                    <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mb-6 text-emerald-500 group-hover/card:scale-110 transition-transform">
+                                        <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="text-emerald-500 text-2xl font-bold font-cinzel mb-4">Rising Up</h3>
+                                    <p className="text-base text-slate-300 leading-relaxed">
+                                        Beating a higher-rated player proves you're undervalued. The system rewards this with a <strong className="text-white">significant rating boost</strong>.
+                                    </p>
                                 </div>
-                                <h3 className="text-red-500 text-2xl font-bold font-cinzel mb-4">Falling Down</h3>
-                                <p className="text-base text-slate-300 leading-relaxed">
-                                    Losing to a lower-rated player suggests you're overvalued. The system adjusts with a <strong className="text-white">larger decrease</strong>.
-                                </p>
+                                <div className="bg-red-900/10 p-10 rounded-3xl hover:bg-red-900/20 transition-all duration-300 flex flex-col items-center text-center group/card flex-1 w-full">
+                                    <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mb-6 text-red-500 group-hover/card:scale-110 transition-transform">
+                                        <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="text-red-500 text-2xl font-bold font-cinzel mb-4">Falling Down</h3>
+                                    <p className="text-base text-slate-300 leading-relaxed">
+                                        Losing to a lower-rated player suggests you're overvalued. The system adjusts with a <strong className="text-white">larger decrease</strong>.
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </section>
