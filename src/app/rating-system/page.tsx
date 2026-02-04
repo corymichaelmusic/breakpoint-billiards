@@ -142,11 +142,11 @@ export default function RatingSystem() {
                                         </div>
                                         <div className="flex justify-between items-center border-b border-white/5 pb-2">
                                             <span className="text-slate-400">687 - 749</span>
-                                            <span className="text-purple-400 font-bold">Top Regional</span>
+                                            <span className="text-purple-400 font-bold">Advanced++</span>
                                         </div>
                                         <div className="flex justify-between items-center border-b border-white/5 pb-2">
                                             <span className="text-slate-400">750 - 875</span>
-                                            <span className="text-[#D4AF37] font-bold">Semi-Pro</span>
+                                            <span className="text-[#D4AF37] font-bold">Top Regional</span>
                                         </div>
                                         <div className="flex justify-between items-center">
                                             <span className="text-slate-400">876+</span>
