@@ -63,7 +63,7 @@ export default function RatingSystem() {
 
                     {/* Elo System */}
                     <section className="w-full group rounded-[3rem] bg-white/[0.03] border border-white/5 hover:border-blue-500/30 hover:bg-white/[0.05] transition-all duration-500 hover:-translate-y-1 shadow-2xl backdrop-blur-sm text-center" style={{ padding: '40px' }}>
-                        <div className="max-w-3xl mx-auto flex flex-col items-center text-center">
+                        <div className="max-w-3xl mx-auto text-center">
                             <h2 className="text-4xl font-bold text-white mb-8 font-cinzel">Dynamic Evolution</h2>
                             <p className="text-slate-300 text-xl leading-relaxed">
                                 We use a modified <strong>Elo rating system</strong>. Your rating isn't static—it's alive. It adapts based on <em>who</em> you play and the outcome of every single match.
@@ -94,6 +94,105 @@ export default function RatingSystem() {
                                 <p className="text-base text-slate-300 leading-relaxed">
                                     Losing to a lower-rated player suggests you're overvalued. The system adjusts with a <strong className="text-white">larger decrease</strong>.
                                 </p>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Spacer */}
+                    <div className="h-24 md:h-32 w-full" />
+
+                    {/* Rating Definitions & K-Factors */}
+                    <section className="w-full group rounded-[3rem] bg-white/[0.03] border border-white/5 hover:border-emerald-500/30 hover:bg-white/[0.05] transition-all duration-500 hover:-translate-y-1 shadow-2xl backdrop-blur-sm text-center" style={{ padding: '40px' }}>
+                        <div className="flex flex-col items-center gap-12">
+                            <div className="max-w-3xl mx-auto text-center">
+                                <h2 className="text-4xl font-bold text-white mb-8 font-cinzel">Rating Definitions</h2>
+                                <p className="text-slate-300 text-xl leading-relaxed">
+                                    From beginner to world-class, every player has a place.
+                                </p>
+                            </div>
+
+                            <div className="grid md:grid-cols-2 gap-12 w-full text-left">
+                                {/* Skill Levels */}
+                                <div className="bg-black/20 rounded-3xl p-8 border border-white/5">
+                                    <h3 className="text-2xl font-bold text-white mb-6 font-cinzel text-center">Skill Levels</h3>
+                                    <div className="space-y-4">
+                                        <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                                            <span className="text-slate-400">0 - 344</span>
+                                            <span className="text-white font-bold">Beginner</span>
+                                        </div>
+                                        <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                                            <span className="text-slate-400">345 - 436</span>
+                                            <span className="text-white font-bold">Intermediate</span>
+                                        </div>
+                                        <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                                            <span className="text-slate-400">437 - 499</span>
+                                            <span className="text-white font-bold">Intermediate+</span>
+                                        </div>
+                                        <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                                            <span className="text-slate-400">500 - 561</span>
+                                            <span className="text-emerald-400 font-bold">Good League Player</span>
+                                        </div>
+                                        <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                                            <span className="text-slate-400">562 - 624</span>
+                                            <span className="text-emerald-400 font-bold">Advanced</span>
+                                        </div>
+                                        <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                                            <span className="text-slate-400">625 - 686</span>
+                                            <span className="text-purple-400 font-bold">Advanced+</span>
+                                        </div>
+                                        <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                                            <span className="text-slate-400">687 - 749</span>
+                                            <span className="text-purple-400 font-bold">Top Regional</span>
+                                        </div>
+                                        <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                                            <span className="text-slate-400">750 - 875</span>
+                                            <span className="text-[#D4AF37] font-bold">Semi-Pro</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-slate-400">876+</span>
+                                            <span className="text-[#D4AF37] font-bold">World Class</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* K-Factors */}
+                                <div className="flex flex-col gap-6">
+                                    <div className="bg-black/20 rounded-3xl p-8 border border-white/5 flex-1">
+                                        <h3 className="text-2xl font-bold text-white mb-6 font-cinzel text-center">Volatility (K-Factor)</h3>
+                                        <p className="text-slate-400 text-sm mb-6 text-center">
+                                            Newer players have higher volatility (K-Factor) to help them find their true rating faster.
+                                        </p>
+                                        <div className="space-y-4">
+                                            <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                                                <span className="text-slate-400">&lt; 100 Racks</span>
+                                                <div className="text-right">
+                                                    <span className="text-white font-bold block">K = 28</span>
+                                                    <span className="text-xs text-yellow-500 uppercase tracking-wider">Provisional</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                                                <span className="text-slate-400">100 - 300 Racks</span>
+                                                <div className="text-right">
+                                                    <span className="text-white font-bold block">K = 20</span>
+                                                    <span className="text-xs text-blue-500 uppercase tracking-wider">Established</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-slate-400">&gt; 300 Racks</span>
+                                                <div className="text-right">
+                                                    <span className="text-white font-bold block">K = 14</span>
+                                                    <span className="text-xs text-green-500 uppercase tracking-wider">Stable</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-[#D4AF37]/10 rounded-3xl p-8 border border-[#D4AF37]/20 flex-1 flex flex-col justify-center items-center text-center">
+                                        <div className="text-[#D4AF37] font-bold text-lg mb-2">Display Rating</div>
+                                        <div className="text-3xl font-mono font-bold text-white">523 → 5.2</div>
+                                        <p className="text-[#D4AF37]/80 text-xs mt-2 uppercase tracking-widest">Breakpoint Level</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </section>
