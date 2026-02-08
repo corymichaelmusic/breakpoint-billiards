@@ -22,8 +22,10 @@ export default function GenerateScheduleForm({
     const [timezone, setTimezone] = useState(initialTimezone || "America/Chicago");
     const [skipDates, setSkipDates] = useState<string[]>([]);
     const [newSkipDate, setNewSkipDate] = useState("");
-    const [timeSlots, setTimeSlots] = useState("");
-    const [tableNames, setTableNames] = useState("");
+    const [useTimeSlots, setUseTimeSlots] = useState(false);
+    const [timeSlots, setTimeSlots] = useState<string[]>(["", ""]);
+    const [useTables, setUseTables] = useState(false);
+    const [tableNames, setTableNames] = useState<string[]>(["", ""]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -56,8 +58,8 @@ export default function GenerateScheduleForm({
             }
 
             // 2. Generate Schedule with Skip Dates and Config
-            const timeSlotsArray = timeSlots ? timeSlots.split(',').map(s => s.trim()).filter(s => s) : [];
-            const tableNamesArray = tableNames ? tableNames.split(',').map(s => s.trim()).filter(s => s) : [];
+            const timeSlotsArray = useTimeSlots ? timeSlots.map(s => s.trim()).filter(s => s) : [];
+            const tableNamesArray = useTables ? tableNames.map(s => s.trim()).filter(s => s) : [];
 
             const res = await generateSchedule(leagueId, skipDates, timeSlotsArray, tableNamesArray);
 
@@ -162,28 +164,112 @@ export default function GenerateScheduleForm({
             <div className="mb-6 border-t border-gray-800 pt-4">
                 <h3 className="text-xs font-bold mb-4" style={{ color: '#D4AF37' }}>Session Configuration</h3>
 
-                <div className="space-y-4">
-                    <div className="space-y-1">
-                        <label className="text-xs text-gray-400">Time Slots (comma separated)</label>
-                        <input
-                            type="text"
-                            value={timeSlots}
-                            onChange={(e) => setTimeSlots(e.target.value)}
-                            placeholder="e.g. 19:00, 20:30"
-                            className="input w-full text-sm bg-black/50 border-gray-700"
-                        />
-                        <p className="text-[10px] text-gray-500">Enter times in 24-hour format HH:MM</p>
+                <div className="space-y-6">
+                    {/* Time Slots */}
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                id="useTimeSlots"
+                                checked={useTimeSlots}
+                                onChange={(e) => setUseTimeSlots(e.target.checked)}
+                                className="accent-[#D4AF37]"
+                            />
+                            <label htmlFor="useTimeSlots" className="text-sm font-bold text-gray-300 select-none cursor-pointer">
+                                Configure Time Slots
+                            </label>
+                        </div>
+
+                        {useTimeSlots && (
+                            <div className="pl-6 space-y-2">
+                                <p className="text-[10px] text-gray-500 mb-2">Enter times in 24-hour format HH:MM</p>
+                                {timeSlots.map((slot, index) => (
+                                    <div key={index} className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={slot}
+                                            onChange={(e) => {
+                                                const newSlots = [...timeSlots];
+                                                newSlots[index] = e.target.value;
+                                                setTimeSlots(newSlots);
+                                            }}
+                                            placeholder="e.g. 19:00"
+                                            className="input flex-1 text-sm bg-black/50 border-gray-700"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const newSlots = timeSlots.filter((_, i) => i !== index);
+                                                setTimeSlots(newSlots);
+                                            }}
+                                            className="text-gray-500 hover:text-error px-2"
+                                        >
+                                            &times;
+                                        </button>
+                                    </div>
+                                ))}
+                                <button
+                                    type="button"
+                                    onClick={() => setTimeSlots([...timeSlots, ""])}
+                                    className="text-xs text-[#D4AF37] hover:underline flex items-center gap-1"
+                                >
+                                    + Add Time Slot
+                                </button>
+                            </div>
+                        )}
                     </div>
 
-                    <div className="space-y-1">
-                        <label className="text-xs text-gray-400">Table Names (comma separated)</label>
-                        <input
-                            type="text"
-                            value={tableNames}
-                            onChange={(e) => setTableNames(e.target.value)}
-                            placeholder="e.g. Table 1, Table 2"
-                            className="input w-full text-sm bg-black/50 border-gray-700"
-                        />
+                    {/* Table Names */}
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                id="useTables"
+                                checked={useTables}
+                                onChange={(e) => setUseTables(e.target.checked)}
+                                className="accent-[#D4AF37]"
+                            />
+                            <label htmlFor="useTables" className="text-sm font-bold text-gray-300 select-none cursor-pointer">
+                                Configure Tables
+                            </label>
+                        </div>
+
+                        {useTables && (
+                            <div className="pl-6 space-y-2">
+                                {tableNames.map((name, index) => (
+                                    <div key={index} className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={name}
+                                            onChange={(e) => {
+                                                const newTables = [...tableNames];
+                                                newTables[index] = e.target.value;
+                                                setTableNames(newTables);
+                                            }}
+                                            placeholder={`Table ${index + 1}`}
+                                            className="input flex-1 text-sm bg-black/50 border-gray-700"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const newTables = tableNames.filter((_, i) => i !== index);
+                                                setTableNames(newTables);
+                                            }}
+                                            className="text-gray-500 hover:text-error px-2"
+                                        >
+                                            &times;
+                                        </button>
+                                    </div>
+                                ))}
+                                <button
+                                    type="button"
+                                    onClick={() => setTableNames([...tableNames, ""])}
+                                    className="text-xs text-[#D4AF37] hover:underline flex items-center gap-1"
+                                >
+                                    + Add Table
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

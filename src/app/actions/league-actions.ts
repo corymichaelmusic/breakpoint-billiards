@@ -12,9 +12,7 @@ export async function createSession(
         bounty9Run?: number,
         bounty9Snap?: number,
         bountyShutout?: number
-    } = {},
-    timeSlots: string[] = [],
-    tableNames: string[] = []
+    } = {}
 ) {
     const supabase = createAdminClient();
     const { auth } = await import("@clerk/nextjs/server");
@@ -108,10 +106,7 @@ export async function createSession(
             bounty_val_8_run: bounties.bounty8Run || 0,
             bounty_val_9_run: bounties.bounty9Run || 0,
             bounty_val_9_snap: bounties.bounty9Snap || 0,
-            bounty_val_shutout: bounties.bountyShutout || 0,
-            time_slots: timeSlots,
-            table_names: tableNames,
-            table_count: tableNames.length
+            bounty_val_shutout: bounties.bountyShutout || 0
         })
         .select("id")
         .single();
