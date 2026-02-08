@@ -22,6 +22,8 @@ export default function GenerateScheduleForm({
     const [timezone, setTimezone] = useState(initialTimezone || "America/Chicago");
     const [skipDates, setSkipDates] = useState<string[]>([]);
     const [newSkipDate, setNewSkipDate] = useState("");
+    const [timeSlots, setTimeSlots] = useState("");
+    const [tableNames, setTableNames] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -53,8 +55,11 @@ export default function GenerateScheduleForm({
                 });
             }
 
-            // 2. Generate Schedule with Skip Dates
-            const res = await generateSchedule(leagueId, skipDates);
+            // 2. Generate Schedule with Skip Dates and Config
+            const timeSlotsArray = timeSlots ? timeSlots.split(',').map(s => s.trim()).filter(s => s) : [];
+            const tableNamesArray = tableNames ? tableNames.split(',').map(s => s.trim()).filter(s => s) : [];
+
+            const res = await generateSchedule(leagueId, skipDates, timeSlotsArray, tableNamesArray);
 
             if (res?.error) {
                 if (res.error === 'NOT_ENOUGH_PLAYERS') {
@@ -151,6 +156,36 @@ export default function GenerateScheduleForm({
                     Add specific dates where matches normally fall but should be skipped (e.g., if you play on Tuesdays, add the specific Tuesday date to skip).
                     Matches will resume the following week, extending the season.
                 </p>
+            </div>
+
+            {/* Session Config Section */}
+            <div className="mb-6 border-t border-gray-800 pt-4">
+                <h3 className="text-xs font-bold mb-4" style={{ color: '#D4AF37' }}>Session Configuration</h3>
+
+                <div className="space-y-4">
+                    <div className="space-y-1">
+                        <label className="text-xs text-gray-400">Time Slots (comma separated)</label>
+                        <input
+                            type="text"
+                            value={timeSlots}
+                            onChange={(e) => setTimeSlots(e.target.value)}
+                            placeholder="e.g. 19:00, 20:30"
+                            className="input w-full text-sm bg-black/50 border-gray-700"
+                        />
+                        <p className="text-[10px] text-gray-500">Enter times in 24-hour format HH:MM</p>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-xs text-gray-400">Table Names (comma separated)</label>
+                        <input
+                            type="text"
+                            value={tableNames}
+                            onChange={(e) => setTableNames(e.target.value)}
+                            placeholder="e.g. Table 1, Table 2"
+                            className="input w-full text-sm bg-black/50 border-gray-700"
+                        />
+                    </div>
+                </div>
             </div>
 
             <button

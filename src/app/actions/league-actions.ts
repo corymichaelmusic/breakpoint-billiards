@@ -294,8 +294,25 @@ export async function syncSessionPlayers(sessionId: string, playerIds: string[])
     return { success: true };
 }
 
-export async function generateSchedule(leagueId: string, skipDates: string[] = []) {
+export async function generateSchedule(
+    leagueId: string,
+    skipDates: string[] = [],
+    inputTimeSlots: string[] = [],
+    inputTableNames: string[] = []
+) {
     const supabase = createAdminClient();
+
+    // 0. Update League Config if provided (Time Slots / Tables)
+    if ((inputTimeSlots && inputTimeSlots.length > 0) || (inputTableNames && inputTableNames.length > 0)) {
+        const updateData: any = {};
+        if (inputTimeSlots && inputTimeSlots.length > 0) updateData.time_slots = inputTimeSlots;
+        if (inputTableNames && inputTableNames.length > 0) {
+            updateData.table_names = inputTableNames;
+            updateData.table_count = inputTableNames.length;
+        }
+
+        await supabase.from("leagues").update(updateData).eq("id", leagueId);
+    }
 
     // 0. Check Fee Status and Start Date
     const { data: league } = await supabase.from("leagues").select("creation_fee_status, start_date, time_slots, table_names").eq("id", leagueId).single();
