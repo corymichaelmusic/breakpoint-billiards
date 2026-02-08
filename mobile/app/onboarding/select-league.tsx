@@ -36,7 +36,9 @@ export default function SelectLeagueScreen() {
                 .select(`
                     *,
                     parent_league:parent_league_id (
-                        name
+                        name,
+                        location,
+                        city
                     )
                 `)
                 .eq('type', 'session')
@@ -205,12 +207,12 @@ export default function SelectLeagueScreen() {
                                 <Text className="text-gray-400 text-sm mb-1">
                                     {item.name}
                                 </Text>
-                                {(item.location || item.city) && (
+                                {(item.parent_league?.location || item.location || item.parent_league?.city || item.city) && (
                                     <View className="flex-row items-center mb-1">
                                         <FontAwesome5 name="map-marker-alt" size={12} color="#9CA3AF" className="mr-2" />
                                         <Text className="text-gray-400 text-xs ml-1">
-                                            {item.location ? `${item.location}` : ''}
-                                            {item.location && item.city ? `, ${item.city}` : item.city}
+                                            {item.parent_league?.location || item.location ? `${item.parent_league?.location || item.location}` : ''}
+                                            {(item.parent_league?.location || item.location) && (item.parent_league?.city || item.city) ? `, ${item.parent_league?.city || item.city}` : (item.parent_league?.city || item.city)}
                                         </Text>
                                     </View>
                                 )}

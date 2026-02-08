@@ -11,6 +11,9 @@ export interface Session {
     isPrimary: boolean;
     parentLeagueName?: string;
     paymentStatus?: string;
+    location?: string;
+    city?: string;
+    scheduleDay?: string;
 }
 
 interface SessionContextValue {
@@ -95,7 +98,10 @@ export function SessionProvider({ children }: SessionProviderProps) {
                         name,
                         type,
                         status,
-                        parent_league:parent_league_id(name)
+                        location,
+                        city,
+                        schedule_day,
+                        parent_league:parent_league_id(name, location, city)
                     )
                 `)
                 .eq('player_id', userId)
@@ -130,7 +136,10 @@ export function SessionProvider({ children }: SessionProviderProps) {
                     type: league.type,
                     isPrimary: m.is_primary || false,
                     parentLeagueName: league.parent_league?.name,
-                    paymentStatus: m.payment_status
+                    paymentStatus: m.payment_status,
+                    location: league.parent_league?.location || league.location,
+                    city: league.parent_league?.city || league.city,
+                    scheduleDay: league.schedule_day
                 };
             });
 

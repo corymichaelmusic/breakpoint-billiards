@@ -12,7 +12,9 @@ export async function createSession(
         bounty9Run?: number,
         bounty9Snap?: number,
         bountyShutout?: number
-    } = {}
+    } = {},
+    timeSlots: string[] = [],
+    tableNames: string[] = []
 ) {
     const supabase = createAdminClient();
     const { auth } = await import("@clerk/nextjs/server");
@@ -106,7 +108,10 @@ export async function createSession(
             bounty_val_8_run: bounties.bounty8Run || 0,
             bounty_val_9_run: bounties.bounty9Run || 0,
             bounty_val_9_snap: bounties.bounty9Snap || 0,
-            bounty_val_shutout: bounties.bountyShutout || 0
+            bounty_val_shutout: bounties.bountyShutout || 0,
+            time_slots: timeSlots,
+            table_names: tableNames,
+            table_count: tableNames.length
         })
         .select("id")
         .single();
@@ -293,7 +298,7 @@ export async function generateSchedule(leagueId: string, skipDates: string[] = [
     const supabase = createAdminClient();
 
     // 0. Check Fee Status and Start Date
-    const { data: league } = await supabase.from("leagues").select("creation_fee_status, start_date").eq("id", leagueId).single();
+    const { data: league } = await supabase.from("leagues").select("creation_fee_status, start_date, time_slots, table_names").eq("id", leagueId).single();
     if (league?.creation_fee_status === 'unpaid') {
         return { error: "Session creation fee must be paid or waived by Admin before generating schedule." };
     }
@@ -342,6 +347,15 @@ export async function generateSchedule(leagueId: string, skipDates: string[] = [
     // skipDates are in "YYYY-MM-DD" format.
     // We compare with the ISO string date part of the calculated match date.
 
+    // Table and Time Slot Config
+    const timeSlots = (league.time_slots && Array.isArray(league.time_slots) && league.time_slots.length > 0)
+        ? league.time_slots
+        : ["19:00"]; // Default to 7 PM if none configured
+
+    const tableNames = (league.table_names && Array.isArray(league.table_names) && league.table_names.length > 0)
+        ? league.table_names
+        : ["Table 1"]; // Default to Table 1 if none configured
+
     let currentWeekOfPlay = 1;
     let calendarWeekOffset = 0;
 
@@ -374,19 +388,44 @@ export async function generateSchedule(leagueId: string, skipDates: string[] = [
         }
 
         // Now pair them up
+        let matchIndexInWeek = 0;
+
         for (let i = 0; i < n / 2; i++) {
             const p1 = currentPlayers[i];
             const p2 = currentPlayers[n - 1 - i];
 
             if (p1 !== "bye" && p2 !== "bye") {
+                // Assign Time and Table
+                // Logic: Fill all tables for the first time slot, then move to next time slot
+                // totalSlots = timeSlots.length * tableNames.length
+                // slotIndex = matchIndexInWeek % totalSlots
+                // timeIndex = floor(slotIndex / tableNames.length)
+                // tableIndex = slotIndex % tableNames.length
+
+                // If matches > slots, we loop back to start (doubling up on a table/time)
+                // or we could distribute evenly. Round Robin logic usually keeps matches per week = N/2.
+
+                const totalSlots = timeSlots.length * tableNames.length;
+                const slotIndex = matchIndexInWeek % totalSlots;
+
+                const timeIndex = Math.floor(slotIndex / tableNames.length) % timeSlots.length;
+                const tableIndex = slotIndex % tableNames.length;
+
+                const assignedTime = timeSlots[timeIndex];
+                const assignedTable = tableNames[tableIndex];
+
                 matches.push({
                     league_id: leagueId,
                     player1_id: p1,
                     player2_id: p2,
                     week_number: currentWeekOfPlay, // This stays 1..16
                     status: 'scheduled',
-                    scheduled_date: candidateDate.toISOString() // This reflects the actual skipped date
+                    scheduled_date: candidateDate.toISOString(), // This reflects the actual skipped date
+                    scheduled_time: assignedTime,
+                    table_name: assignedTable
                 });
+
+                matchIndexInWeek++;
             }
         }
 

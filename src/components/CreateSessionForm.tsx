@@ -34,7 +34,13 @@ export default function CreateSessionForm({
             bountyShutout: Number(formData.get("bountyShutout") || 0)
         };
 
-        const res = await createSession(leagueId, name, startDate, bounties);
+        const timeSlotsRaw = formData.get("timeSlots") as string;
+        const tableNamesRaw = formData.get("tableNames") as string;
+
+        const timeSlots = timeSlotsRaw ? timeSlotsRaw.split(',').map(s => s.trim()).filter(s => s) : [];
+        const tableNames = tableNamesRaw ? tableNamesRaw.split(',').map(s => s.trim()).filter(s => s) : [];
+
+        const res = await createSession(leagueId, name, startDate, bounties, timeSlots, tableNames);
 
         if (res?.error) {
             setError(res.error);
@@ -139,6 +145,33 @@ export default function CreateSessionForm({
                 <p className="text-xs text-gray-400 mt-2">
                     Default values are loaded from the parent league organization settings.
                 </p>
+            </div>
+
+            <div style={{ marginBottom: "1.5rem" }}>
+                <h3 className="text-white font-bold mb-4" style={{ color: "#D4AF37" }}>Session Configuration</h3>
+
+                {/* Time Slots */}
+                <div className="mb-4">
+                    <label className="label">Time Slots (comma separated, e.g. 19:00, 20:30)</label>
+                    <input
+                        name="timeSlots"
+                        type="text"
+                        placeholder="19:00, 20:30"
+                        className="input"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">Enter times in 24-hour format HH:MM</p>
+                </div>
+
+                {/* Table Names */}
+                <div>
+                    <label className="label">Table Names (comma separated)</label>
+                    <input
+                        name="tableNames"
+                        type="text"
+                        placeholder="Table 1, Table 2, Table 3"
+                        className="input"
+                    />
+                </div>
             </div>
 
             <button type="submit" className="btn btn-primary" style={{ width: "100%" }} disabled={loading}>

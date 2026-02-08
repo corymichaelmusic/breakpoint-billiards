@@ -1,30 +1,16 @@
--- Add 'setup' to league status check
-alter table public.leagues drop constraint leagues_status_check;
-alter table public.leagues add constraint leagues_status_check 
-  check (status in ('setup', 'active', 'inactive', 'completed'));
+-- Add Session Configuration columns to leagues
+ALTER TABLE public.leagues 
+ADD COLUMN IF NOT EXISTS time_slots jsonb DEFAULT '[]'::jsonb,
+ADD COLUMN IF NOT EXISTS table_names jsonb DEFAULT '[]'::jsonb,
+ADD COLUMN IF NOT EXISTS table_count int DEFAULT 0;
 
--- League Players table (Many-to-Many)
-create table public.league_players (
-  id uuid primary key default uuid_generate_v4(),
-  league_id uuid references public.leagues(id) not null,
-  player_id text references public.profiles(id) not null,
-  joined_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  unique(league_id, player_id)
-);
+-- Add Match Assignment columns to matches
+ALTER TABLE public.matches
+ADD COLUMN IF NOT EXISTS scheduled_time text,
+ADD COLUMN IF NOT EXISTS table_name text;
 
--- RLS for league_players
-alter table public.league_players enable row level security;
-
-create policy "League players viewable by everyone"
-  on public.league_players for select
-  using ( true );
-
-create policy "Operators can manage league players"
-  on public.league_players for all
-  using ( 
-    exists (
-      select 1 from public.leagues 
-      where id = league_players.league_id 
-      and operator_id = auth.uid()::text
-    )
-  );
+-- Comment on columns
+COMMENT ON COLUMN public.leagues.time_slots IS 'List of available time slots for matches (e.g. ["19:00", "20:30"])';
+COMMENT ON COLUMN public.leagues.table_names IS 'List of available table names (e.g. ["Table 1", "Table 2"])';
+COMMENT ON COLUMN public.matches.scheduled_time IS 'Assigned time for the match (e.g. "19:00")';
+COMMENT ON COLUMN public.matches.table_name IS 'Assigned table for the match (e.g. "Table 1")';

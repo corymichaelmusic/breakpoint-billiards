@@ -42,12 +42,14 @@ interface NextMatchCardProps {
     p1SubmittedAt?: string | null;
     p2SubmittedAt?: string | null;
     races?: { p1_8: number; p2_8: number; p1_9: number; p2_9: number; };
+    scheduledTime?: string;
+    tableName?: string;
 }
 
 export default function NextMatchCard({
     opponentName, opponentRating, date, isLocked, matchId, leagueName, sessionName, weekNumber, status,
     player1Id, player2Id, paymentStatusP1, paymentStatusP2, label, scores, specialStats, verificationStatus,
-    p1SubmittedAt, p2SubmittedAt, races
+    p1SubmittedAt, p2SubmittedAt, races, scheduledTime, tableName
 }: NextMatchCardProps) {
     const [isRequesting, setIsRequesting] = useState(false);
     const { getToken, userId } = useAuth();
@@ -306,6 +308,27 @@ export default function NextMatchCard({
                     </Text>
                 )}
             </View>
+
+            {/* Table & Time Display */}
+            {(scheduledTime || tableName) && (
+                <View className="flex-row gap-3 mb-2">
+                    {scheduledTime && (
+                        <View className="bg-surface-hover px-2 py-1 rounded border border-white/10">
+                            <Text className="text-gray-300 text-[10px] uppercase font-bold tracking-wide">
+                                🕒 {scheduledTime}
+                            </Text>
+                        </View>
+                    )}
+                    {tableName && (
+                        <View className="bg-surface-hover px-2 py-1 rounded border border-white/10">
+                            <Text className="text-gray-300 text-[10px] uppercase font-bold tracking-wide">
+                                🎱 {tableName}
+                            </Text>
+                        </View>
+                    )}
+                </View>
+            )}
+
             {leagueName && <Text className="text-gray-300 text-sm">{leagueName}</Text>}
             {sessionName && <Text className="text-gray-500 text-xs mb-2">{sessionName}</Text>}
 

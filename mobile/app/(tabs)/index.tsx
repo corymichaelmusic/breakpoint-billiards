@@ -121,8 +121,9 @@ export default function HomeScreen() {
             total_break_and_runs_9ball, total_rack_and_runs_9ball, total_nine_on_snap,
             leagues!inner (
                 id, name, type, status, start_date,
+                location, city,
                 bounty_val_8_run, bounty_val_9_run, bounty_val_9_snap, bounty_val_shutout,
-                parent_league:parent_league_id(name, bounty_val_8_run, bounty_val_9_run, bounty_val_9_snap, bounty_val_shutout)
+                parent_league:parent_league_id(name, location, city, bounty_val_8_run, bounty_val_9_run, bounty_val_9_snap, bounty_val_shutout)
             )
         `)
         .eq("player_id", userId)
@@ -529,6 +530,7 @@ export default function HomeScreen() {
         {activeSession?.parent_league?.name && (
           <Text className="text-primary font-bold tracking-widest uppercase text-sm mt-1" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
             {activeSession.parent_league.name}
+            {(activeSession.parent_league.location || activeSession.location) ? ` | ${activeSession.parent_league.location || activeSession.location}` : ''}
           </Text>
         )}
         {bountyDisplay && (
@@ -727,6 +729,8 @@ export default function HomeScreen() {
                     p1SubmittedAt={nextMatch.p1_submitted_at}
                     p2SubmittedAt={nextMatch.p2_submitted_at}
                     races={racesForCard}
+                    scheduledTime={nextMatch.scheduled_time}
+                    tableName={nextMatch.table_name}
                   />
                 );
               })()

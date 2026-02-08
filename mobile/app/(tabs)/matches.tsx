@@ -217,6 +217,8 @@ export default function MatchesScreen() {
                                 p1SubmittedAt={match.p1_submitted_at}
                                 p2SubmittedAt={match.p2_submitted_at}
                                 races={racesForCard}
+                                scheduledTime={match.scheduled_time}
+                                tableName={match.table_name}
                             />
                         );
                     })

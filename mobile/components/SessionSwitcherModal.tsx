@@ -100,6 +100,23 @@ export default function SessionSwitcherModal({ visible, onClose }: SessionSwitch
                                                     {session.parentLeagueName}
                                                 </Text>
                                             )}
+                                            {(session.location || session.city) && (
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                                                    <FontAwesome5 name="map-marker-alt" size={12} color="#9CA3AF" />
+                                                    <Text style={{ color: '#9CA3AF', fontSize: 12, marginLeft: 4 }}>
+                                                        {session.location ? `${session.location}` : ''}
+                                                        {session.location && session.city ? `, ${session.city}` : session.city}
+                                                    </Text>
+                                                </View>
+                                            )}
+                                            {session.scheduleDay && (
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                                                    <FontAwesome5 name="calendar-alt" size={12} color="#D4AF37" />
+                                                    <Text style={{ color: '#D4AF37', fontSize: 12, marginLeft: 4, fontWeight: 'bold' }}>
+                                                        {session.scheduleDay}s
+                                                    </Text>
+                                                </View>
+                                            )}
                                             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
                                                 <View style={{
                                                     paddingHorizontal: 8,
