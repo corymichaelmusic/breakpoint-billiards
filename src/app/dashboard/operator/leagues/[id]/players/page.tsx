@@ -9,16 +9,16 @@ import RatingConversionCalculator from "@/components/RatingConversionCalculator"
 import BackButton from "@/components/BackButton";
 import PlayerStatusControl from "@/components/PlayerStatusControl";
 
+import { verifyOperator } from "@/utils/auth-helpers";
+
 export default async function LeaguePlayersPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params; // League Org ID
-    const { userId } = await auth();
-    if (!userId) redirect("/sign-in");
+    const { userId } = await verifyOperator(id);
 
     const supabase = await createClient();
     const adminClient = createAdminClient();
 
-    // Verify ownership
-    // Verify ownership or access
+    // Fetch league details
     const { data: league } = await adminClient
         .from("leagues")
         .select("*")
@@ -36,34 +36,6 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
             .single();
         if (parent) parentLeagueName = parent.name;
     }
-
-
-    // Check permissions
-    let hasAccess = league.operator_id === userId;
-
-    if (!hasAccess) {
-        // Check if assigned operator
-        const { count } = await adminClient
-            .from("league_operators")
-            .select("*", { count: 'exact', head: true })
-            .eq("league_id", id)
-            .eq("user_id", userId);
-
-        if (count && count > 0) hasAccess = true;
-    }
-
-    if (!hasAccess) {
-        // Check if global admin
-        const { data: profile } = await adminClient
-            .from("profiles")
-            .select("role")
-            .eq("id", userId)
-            .single();
-
-        if (profile?.role === 'admin') hasAccess = true;
-    }
-
-    if (!hasAccess) redirect("/dashboard/operator");
 
     // Fetch all sessions for this league org
     const { data: sessions } = await supabase

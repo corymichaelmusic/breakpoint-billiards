@@ -9,10 +9,11 @@ import SubscriptionManager from "@/components/SubscriptionManager";
 import Image from "next/image";
 import BreakpointRatingEditor from "@/components/BreakpointRatingEditor";
 
+import { verifyAdmin } from "@/utils/auth-helpers";
+
 export default async function AdminPlayerPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
-    const { userId } = await auth();
-    if (!userId) redirect("/sign-in");
+    const { userId } = await verifyAdmin();
 
     const supabase = await createClient();
 

@@ -6,9 +6,10 @@ import { redirect } from "next/navigation";
 import UnlockRequestAction from "@/components/UnlockRequestAction";
 import { createAdminClient } from "@/utils/supabase/admin";
 
+import { verifyOperator } from "@/utils/auth-helpers";
+
 export default async function OperatorDashboard() {
-    const { userId } = await auth();
-    if (!userId) redirect("/sign-in");
+    const { userId } = await verifyOperator();
 
     const supabase = createAdminClient();
 

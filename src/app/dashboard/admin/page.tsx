@@ -18,30 +18,21 @@ import DeleteSessionButton from "@/components/DeleteSessionButton";
 import LandingPageSettingsForm from "@/components/LandingPageSettingsForm";
 import AdminLeagueCard from "@/components/AdminLeagueCard";
 
+import { verifyAdmin } from "@/utils/auth-helpers";
+
 // Force dynamic rendering to ensure fresh data on each request
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
 
-    const { userId } = await auth();
-    if (!userId) redirect("/sign-in");
+    const { userId } = await verifyAdmin();
 
     const resolvedSearchParams = await searchParams;
     const playerView = (typeof resolvedSearchParams.player_status === 'string' ? resolvedSearchParams.player_status : 'active') as 'active' | 'deactivated';
     const roleFilter = (typeof resolvedSearchParams.role_filter === 'string' ? resolvedSearchParams.role_filter : 'all');
 
     const supabase = await createClient();
-
-    // Verify Admin Role (Double check)
-    const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", userId)
-        .single();
-
-    if (profile?.role !== 'admin') {
-        redirect("/dashboard/operator");
-    }
+    const adminSupabase = createAdminClient();
 
     // Fetch Financial Settings
     const { data: settings } = await supabase
@@ -64,7 +55,6 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
 
     // Application View Logic
     const showAllApps = resolvedSearchParams.app_view === 'all';
-    const adminSupabase = createAdminClient();
 
     let applicationsQuery = adminSupabase
         .from("operator_applications")

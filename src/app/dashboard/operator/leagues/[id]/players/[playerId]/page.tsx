@@ -6,18 +6,13 @@ import { getPlayerLeagueStats, getPlayerLifetimeStats } from "@/app/actions/stat
 import BackButton from "@/components/BackButton";
 import { PlayerStats } from "@/utils/stats-calculator";
 
+import { verifyOperator } from "@/utils/auth-helpers";
+
 export default async function OperatorPlayerSessionPage({ params }: { params: Promise<{ id: string, playerId: string }> }) {
     const { id: sessionId, playerId } = await params;
-    const { userId } = await auth();
-    if (!userId) redirect("/sign-in");
+    const { userId } = await verifyOperator(sessionId);
 
     const supabase = await createClient();
-
-    // Verify Operator Role
-    const { data: currentUser } = await supabase.from("profiles").select("role").eq("id", userId).single();
-    if (currentUser?.role !== 'operator' && currentUser?.role !== 'admin') {
-        redirect("/dashboard");
-    }
 
     // Fetch Data in Initial Load
     // Use getPlayerLeagueStats to handle Parent League aggregation if 'sessionId' is actually a League ID

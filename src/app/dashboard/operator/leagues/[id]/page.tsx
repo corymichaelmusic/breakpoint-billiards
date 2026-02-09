@@ -12,10 +12,11 @@ import { createAdminClient } from "@/utils/supabase/admin";
 import GenerateScheduleForm from "@/components/GenerateScheduleForm";
 import ResetMatchButton from "@/components/ResetMatchButton";
 
+import { verifyOperator } from "@/utils/auth-helpers";
+
 export default async function LeaguePage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
-    const { userId } = await auth();
-    if (!userId) redirect("/sign-in");
+    const { userId } = await verifyOperator(id);
 
     const supabase = createAdminClient();
 

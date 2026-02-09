@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/utils/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { checkOperator } from "@/utils/auth-helpers";
 
 export async function createSession(
     parentLeagueId: string,
@@ -121,8 +122,7 @@ export async function createSession(
 }
 
 export async function addPlayersToSession(sessionId: string, playerIds: string[]) {
-    const { createClient } = await import("@/utils/supabase/server");
-    const supabase = await createClient(); // Authenticated client
+    const supabase = createAdminClient(); // Use admin client for insert after auth check
     const { auth } = await import("@clerk/nextjs/server");
     const { userId } = await auth();
 
@@ -142,51 +142,10 @@ export async function addPlayersToSession(sessionId: string, playerIds: string[]
 
     if (!session || !session.parent_league_id) return { error: "Session not found or invalid." };
 
-    const { data: parentLeague } = await supabase
-        .from("leagues")
-        .select("operator_id")
-        .eq("id", session.parent_league_id)
-        .single();
-
-    if (!parentLeague) return { error: "Parent league not found." };
-
-    // Check if user is the operator (or Admin - though admin client would bypass this, here we use auth client which RLS might block if not admin, but owner has rights)
-    // Actually, RLS usually allows INSERT if you own the resource. 
-    // But since we are inserting into `league_players`, the RLS policy for `league_players` might be complex.
-    // If the RLS allows "Operator of league can insert players", then `createClient` is sufficient.
-    // IF NOT, we might STILL need `createAdminClient` BUT ONLY AFTER WE VERIFY HERE.
-    // Given the audit complaint was "Admin Client Overuse" and "No Verification", 
-    // The BEST fix is: Verify here, THEN use Admin Client if RLS is too restrictive, OR fix RLS.
-    // For now, let's explicitely VERIFY here, and if we stick to `supabase` (authed), we assume RLS exists.
-    // If RLS is missing for operators, `createClient` might fail.
-    // SAFE APPROACH: Explicitly check operator_id here.
-
-    // Check Admin Role
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
-    const isAdmin = profile?.role === 'admin';
-
-    let isAuthorized = parentLeague.operator_id === userId || isAdmin;
-
-    if (!isAuthorized) {
-        const { data: assigned } = await supabase
-            .from("league_operators")
-            .select("id")
-            .eq("league_id", session.parent_league_id)
-            .eq("user_id", userId)
-            .single();
-        if (assigned) isAuthorized = true;
-    }
-
+    const { isAuthorized } = await checkOperator(session.parent_league_id);
     if (!isAuthorized) {
         return { error: "Unauthorized. Only the League Operator can add players." };
     }
-
-    // Now we are authorized.
-    // We can use `createAdminClient` if we need to bypass RLS for the actual insert (if RLS is strict on 'public' inserting to others tables),
-    // OR use the authed client. 
-    // The Audit says "Should Be: const supabase = await createClient(); // Uses JWT".
-    // So let's try using the authed client. If it fails due to RLS, we fix RLS or revert to Admin-after-check.
-    // However, mass-inserting usually requires admin privileges or RLS "insert if user is operator of league_id".
 
     const records = playerIds.map(pid => ({
         league_id: sessionId,
@@ -209,8 +168,7 @@ export async function addPlayersToSession(sessionId: string, playerIds: string[]
 }
 
 export async function syncSessionPlayers(sessionId: string, playerIds: string[]) {
-    const { createClient } = await import("@/utils/supabase/server");
-    const supabase = await createClient();
+    const supabase = createAdminClient(); // Use admin client for insert/delete after auth check
     const { auth } = await import("@clerk/nextjs/server");
     const { userId } = await auth();
 
@@ -220,24 +178,7 @@ export async function syncSessionPlayers(sessionId: string, playerIds: string[])
     const { data: session } = await supabase.from("leagues").select("parent_league_id").eq("id", sessionId).single();
     if (!session || !session.parent_league_id) return { error: "Session invalid." };
 
-    const { data: parentLeague } = await supabase.from("leagues").select("operator_id").eq("id", session.parent_league_id).single();
-    if (!parentLeague) return { error: "Parent league not found." };
-
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
-    const isAdmin = profile?.role === 'admin';
-
-    let isAuthorized = parentLeague.operator_id === userId || isAdmin;
-
-    if (!isAuthorized) {
-        const { data: assigned } = await supabase
-            .from("league_operators")
-            .select("id")
-            .eq("league_id", session.parent_league_id)
-            .eq("user_id", userId)
-            .single();
-        if (assigned) isAuthorized = true;
-    }
-
+    const { isAuthorized } = await checkOperator(session.parent_league_id);
     if (!isAuthorized) {
         return { error: "Unauthorized. Only the League Operator can sync players." };
     }
@@ -296,6 +237,9 @@ export async function generateSchedule(
     inputTableNames: string[] = [],
     overrideStartDate?: string
 ) {
+    const { isAuthorized } = await checkOperator(leagueId);
+    if (!isAuthorized) return { error: "Unauthorized" };
+
     const supabase = createAdminClient();
 
     console.log(`[generateSchedule] Called for League: ${leagueId}, OverrideStart: ${overrideStartDate}`);
@@ -491,6 +435,9 @@ export async function generateSchedule(
 export async function startSeason(leagueId: string) {
     const supabase = createAdminClient();
 
+    const { isAuthorized } = await checkOperator(leagueId);
+    if (!isAuthorized) return { error: "Unauthorized" };
+
     // Check fee status
     const { data: league } = await supabase.from("leagues").select("creation_fee_status").eq("id", leagueId).single();
 
@@ -534,6 +481,9 @@ export async function joinLeague(leagueId: string, userId: string) {
 }
 
 export async function approvePlayer(leagueId: string, playerId: string) {
+    const { isAuthorized } = await checkOperator(leagueId);
+    if (!isAuthorized) return { error: "Unauthorized" };
+
     const supabase = createAdminClient();
 
     const { error } = await supabase
@@ -580,6 +530,9 @@ export async function approvePlayer(leagueId: string, playerId: string) {
 }
 
 export async function rejectPlayer(leagueId: string, playerId: string) {
+    const { isAuthorized } = await checkOperator(leagueId);
+    if (!isAuthorized) return { error: "Unauthorized" };
+
     const supabase = createAdminClient();
 
     const { error } = await supabase
@@ -599,6 +552,13 @@ export async function rejectPlayer(leagueId: string, playerId: string) {
 
 export async function markMatchPaid(matchId: string, playerId: string, method: 'cash' | 'waived' | 'unpaid') {
     const supabase = createAdminClient();
+
+    // Fetch match to get leagueId
+    const { data: matchData } = await supabase.from("matches").select("league_id").eq("id", matchId).single();
+    if (!matchData) return { error: "Match not found" };
+
+    const { isAuthorized } = await checkOperator(matchData.league_id);
+    if (!isAuthorized) return { error: "Unauthorized" };
 
     // Determine if player is p1 or p2
     const { data: match } = await supabase.from("matches").select("player1_id, player2_id").eq("id", matchId).single();
@@ -631,6 +591,9 @@ export async function markMatchPaid(matchId: string, playerId: string, method: '
 }
 
 export async function submitLeagueResults(leagueId: string) {
+    const { isAuthorized } = await checkOperator(leagueId);
+    if (!isAuthorized) return { error: "Unauthorized" };
+
     const supabase = createAdminClient();
 
     const { error } = await supabase
@@ -723,33 +686,13 @@ export async function updateLeagueDetails(leagueId: string, data: {
     bounty_val_shutout?: number
 }) {
     const supabase = createAdminClient();
-    const { auth } = await import("@clerk/nextjs/server");
-    const { userId } = await auth();
 
-    if (!userId) return { error: "Unauthorized" };
-
-    console.log(`[updateLeagueDetails] Attempting update for league: ${leagueId} by user: ${userId}`);
+    console.log(`[updateLeagueDetails] Attempting update for league: ${leagueId}`);
 
     // Verify ownership or Admin role
-    const { data: league } = await supabase
-        .from("leagues")
-        .select("operator_id")
-        .eq("id", leagueId)
-        .single();
-
-    const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", userId)
-        .single();
-
-    const isAdmin = profile?.role === 'admin';
-
-    console.log(`[updateLeagueDetails] Found league:`, league);
-    console.log(`[updateLeagueDetails] User role: ${profile?.role}, Is Admin: ${isAdmin}`);
-
-    if (!league || (league.operator_id !== userId && !isAdmin)) {
-        console.error(`[updateLeagueDetails] Unauthorized. League Operator: ${league?.operator_id}, Current User: ${userId}, Is Admin: ${isAdmin}`);
+    const { isAuthorized } = await checkOperator(leagueId);
+    if (!isAuthorized) {
+        console.error(`[updateLeagueDetails] Unauthorized for league: ${leagueId}`);
         return { error: "Unauthorized to edit this league." };
     }
 
@@ -856,6 +799,9 @@ export async function joinSession(sessionId: string) {
 }
 
 export async function updateSessionPaymentStatus(sessionId: string, playerId: string, status: string) {
+    const { isAuthorized } = await checkOperator(sessionId);
+    if (!isAuthorized) return { error: "Unauthorized" };
+
     const supabase = createAdminClient();
 
     const { error } = await supabase
@@ -875,38 +821,18 @@ export async function updateSessionPaymentStatus(sessionId: string, playerId: st
 
 export async function resetSchedule(leagueId: string) {
     const supabase = createAdminClient();
-    const { auth } = await import("@clerk/nextjs/server");
-    const { userId } = await auth();
 
-    if (!userId) return { error: "Unauthorized" };
+    const { isAuthorized } = await checkOperator(leagueId);
+    if (!isAuthorized) return { error: "Unauthorized" };
 
-    // 1. Verify ownership
+    // 1. Verify league status
     const { data: league } = await supabase
         .from("leagues")
-        .select("operator_id, status, parent_league_id")
+        .select("status")
         .eq("id", leagueId)
         .single();
 
     if (!league) return { error: "League not found" };
-
-    // Check permissions
-    let isAuthorized = league.operator_id === userId;
-
-    if (!isAuthorized) {
-        // Check Admin
-        const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
-        if (profile?.role === 'admin') {
-            isAuthorized = true;
-        } else {
-            // Check Assigned Operator (if session, check parent; if league, check self)
-            // But normally resetSchedule is for sessions.
-            const targetId = league.parent_league_id || leagueId;
-            const { data: assigned } = await supabase.from("league_operators").select("id").eq("league_id", targetId).eq("user_id", userId).single();
-            if (assigned) isAuthorized = true;
-        }
-    }
-
-    if (!isAuthorized) return { error: "Unauthorized" };
     if (league.status !== 'setup') return { error: "Can only reset schedule in setup mode." };
 
     // 2. Delete matches (and games via cascade or manual)
@@ -947,42 +873,9 @@ export async function resetSchedule(leagueId: string) {
 
 export async function updateLeague(leagueId: string, updates: any) {
     const supabase = createAdminClient();
-    const { userId } = await import("@clerk/nextjs/server").then(mod => mod.auth());
-    if (!userId) return { error: "Unauthorized" };
 
-    // Verify operator
-    const { data: league } = await supabase.from("leagues").select("operator_id, parent_league_id").eq("id", leagueId).single();
-    if (!league) return { error: "League not found" };
-
-    // If it's a session, check parent league operator
-    let targetLeagueId = leagueId;
-    let operatorId = league.operator_id;
-
-    if (league.parent_league_id) {
-        targetLeagueId = league.parent_league_id;
-        const { data: parent } = await supabase.from("leagues").select("operator_id").eq("id", league.parent_league_id).single();
-        operatorId = parent?.operator_id;
-    }
-
-    if (operatorId !== userId) {
-        // Check if global admin
-        const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
-        if (profile?.role === 'admin') {
-            // Authorized
-        } else {
-            // Check if assigned operator for the TARGET league (Parent)
-            const { data: assigned } = await supabase
-                .from("league_operators")
-                .select("id")
-                .eq("league_id", targetLeagueId)
-                .eq("user_id", userId)
-                .single();
-
-            if (!assigned) {
-                return { error: "Unauthorized" };
-            }
-        }
-    }
+    const { isAuthorized } = await checkOperator(leagueId);
+    if (!isAuthorized) return { error: "Unauthorized" };
 
     const { error } = await supabase
         .from("leagues")
@@ -997,33 +890,13 @@ export async function updateLeague(leagueId: string, updates: any) {
 
 
 export async function resetMatch(matchId: string, gameType: string) {
+    // 1. Get match to check league_id and verify operator
     const supabase = createAdminClient();
-    const { auth } = await import("@clerk/nextjs/server");
-    const { userId } = await auth();
-
-    if (!userId) return { error: "Unauthorized" };
-
-    // 1. Verify ownership (Operator of the league this match belongs to)
     const { data: match } = await supabase.from("matches").select("league_id").eq("id", matchId).single();
     if (!match) return { error: "Match not found" };
 
-    const { data: league } = await supabase.from("leagues").select("operator_id, parent_league_id").eq("id", match.league_id).single();
-    if (!league) return { error: "League not found" };
-
-    // Check operator (or parent operator if session)
-    let operatorId = league.operator_id;
-    if (league.parent_league_id) {
-        const { data: parent } = await supabase.from("leagues").select("operator_id").eq("id", league.parent_league_id).single();
-        operatorId = parent?.operator_id;
-    }
-
-    // Check Admin
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
-    const isAdmin = profile?.role === 'admin';
-
-    if (operatorId !== userId && !isAdmin) {
-        return { error: "Unauthorized" };
-    }
+    const { isAuthorized } = await checkOperator(match.league_id);
+    if (!isAuthorized) return { error: "Unauthorized" };
 
     // 2. Call RPC
     const { error } = await supabase.rpc('reset_match_stats', {
@@ -1126,9 +999,10 @@ export async function approveSessionReset(leagueId: string) {
 }
 
 export async function addPlayerToSession(sessionId: string, playerId: string) {
+    const { isAuthorized } = await checkOperator(sessionId);
+    if (!isAuthorized) return { error: "Unauthorized" };
+
     const supabase = createAdminClient();
-    const { userId } = await import("@clerk/nextjs/server").then(mod => mod.auth());
-    if (!userId) return { error: "Unauthorized" };
 
     const { error } = await supabase
         .from("league_players")
@@ -1146,9 +1020,10 @@ export async function addPlayerToSession(sessionId: string, playerId: string) {
 }
 
 export async function removePlayerFromSession(sessionId: string, playerId: string) {
+    const { isAuthorized } = await checkOperator(sessionId);
+    if (!isAuthorized) return { error: "Unauthorized" };
+
     const supabase = createAdminClient();
-    const { userId } = await import("@clerk/nextjs/server").then(mod => mod.auth());
-    if (!userId) return { error: "Unauthorized" };
 
     const { error } = await supabase
         .from("league_players")
