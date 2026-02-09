@@ -27,6 +27,17 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
 
     if (!league) redirect("/dashboard/operator");
 
+    let parentLeagueName = "";
+    if (league.parent_league_id) {
+        const { data: parent } = await adminClient
+            .from("leagues")
+            .select("name")
+            .eq("id", league.parent_league_id)
+            .single();
+        if (parent) parentLeagueName = parent.name;
+    }
+
+
     // Check permissions
     let hasAccess = league.operator_id === userId;
 
@@ -89,19 +100,29 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
 
             // FIX: If we are viewing a specific Session, include it in the Active Sessions list
             if (league.type === 'session') {
+                const displayName = parentLeagueName
+                    ? `${parentLeagueName} - ${p.leagues?.name}`
+                    : p.leagues?.name;
+
                 player.sessions.push({
-                    name: p.leagues?.name,
+                    name: displayName,
                     status: p.status,
                     payment: p.payment_status
                 });
             }
         } else {
+            // Hide the parent league tag if it exists (so it doesn't show "Money Mondays" as a separate tag)
+            if (league.type === 'session' && p.league_id === league.parent_league_id) {
+                return;
+            }
+
             player.sessions.push({
                 name: p.leagues?.name,
                 status: p.status,
                 payment: p.payment_status
             });
         }
+
     });
 
     const playerList = Array.from(uniquePlayers.values());
