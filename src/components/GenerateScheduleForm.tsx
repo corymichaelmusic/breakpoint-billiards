@@ -315,10 +315,13 @@ export default function GenerateScheduleForm({
                                 <button
                                     type="button"
                                     onClick={() => setTableNames([...tableNames, ""])}
-                                    className="text-xs text-[#D4AF37] hover:underline flex items-center gap-1 mt-2"
+                                    className="btn btn-sm mt-4 border-none text-black font-bold flex items-center gap-2 hover:opacity-90"
+                                    style={{ backgroundColor: '#D4AF37' }}
                                 >
                                     + Add Table
                                 </button>
+                                {/* Spacer */}
+                                <div className="h-4"></div>
                             </div>
                         )}
                     </div>
