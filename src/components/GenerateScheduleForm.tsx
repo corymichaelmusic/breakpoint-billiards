@@ -62,7 +62,8 @@ export default function GenerateScheduleForm({
             const timeSlotsArray = useTimeSlots ? timeSlots.map(s => s.trim()).filter(s => s) : [];
             const tableNamesArray = useTables ? tableNames.map(s => s.trim()).filter(s => s) : [];
 
-            const res = await generateSchedule(leagueId, skipDates, timeSlotsArray, tableNamesArray);
+            // Pass startDate to ensure we use the client-side value even if updateLeague hasn't propagated
+            const res = await generateSchedule(leagueId, skipDates, timeSlotsArray, tableNamesArray, startDate);
 
             if (res?.error) {
                 if (res.error === 'NOT_ENOUGH_PLAYERS') {
@@ -86,7 +87,7 @@ export default function GenerateScheduleForm({
     return (
         <form onSubmit={handleSubmit} className="bg-surface/30 p-4 rounded border border-border">
             {error && (
-                <div className="bg-error/10 border border-error text-error text-sm p-2 rounded mb-4">
+                <div className="bg-red-900/20 border border-red-500 text-red-500 text-sm p-2 rounded mb-4 font-bold">
                     {error}
                 </div>
             )}

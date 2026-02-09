@@ -293,28 +293,41 @@ export async function generateSchedule(
     leagueId: string,
     skipDates: string[] = [],
     inputTimeSlots: string[] = [],
-    inputTableNames: string[] = []
+    inputTableNames: string[] = [],
+    overrideStartDate?: string
 ) {
     const supabase = createAdminClient();
 
-    // 0. Update League Config if provided (Time Slots / Tables)
-    if ((inputTimeSlots && inputTimeSlots.length > 0) || (inputTableNames && inputTableNames.length > 0)) {
-        const updateData: any = {};
-        if (inputTimeSlots && inputTimeSlots.length > 0) updateData.time_slots = inputTimeSlots;
-        if (inputTableNames && inputTableNames.length > 0) {
-            updateData.table_names = inputTableNames;
-            updateData.table_count = inputTableNames.length;
-        }
+    // 0. Update League Config if provided (Time Slots / Tables / Start Date if forced)
+    const updateData: any = {};
+    if (inputTimeSlots && inputTimeSlots.length > 0) updateData.time_slots = inputTimeSlots;
+    if (inputTableNames && inputTableNames.length > 0) {
+        updateData.table_names = inputTableNames;
+        updateData.table_count = inputTableNames.length;
+    }
+    // If overrideStartDate is provided, ensure it's saved/updated in case updateLeague missed it
+    if (overrideStartDate) {
+        updateData.start_date = overrideStartDate;
+    }
 
+    if (Object.keys(updateData).length > 0) {
         await supabase.from("leagues").update(updateData).eq("id", leagueId);
     }
 
     // 0. Check Fee Status and Start Date
     const { data: league } = await supabase.from("leagues").select("creation_fee_status, start_date, time_slots, table_names").eq("id", leagueId).single();
-    if (league?.creation_fee_status === 'unpaid') {
+
+    // Use overrideStartDate if present, otherwise DB value
+    const effectiveStartDate = overrideStartDate || league?.start_date;
+
+    if (!league) {
+        return { error: "League not found." };
+    }
+
+    if (league.creation_fee_status === 'unpaid') {
         return { error: "Session creation fee must be paid or waived by Admin before generating schedule." };
     }
-    if (!league?.start_date) {
+    if (!effectiveStartDate) {
         return { error: "Session must have a Start Date set before generating schedule." };
     }
 
@@ -355,7 +368,7 @@ export async function generateSchedule(
     const totalMatchWeeks = 16; // We want 16 weeks of PLAY
 
     // Parse start date explicitly
-    const [y, m, d] = league.start_date.split('-').map(Number);
+    const [y, m, d] = effectiveStartDate.split('-').map(Number);
     const startDate = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
 
     // Helper to check if a date is skipped
