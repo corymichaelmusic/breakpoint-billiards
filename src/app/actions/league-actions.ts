@@ -341,6 +341,9 @@ export async function generateSchedule(
 
     const playerIds = leaguePlayers.map(lp => lp.player_id);
 
+    // Randomize player order for random initial matchups
+    playerIds.sort(() => Math.random() - 0.5);
+
     // 2. Generate Round Robin Schedule
     if (playerIds.length % 2 !== 0) {
         playerIds.push("bye");
@@ -402,23 +405,26 @@ export async function generateSchedule(
         // Now pair them up
         let matchIndexInWeek = 0;
 
+        // Generate shuffled slot indices for this week to randomize Time/Table assignment
+        const totalSlots = timeSlots.length * tableNames.length;
+        const numMatches = Math.floor(n / 2);
+        const availableSlotIndices: number[] = [];
+        for (let k = 0; k < numMatches; k++) {
+            availableSlotIndices.push(k % totalSlots);
+        }
+        // Fisher-Yates Shuffle for better randomness
+        for (let i = availableSlotIndices.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [availableSlotIndices[i], availableSlotIndices[j]] = [availableSlotIndices[j], availableSlotIndices[i]];
+        }
+
         for (let i = 0; i < n / 2; i++) {
             const p1 = currentPlayers[i];
             const p2 = currentPlayers[n - 1 - i];
 
             if (p1 !== "bye" && p2 !== "bye") {
-                // Assign Time and Table
-                // Logic: Fill all tables for the first time slot, then move to next time slot
-                // totalSlots = timeSlots.length * tableNames.length
-                // slotIndex = matchIndexInWeek % totalSlots
-                // timeIndex = floor(slotIndex / tableNames.length)
-                // tableIndex = slotIndex % tableNames.length
-
-                // If matches > slots, we loop back to start (doubling up on a table/time)
-                // or we could distribute evenly. Round Robin logic usually keeps matches per week = N/2.
-
-                const totalSlots = timeSlots.length * tableNames.length;
-                const slotIndex = matchIndexInWeek % totalSlots;
+                // Assign Time and Table using shuffled slots
+                const slotIndex = availableSlotIndices[matchIndexInWeek];
 
                 const timeIndex = Math.floor(slotIndex / tableNames.length) % timeSlots.length;
                 const tableIndex = slotIndex % tableNames.length;
