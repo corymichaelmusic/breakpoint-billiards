@@ -313,16 +313,23 @@ export default function NextMatchCard({
             {(scheduledTime || tableName) && (
                 <View className="flex-row gap-3 mb-2">
                     {scheduledTime && (
-                        <View className="bg-surface-hover px-2 py-1 rounded border border-white/10">
-                            <Text className="text-gray-300 text-[10px] uppercase font-bold tracking-wide">
-                                🕒 {scheduledTime}
+                        <View className="bg-[#D4AF37]/10 px-2 py-1 rounded border border-[#D4AF37]/50">
+                            <Text className="text-[#D4AF37] text-[10px] uppercase font-bold tracking-wide">
+                                {(() => {
+                                    if (!scheduledTime.includes(':')) return scheduledTime;
+                                    const [h, m] = scheduledTime.split(':');
+                                    const hour = parseInt(h, 10);
+                                    const suffix = hour >= 12 ? 'PM' : 'AM';
+                                    const hour12 = hour % 12 || 12;
+                                    return `${hour12}:${m} ${suffix}`;
+                                })()}
                             </Text>
                         </View>
                     )}
                     {tableName && (
-                        <View className="bg-surface-hover px-2 py-1 rounded border border-white/10">
-                            <Text className="text-gray-300 text-[10px] uppercase font-bold tracking-wide">
-                                🎱 {tableName}
+                        <View className="bg-[#D4AF37]/10 px-2 py-1 rounded border border-[#D4AF37]/50">
+                            <Text className="text-[#D4AF37] text-[10px] uppercase font-bold tracking-wide">
+                                {tableName}
                             </Text>
                         </View>
                     )}

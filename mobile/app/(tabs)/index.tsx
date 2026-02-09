@@ -12,6 +12,8 @@ import BreakpointGraph from "../../components/BreakpointGraph";
 import { calculateEloChange, getBreakpointLevel, fetchMatchRaces } from "../../utils/rating";
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useSession } from "../../lib/SessionContext";
+import MatchReminderBanner from "../../components/MatchReminderBanner";
+import { registerForPushNotificationsAsync, scheduleMatchReminder } from "../../utils/notifications";
 
 export default function HomeScreen() {
   const { userId, signOut, getToken } = useAuth();
@@ -31,6 +33,7 @@ export default function HomeScreen() {
   const [stats, setStats] = useState<any>({ winRate: 0, wl: "0-0", shutouts: 0, rank: "N/A", stats8: {}, stats9: {} });
   const [ratingHistory, setRatingHistory] = useState<any[]>([]);
   const [nextMatch, setNextMatch] = useState<any>(null);
+  const [globalNextMatch, setGlobalNextMatch] = useState<any>(null);
   const [races, setRaces] = useState<Record<string, any>>({});
   const [bountyDisplay, setBountyDisplay] = useState(false);
   const [bountyAmount, setBountyAmount] = useState(0);
@@ -39,6 +42,10 @@ export default function HomeScreen() {
     val8: number; val9: number; valSnap: number; valShutout: number;
     bnr8: number; bnr9: number; snaps: number; shutoutsCount: number;
   } | null>(null);
+
+  useEffect(() => {
+    registerForPushNotificationsAsync();
+  }, []);
 
   const lastFetchTime = useRef<number>(0);
   const lastFetchedSessionId = useRef<string | null>(null);
@@ -413,7 +420,56 @@ export default function HomeScreen() {
         return !isFullyFinalized;
       });
       setNextMatch(nextUp);
-      setNextMatch(nextUp);
+
+      // Fetch Global Next Match for Banner (Across ALL leagues)
+      // Only fetch if we have a user
+      if (userId) {
+        const { data: globalMatchData } = await supabaseAuthenticated
+          .from("matches")
+          .select(`
+              *,
+              player1:player1_id(full_name),
+              player2:player2_id(full_name),
+              leagues(name, location, parent_league:parent_league_id(name))
+            `)
+          .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
+          .neq('status', 'finalized')
+          .neq('status', 'completed') // Assuming completed is also a final state
+          .gte('scheduled_date', new Date().toISOString().split('T')[0]) // Only future or today
+          .order("scheduled_date", { ascending: true })
+          .limit(1)
+          .single();
+
+        if (globalMatchData) {
+          const sessionName = globalMatchData.leagues?.name;
+          const parentName = globalMatchData.leagues?.parent_league?.name;
+          const location = globalMatchData.leagues?.location;
+
+          // Fetch dismissal status
+          const { data: dismissalData, error: dismissalError } = await supabaseAuthenticated
+            .from('dismissed_reminders')
+            .select('reminder_type')
+            .eq('user_id', userId)
+            .eq('match_id', globalMatchData.id);
+
+          if (dismissalError) console.error("[Dismissal] Fetch Error:", dismissalError.message, dismissalError.code);
+          console.log(`[Dismissal] Fetched for ${globalMatchData.id} / ${userId}:`, dismissalData);
+
+          setGlobalNextMatch({
+            ...globalMatchData,
+            league_name: parentName,
+            session_name: sessionName,
+            location: location,
+            dismissed_types: dismissalData ? dismissalData.map((d: any) => d.reminder_type) : []
+          });
+
+          // Schedule local notification if not dismissed
+          const alreadyDismissed = dismissalData?.some((d: any) => d.reminder_type === 'dayof');
+          if (!alreadyDismissed) {
+            scheduleMatchReminder(globalMatchData);
+          }
+        }
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -520,6 +576,39 @@ export default function HomeScreen() {
     return { p1_8br, p2_8br, p1_9br, p2_9br, p1_snap, p2_snap };
   };
 
+  const handleDismissReminder = async (type: '3day' | 'dayof') => {
+    console.log(`[Dismissal] Attempting to dismiss ${type} for match ${globalNextMatch?.id} with userId ${userId}`);
+    if (!globalNextMatch || !userId) return;
+
+    try {
+      const token = await getToken({ template: 'supabase' });
+      if (!token) {
+        console.error("[Dismissal] No token available");
+        return;
+      }
+
+      const supabaseAuth = createClient(
+        process.env.EXPO_PUBLIC_SUPABASE_URL!,
+        process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+        { global: { headers: { Authorization: `Bearer ${token}` } } }
+      );
+
+      const { data, error } = await supabaseAuth.from('dismissed_reminders').insert({
+        user_id: userId,
+        match_id: globalNextMatch.id,
+        reminder_type: type
+      }).select();
+
+      if (error) {
+        console.error("[Dismissal] Insert Failed:", error.message, error.code);
+      } else {
+        console.log("[Dismissal] Success:", data);
+      }
+    } catch (err) {
+      console.error("[Dismissal] Error:", err);
+    }
+  };
+
   return (
     <SafeAreaView edges={['left', 'right']} className="flex-1 bg-background">
       <View className="px-4 pt-2 pb-2 items-center bg-background border-b border-border/50">
@@ -574,6 +663,9 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      {globalNextMatch && <MatchReminderBanner nextMatch={{ ...globalNextMatch, currentUserId: userId }} onDismiss={handleDismissReminder} />}
+
 
       <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingBottom: 100, paddingTop: 20 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#D4AF37" />}>
         {!activeSession ? (
@@ -675,9 +767,8 @@ export default function HomeScreen() {
               (() => {
                 // Logic for status calculation (Same as MatchesScreen)
                 const now = new Date();
-                const scheduledDate = new Date(nextMatch.scheduled_date);
-                const windowStart = new Date(scheduledDate);
-                windowStart.setHours(8, 0, 0, 0);
+                const [year, month, day] = nextMatch.scheduled_date.split('-').map(Number);
+                const windowStart = new Date(year, month - 1, day, 8, 0, 0);
                 const windowEnd = new Date(windowStart);
                 windowEnd.setDate(windowEnd.getDate() + 1);
 
@@ -696,7 +787,13 @@ export default function HomeScreen() {
 
                 const isMatchLocked = !nextMatch.is_manually_unlocked && !isTimeOpen && effectiveStatus !== 'finalized' && effectiveStatus !== 'in_progress';
 
-                const formattedDate = nextMatch.scheduled_date ? new Date(nextMatch.scheduled_date).toLocaleDateString() : 'TBD';
+                const formattedDate = nextMatch.scheduled_date
+                  ? (() => {
+                    const datePart = nextMatch.scheduled_date.split('T')[0];
+                    const [year, month, day] = datePart.split('-').map(Number);
+                    return new Date(year, month - 1, day).toLocaleDateString();
+                  })()
+                  : 'TBD';
 
                 // Get race from state (fetched server-side)
                 const matchRaces = races[nextMatch.id];

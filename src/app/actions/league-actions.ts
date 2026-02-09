@@ -298,6 +298,8 @@ export async function generateSchedule(
 ) {
     const supabase = createAdminClient();
 
+    console.log(`[generateSchedule] Called for League: ${leagueId}, OverrideStart: ${overrideStartDate}`);
+
     // 0. Update League Config if provided (Time Slots / Tables / Start Date if forced)
     const updateData: any = {};
     if (inputTimeSlots && inputTimeSlots.length > 0) updateData.time_slots = inputTimeSlots;
@@ -311,16 +313,24 @@ export async function generateSchedule(
     }
 
     if (Object.keys(updateData).length > 0) {
-        await supabase.from("leagues").update(updateData).eq("id", leagueId);
+        const { error: updateError } = await supabase.from("leagues").update(updateData).eq("id", leagueId);
+        if (updateError) {
+            console.error("[generateSchedule] Update Error:", updateError);
+        }
     }
 
     // 0. Check Fee Status and Start Date
-    const { data: league } = await supabase.from("leagues").select("creation_fee_status, start_date, time_slots, table_names").eq("id", leagueId).single();
+    const { data: league, error: fetchError } = await supabase.from("leagues").select("creation_fee_status, start_date, time_slots, table_names").eq("id", leagueId).single();
+
+    if (fetchError) {
+        console.error("[generateSchedule] League Fetch Error:", fetchError);
+    }
 
     // Use overrideStartDate if present, otherwise DB value
     const effectiveStartDate = overrideStartDate || league?.start_date;
 
     if (!league) {
+        console.error(`[generateSchedule] League not found for ID: ${leagueId}`);
         return { error: "League not found." };
     }
 

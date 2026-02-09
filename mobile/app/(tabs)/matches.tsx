@@ -128,9 +128,8 @@ export default function MatchesScreen() {
                     matches.map((match) => {
                         // Logic for status/score calculation (Same as Dashboard)
                         const now = new Date();
-                        const scheduledDate = new Date(match.scheduled_date);
-                        const windowStart = new Date(scheduledDate);
-                        windowStart.setHours(8, 0, 0, 0);
+                        const [year, month, day] = match.scheduled_date.split('-').map(Number);
+                        const windowStart = new Date(year, month - 1, day, 8, 0, 0);
                         const windowEnd = new Date(windowStart);
                         windowEnd.setDate(windowEnd.getDate() + 1);
 
@@ -202,7 +201,13 @@ export default function MatchesScreen() {
                                 matchId={match.id}
                                 opponentName={opponent?.full_name || 'Unknown'}
                                 opponentRating={opponent?.breakpoint_rating}
-                                date={match.scheduled_date ? new Date(match.scheduled_date).toLocaleDateString() : 'TBD'}
+                                date={match.scheduled_date
+                                    ? (() => {
+                                        const datePart = match.scheduled_date.split('T')[0];
+                                        const [year, month, day] = datePart.split('-').map(Number);
+                                        return new Date(year, month - 1, day).toLocaleDateString();
+                                    })()
+                                    : 'TBD'}
                                 isLocked={isMatchLocked}
                                 weekNumber={undefined}
                                 status={effectiveStatus}
