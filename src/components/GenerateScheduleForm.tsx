@@ -23,7 +23,8 @@ export default function GenerateScheduleForm({
     const [skipDates, setSkipDates] = useState<string[]>([]);
     const [newSkipDate, setNewSkipDate] = useState("");
     const [useTimeSlots, setUseTimeSlots] = useState(false);
-    const [timeSlots, setTimeSlots] = useState<string[]>(["", ""]);
+    // Initialize with 2 slots defaulting to 7:00 PM (19:00)
+    const [timeSlots, setTimeSlots] = useState<string[]>(["19:00", "19:00"]);
     const [useTables, setUseTables] = useState(false);
     const [tableNames, setTableNames] = useState<string[]>(["", ""]);
     const [loading, setLoading] = useState(false);
@@ -182,36 +183,79 @@ export default function GenerateScheduleForm({
 
                         {useTimeSlots && (
                             <div className="pl-6 space-y-2">
-                                <p className="text-[10px] text-gray-500 mb-2">Enter times in 24-hour format HH:MM</p>
-                                {timeSlots.map((slot, index) => (
-                                    <div key={index} className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            value={slot}
-                                            onChange={(e) => {
-                                                const newSlots = [...timeSlots];
-                                                newSlots[index] = e.target.value;
-                                                setTimeSlots(newSlots);
-                                            }}
-                                            placeholder="e.g. 19:00"
-                                            className="input flex-1 text-sm bg-black/50 border-gray-700"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                const newSlots = timeSlots.filter((_, i) => i !== index);
-                                                setTimeSlots(newSlots);
-                                            }}
-                                            className="text-gray-500 hover:text-error px-2"
-                                        >
-                                            &times;
-                                        </button>
-                                    </div>
-                                ))}
+                                <p className="text-[10px] text-gray-500 mb-2">Select start times for matches.</p>
+                                {timeSlots.map((slot, index) => {
+                                    // Parse HH:MM (24h) to separate components
+                                    // Default to 19:00 if empty or invalid
+                                    let [h, m] = (slot || "19:00").split(':').map(Number);
+                                    if (isNaN(h)) h = 19;
+                                    if (isNaN(m)) m = 0;
+
+                                    const period = h >= 12 ? 'PM' : 'AM';
+                                    const displayH = h % 12 || 12; // Convert 0 -> 12, 13 -> 1, etc.
+                                    const displayM = m.toString().padStart(2, '0');
+
+                                    const updateSlot = (newH: number, newM: number, newPeriod: string) => {
+                                        let finalH = newH;
+                                        if (newPeriod === 'PM' && newH !== 12) finalH += 12;
+                                        if (newPeriod === 'AM' && newH === 12) finalH = 0;
+
+                                        const finalSlot = `${finalH.toString().padStart(2, '0')}:${newM.toString().padStart(2, '0')}`;
+                                        const newSlots = [...timeSlots];
+                                        newSlots[index] = finalSlot;
+                                        setTimeSlots(newSlots);
+                                    };
+
+                                    return (
+                                        <div key={index} className="flex gap-2 items-center">
+                                            {/* Hour */}
+                                            <select
+                                                value={displayH}
+                                                onChange={(e) => updateSlot(parseInt(e.target.value), m, period)}
+                                                className="input w-20 text-sm bg-black/50 border-gray-700 p-2"
+                                            >
+                                                {Array.from({ length: 12 }, (_, i) => i + 1).map(h => (
+                                                    <option key={h} value={h}>{h}</option>
+                                                ))}
+                                            </select>
+                                            <span className="text-gray-400">:</span>
+                                            {/* Minute */}
+                                            <select
+                                                value={displayM}
+                                                onChange={(e) => updateSlot(displayH, parseInt(e.target.value), period)}
+                                                className="input w-20 text-sm bg-black/50 border-gray-700 p-2"
+                                            >
+                                                {['00', '15', '30', '45'].map(min => (
+                                                    <option key={min} value={min}>{min}</option>
+                                                ))}
+                                            </select>
+                                            {/* Period */}
+                                            <select
+                                                value={period}
+                                                onChange={(e) => updateSlot(displayH, m, e.target.value)}
+                                                className="input w-20 text-sm bg-black/50 border-gray-700 p-2"
+                                            >
+                                                <option value="AM">AM</option>
+                                                <option value="PM">PM</option>
+                                            </select>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const newSlots = timeSlots.filter((_, i) => i !== index);
+                                                    setTimeSlots(newSlots);
+                                                }}
+                                                className="text-red-500 hover:text-red-400 px-2 font-bold"
+                                            >
+                                                &times;
+                                            </button>
+                                        </div>
+                                    );
+                                })}
                                 <button
                                     type="button"
-                                    onClick={() => setTimeSlots([...timeSlots, ""])}
-                                    className="text-xs text-[#D4AF37] hover:underline flex items-center gap-1"
+                                    onClick={() => setTimeSlots([...timeSlots, "19:00"])}
+                                    className="text-xs text-[#D4AF37] hover:underline flex items-center gap-1 mt-2"
                                 >
                                     + Add Time Slot
                                 </button>
@@ -255,7 +299,7 @@ export default function GenerateScheduleForm({
                                                 const newTables = tableNames.filter((_, i) => i !== index);
                                                 setTableNames(newTables);
                                             }}
-                                            className="text-gray-500 hover:text-error px-2"
+                                            className="text-red-500 hover:text-red-400 px-2 font-bold"
                                         >
                                             &times;
                                         </button>
