@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { deactivatePlayer, reactivatePlayer, deletePlayer } from "@/app/actions/admin-actions";
+import { deactivatePlayer, reactivatePlayer, deletePlayer, softDeletePlayer } from "@/app/actions/admin-actions";
 
 interface PlayerActionsProps {
     playerId: string;
@@ -20,6 +20,20 @@ export default function PlayerActions({ playerId, isActive }: PlayerActionsProps
         } catch (e) {
             console.error(e);
             alert("Error deactivating player");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSoftDelete = async () => {
+        if (!confirm("Are you sure you want to SOFT DELETE this player? They will be marked as inactive and sent to the deleted accounts pool.")) return;
+        setIsLoading(true);
+        try {
+            const result = await softDeletePlayer(playerId);
+            if (result?.error) alert(result.error);
+        } catch (e) {
+            console.error(e);
+            alert("Error soft deleting player");
         } finally {
             setIsLoading(false);
         }
@@ -58,13 +72,22 @@ export default function PlayerActions({ playerId, isActive }: PlayerActionsProps
 
     if (isActive) {
         return (
-            <button
-                onClick={handleDeactivate}
-                className="btn"
-                style={{ fontSize: "0.8rem", padding: "0.25rem 0.5rem", background: "#ff4444", color: "#fff", border: "none", cursor: "pointer" }}
-            >
-                Deactivate
-            </button>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                    onClick={handleDeactivate}
+                    className="btn"
+                    style={{ fontSize: "0.8rem", padding: "0.25rem 0.5rem", background: "#ff4444", color: "#fff", border: "none", cursor: "pointer" }}
+                >
+                    Deactivate
+                </button>
+                <button
+                    onClick={handleSoftDelete}
+                    className="btn"
+                    style={{ fontSize: "0.8rem", padding: "0.25rem 0.5rem", background: "var(--error)", color: "#fff", border: "none", cursor: "pointer" }}
+                >
+                    Soft Delete
+                </button>
+            </div>
         );
     }
 

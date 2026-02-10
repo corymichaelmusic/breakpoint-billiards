@@ -250,12 +250,34 @@ export async function deactivatePlayer(playerId: string) {
     return { success: true };
 }
 
+export async function softDeletePlayer(playerId: string) {
+    const { supabase, error: authError } = await verifyAdmin();
+    if (authError || !supabase) return { error: authError };
+
+    const adminSupabase = createAdminClient();
+    const { error } = await adminSupabase.from("profiles").update({
+        is_active: false,
+        deleted_at: new Date().toISOString()
+    }).eq("id", playerId);
+
+    if (error) {
+        console.error("Error soft deleting player:", error);
+        return { error: "Failed to soft delete player" };
+    }
+    revalidatePath("/dashboard/admin");
+    revalidatePath("/dashboard/admin/deleted-players");
+    return { success: true };
+}
+
 export async function reactivatePlayer(playerId: string) {
     const { supabase, error: authError } = await verifyAdmin();
     if (authError || !supabase) return { error: authError };
 
     const adminSupabase = createAdminClient();
-    const { error } = await adminSupabase.from("profiles").update({ is_active: true }).eq("id", playerId);
+    const { error } = await adminSupabase.from("profiles").update({
+        is_active: true,
+        deleted_at: null
+    }).eq("id", playerId);
     if (error) {
         console.error("Error reactivating player:", error);
         return { error: "Failed to reactivate player" };
