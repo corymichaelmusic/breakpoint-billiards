@@ -7,13 +7,14 @@ import BackButton from "@/components/BackButton";
 
 export const dynamic = 'force-dynamic';
 
-export default async function DeletedPlayersPage() {
+import HardDeleteButton from "@/components/HardDeleteButton";
+
+export default async function DeletedProfilesPage() {
     await verifyAdmin();
 
     const adminSupabase = createAdminClient();
 
     // Fetch deleted players (where is_active is false OR deleted_at is not null)
-    // Actually, based on my changes, deleted players will have deleted_at set.
     const { data: deletedProfiles } = await adminSupabase
         .from("profiles")
         .select("id, full_name, email, role, deleted_at, is_active")
@@ -27,7 +28,7 @@ export default async function DeletedPlayersPage() {
                 <div className="mb-8">
                     <BackButton label="Back to Admin" className="!text-[#D4AF37] hover:!text-white mb-4" />
                     <h1 className="text-3xl font-bold font-sans text-white">Deleted & Inactive Accounts</h1>
-                    <p className="text-sm text-gray-500 mt-1">These accounts are hidden from all active league views.</p>
+                    <p className="text-sm text-gray-500 mt-1">These accounts are hidden from all active league views. Hard deleting will remove ALL match history.</p>
                 </div>
 
                 <div className="card-glass">
@@ -51,10 +52,11 @@ export default async function DeletedPlayersPage() {
                                         <td className="p-3 text-gray-500 text-xs">
                                             {player.deleted_at ? new Date(player.deleted_at).toLocaleDateString() : 'N/A (Deactivated)'}
                                         </td>
-                                        <td className="p-3">
+                                        <td className="p-3 flex items-center">
                                             <Link href={`/dashboard/admin/players/${player.id}`} className="btn bg-[#D4AF37] text-black hover:bg-[#b0902c] border-transparent font-bold text-xs px-4 py-2 uppercase tracking-wide">
                                                 View Stats
                                             </Link>
+                                            <HardDeleteButton playerId={player.id} playerName={player.full_name || 'Unknown'} />
                                         </td>
                                     </tr>
                                 ))}

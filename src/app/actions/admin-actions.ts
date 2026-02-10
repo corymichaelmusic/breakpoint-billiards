@@ -654,3 +654,61 @@ export async function processAccountDeletion(deletionRequestId: string) {
     revalidatePath("/dashboard/admin");
     return { success: true };
 }
+
+export async function hardDeletePlayer(playerId: string) {
+    const { supabase: adminSupabase, error: authError } = await verifyAdmin();
+    if (authError || !adminSupabase) return { error: authError };
+
+    console.log(`Hard deleting player: ${playerId}`);
+
+    // Order of deletion to respect FK constraints
+    // 1. Games (linked to matches) - Actually games might have winner_id referencing players
+    // 2. Matches (linked to players as p1, p2, submitted_by)
+    // 3. League Players (linked to players)
+    // 4. Deletion Requests (linked to players)
+    // 5. Dismissed Reminders (linked to players)
+    // 6. Profiles
+
+    try {
+        // We use adminSupabase which is a service role client (createAdminClient is used inside verifyAdmin for the return)
+        // Wait, verifyAdmin returns a supabase client, but for hard delete we definitely need service role.
+        const serviceSupabase = createAdminClient();
+
+        // 1. Delete games related to matches where this user was a participant
+        // This is complex, better to delete matches and hope for cascade or handle it.
+        // If no cascade, we manually clean up.
+
+        // Let's grab all match IDs first
+        const { data: matches } = await serviceSupabase
+            .from("matches")
+            .select("id")
+            .or(`player1_id.eq.${playerId},player2_id.eq.${playerId}`);
+
+        const matchIds = matches?.map(m => m.id) || [];
+
+        if (matchIds.length > 0) {
+            await serviceSupabase.from("games").delete().in("match_id", matchIds);
+            await serviceSupabase.from("matches").delete().in("id", matchIds);
+        }
+
+        // 2. Delete from other tables
+        await serviceSupabase.from("league_players").delete().eq("player_id", playerId);
+        await serviceSupabase.from("deletion_requests").delete().eq("user_id", playerId);
+        await serviceSupabase.from("dismissed_reminders").delete().eq("user_id", playerId);
+        await serviceSupabase.from("reschedule_requests").delete().eq("requester_id", playerId);
+
+        // 3. Finally the profile
+        const { error: profileError } = await serviceSupabase.from("profiles").delete().eq("id", playerId);
+
+        if (profileError) {
+            console.error("Error deleting profile:", profileError);
+            return { error: `Failed to delete profile: ${profileError.message}` };
+        }
+
+        revalidatePath("/dashboard/admin/deleted-players");
+        return { success: true };
+    } catch (err) {
+        console.error("Unexpected error during hard delete:", err);
+        return { error: "An unexpected error occurred during hard delete." };
+    }
+}
