@@ -32,7 +32,8 @@ export default function LeaderboardScreen() {
             // Fetch Top 50 Players by Rating
             const { data } = await supabase
                 .from('profiles')
-                .select('id, full_name, breakpoint_rating')
+                .select('id, full_name, breakpoint_rating, is_active')
+                .eq('is_active', true)
                 .order('breakpoint_rating', { ascending: false })
                 .limit(50);
 

@@ -63,9 +63,10 @@ export default async function AddPlayersPage({ params }: { params: Promise<{ id:
     // 3. Fetch All Players in Parent League Organization
     const { data: orgPlayers, error: orgError } = await supabase
         .from("league_players")
-        .select("player_id, profiles(full_name, email)")
+        .select("player_id, profiles!inner(full_name, email, is_active)")
         .eq("league_id", id)
-        .eq("status", "active");
+        .eq("status", "active")
+        .eq("profiles.is_active", true);
 
     if (orgError) console.error(`[AddPlayersPage] Error fetching org players:`, orgError);
 
@@ -85,9 +86,10 @@ export default async function AddPlayersPage({ params }: { params: Promise<{ id:
     // 5. Fetch Pending Requests for this Session
     const { data: pendingRequests } = await supabase
         .from("league_players")
-        .select("player_id, profiles(full_name, email)")
+        .select("player_id, profiles!inner(full_name, email, is_active)")
         .eq("league_id", sessionId)
-        .eq("status", "pending");
+        .eq("status", "pending")
+        .eq("profiles.is_active", true);
 
     // Transform for the client component
     const players = orgPlayers?.map(p => {

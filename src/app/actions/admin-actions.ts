@@ -621,13 +621,10 @@ export async function processAccountDeletion(deletionRequestId: string) {
         console.log(`User ${targetUserId} not found in Clerk, continuing with anonymization`);
     }
 
-    // 3. Anonymize profile in Supabase
+    // 3. Anonymize profile in Supabase (Preserving Name and Email as requested)
     const { error: anonymizeError } = await adminSupabase
         .from("profiles")
         .update({
-            email: '*',
-            phone: '*',
-            full_name: '*',
             avatar_url: null,
             is_active: false,
             deleted_at: new Date().toISOString()

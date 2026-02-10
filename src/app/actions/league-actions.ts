@@ -298,8 +298,9 @@ export async function generateSchedule(
     // 2. Fetch players in the league
     const { data: leaguePlayers, error: playersError } = await supabase
         .from("league_players")
-        .select("player_id, payment_status")
-        .eq("league_id", leagueId);
+        .select("player_id, payment_status, profiles!inner(is_active)")
+        .eq("league_id", leagueId)
+        .eq("profiles.is_active", true);
 
     if (playersError || !leaguePlayers || leaguePlayers.length < 2) {
         console.error("Not enough players to generate schedule");

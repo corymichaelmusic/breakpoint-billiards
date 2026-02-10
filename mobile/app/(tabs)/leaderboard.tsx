@@ -60,8 +60,9 @@ export default function LeaderboardScreen() {
             // This replaces the expensive client-side aggregation
             const { data: players } = await supabaseAuthenticated
                 .from("league_players")
-                .select("player_id, matches_played, matches_won, shutouts, profiles:player_id(full_name, breakpoint_rating)")
-                .eq("league_id", leagueId);
+                .select("player_id, matches_played, matches_won, shutouts, profiles!inner(full_name, breakpoint_rating, is_active)")
+                .eq("league_id", leagueId)
+                .eq("profiles.is_active", true);
 
             if (players && players.length > 0) {
                 const statsArray = players.map((p: any) => {

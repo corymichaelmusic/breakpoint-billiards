@@ -62,9 +62,10 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
 
     const { data: pendingRequests } = await supabase
         .from("league_players")
-        .select("*, profiles:player_id(full_name, email), leagues:league_id(name, type)")
+        .select("*, profiles!inner(full_name, email, is_active), leagues:league_id(name, type)")
         .in("league_id", allLeagueIds)
-        .eq("status", "pending");
+        .eq("status", "pending")
+        .eq("profiles.is_active", true);
 
     // Fetch UNPAID active players for this session
     const { count: unpaidPlayerCount } = await supabase
@@ -99,9 +100,10 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
 
         const { count } = await supabase
             .from("league_players")
-            .select("*", { count: 'exact', head: true })
+            .select("*, profiles!inner(is_active)", { count: 'exact', head: true })
             .eq("league_id", id)
-            .eq("status", "active");
+            .eq("status", "active")
+            .eq("profiles.is_active", true);
         totalPlayers = count || 0;
     }
 

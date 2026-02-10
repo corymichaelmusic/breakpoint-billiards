@@ -17,6 +17,7 @@ export default async function ScheduleMatchPage({ params }: { params: Promise<{ 
         .from("profiles")
         .select("*")
         .eq("role", "player")
+        .eq("is_active", true)
         .order("full_name");
 
     async function scheduleMatch(formData: FormData) {

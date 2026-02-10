@@ -252,8 +252,9 @@ export default function HomeScreen() {
       let rank = "N/A";
       const { data: leaguePlayers } = await supabaseAuthenticated
         .from("league_players")
-        .select("player_id, matches_won, matches_played")
-        .eq("league_id", session.id);
+        .select("player_id, matches_won, matches_played, profiles!inner(is_active)")
+        .eq("league_id", session.id)
+        .eq("profiles.is_active", true);
 
       if (leaguePlayers) {
         const statsArray = leaguePlayers.map((p: any) => {

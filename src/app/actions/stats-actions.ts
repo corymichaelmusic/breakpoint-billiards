@@ -14,9 +14,10 @@ export async function getSessionStats(sessionId: string): Promise<PlayerStats[]>
     // 1. Fetch All Active Players in the Session (Roster)
     const { data: roster } = await supabase
         .from("league_players")
-        .select("player_id, profiles:player_id(full_name)")
+        .select("player_id, profiles:player_id(full_name, is_active)")
         .eq("league_id", sessionId)
-        .eq("status", "active");
+        .eq("status", "active")
+        .eq("profiles.is_active", true);
 
     // Initialize stats for every player in the roster
     if (roster && roster.length > 0) {
@@ -448,9 +449,11 @@ export async function getLeagueStats(leagueId: string): Promise<PlayerStats[]> {
     // Fetch matches for the league
     const { data: matches } = await supabase
         .from("matches")
-        .select("id, player1_id, player2_id, winner_id, current_points_p1, current_points_p2, points_8ball_p1, points_8ball_p2, points_9ball_p1, points_9ball_p2, status_8ball, status_9ball, winner_id_8ball, winner_id_9ball, is_forfeit, player1:player1_id(full_name, fargo_rating), player2:player2_id(full_name, fargo_rating), league_id, leagues!inner(parent_league_id)")
+        .select("id, player1_id, player2_id, winner_id, current_points_p1, current_points_p2, points_8ball_p1, points_8ball_p2, points_9ball_p1, points_9ball_p2, status_8ball, status_9ball, winner_id_8ball, winner_id_9ball, is_forfeit, player1:player1_id(full_name, fargo_rating, is_active), player2:player2_id(full_name, fargo_rating, is_active), league_id, leagues!inner(parent_league_id)")
         .eq("leagues.parent_league_id", leagueId) // Assuming leagueId is the Parent Key
-        .or("status.eq.finalized,winner_id.not.is.null");
+        .or("status.eq.finalized,winner_id.not.is.null")
+        .eq("player1.is_active", true)
+        .eq("player2.is_active", true);
 
     if (!matches || matches.length === 0) return [];
 

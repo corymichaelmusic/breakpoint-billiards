@@ -125,6 +125,11 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                         <h1 className="text-3xl font-bold font-sans text-white">Admin Dashboard</h1>
                         <p className="text-sm text-gray-500 mt-1">System Overview & Management</p>
                     </div>
+                    <div>
+                        <Link href="/dashboard/admin/deleted-players" className="btn bg-error/10 hover:bg-error border border-error text-error hover:text-white font-bold text-xs px-4 py-2 uppercase tracking-wide">
+                            View Deleted Accounts
+                        </Link>
+                    </div>
                 </div>
 
                 {/* Account Deletion Requests */}

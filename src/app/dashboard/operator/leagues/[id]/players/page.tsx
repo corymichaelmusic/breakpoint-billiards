@@ -49,7 +49,8 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
     // Fetch players from Organization AND all sessions
     const { data: players } = await adminClient
         .from("league_players")
-        .select("*, profiles(*), leagues(name)")
+        .select("*, profiles!inner(*), leagues(name)")
+        .eq("profiles.is_active", true)
         .order("joined_at", { ascending: false });
 
     // Deduplicate players
