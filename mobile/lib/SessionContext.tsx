@@ -19,10 +19,14 @@ export interface Session {
 interface SessionContextValue {
     sessions: Session[];
     currentSession: Session | null;
+    unreadCount: number;
+    lastReadAt: string | null;
     loading: boolean;
     setCurrentSession: (session: Session) => void;
     setPrimarySession: (sessionId: string) => Promise<void>;
     refreshSessions: () => Promise<void>;
+    refreshUnreadCount: () => Promise<void>;
+    markAsRead: () => Promise<void>;
 }
 
 const SessionContext = createContext<SessionContextValue | undefined>(undefined);
@@ -43,7 +47,26 @@ export function SessionProvider({ children }: SessionProviderProps) {
     const { userId, getToken, isLoaded, isSignedIn } = useAuth();
     const [sessions, setSessions] = useState<Session[]>([]);
     const [currentSession, setCurrentSessionState] = useState<Session | null>(null);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const [lastReadAt, setLastReadAt] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+
+    // Stable references for unstable auth/state to prevent callback cycles
+    const getTokenRef = React.useRef(getToken);
+    const currentSessionIdRef = React.useRef(currentSession?.id);
+    const unreadCountRef = React.useRef(unreadCount);
+
+    useEffect(() => {
+        getTokenRef.current = getToken;
+    }, [getToken]);
+
+    useEffect(() => {
+        currentSessionIdRef.current = currentSession?.id;
+    }, [currentSession?.id]);
+
+    useEffect(() => {
+        unreadCountRef.current = unreadCount;
+    }, [unreadCount]);
 
 
     const fetchSessions = useCallback(async () => {
@@ -74,7 +97,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
 
         try {
             // Retry logic for token
-            let token = await getToken({ template: 'supabase' });
+            let token = await getTokenRef.current({ template: 'supabase' });
             if (!token) {
                 console.log('[SessionContext] No token available yet, waiting...');
                 // Do not set loading false. Wait for re-render or effect.
@@ -159,34 +182,120 @@ export function SessionProvider({ children }: SessionProviderProps) {
             console.error('[SessionContext] Exception:', e);
             setLoading(false);
         }
-    }, [userId, getToken, isLoaded, isSignedIn]);
+    }, [userId, isLoaded, isSignedIn]); // Removed getToken
 
-    // Fetch on mount and when userId changes
+    const refreshUnreadCount = useCallback(async () => {
+        const leagueId = currentSessionIdRef.current;
+        if (!userId || !leagueId) return;
+
+        try {
+            const token = await getTokenRef.current({ template: 'supabase' });
+            if (!token) return;
+
+            const supabase = createClient(
+                process.env.EXPO_PUBLIC_SUPABASE_URL!,
+                process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+                { global: { headers: { Authorization: `Bearer ${token}` } } }
+            );
+
+            // 1. Get last_read_at for this user/league
+            const { data: readStatus } = await supabase
+                .from('chat_read_status')
+                .select('last_read_at')
+                .eq('user_id', userId)
+                .eq('league_id', leagueId)
+                .single();
+
+            const lastReadAtValue = readStatus?.last_read_at || new Date(0).toISOString();
+            setLastReadAt(lastReadAtValue);
+
+            // 2. Count messages created after lastReadAt
+            const { count, error } = await supabase
+                .from('messages')
+                .select('*', { count: 'exact', head: true })
+                .eq('league_id', leagueId)
+                .gt('created_at', lastReadAtValue)
+                .neq('user_id', userId); // Don't count own messages
+
+            if (!error) {
+                setUnreadCount(count || 0);
+            }
+        } catch (e) {
+            console.error('[SessionContext] Error refreshing unread count:', e);
+        }
+    }, [userId]); // Removed getToken, currentSession?.id
+
+    const markAsRead = useCallback(async () => {
+        const leagueId = currentSessionIdRef.current;
+        if (!userId || !leagueId) {
+            console.log('[SessionContext] markAsRead skipped: missing userId or leagueId');
+            return;
+        }
+
+        console.log(`[SessionContext] markAsRead starting for league: ${leagueId}`);
+        const now = new Date().toISOString();
+
+        // 1. Optimistically clear unread count for immediate UI feedback
+        setUnreadCount(0);
+        setLastReadAt(now);
+
+        try {
+            const token = await getTokenRef.current({ template: 'supabase' });
+            if (!token) {
+                console.warn('[SessionContext] markAsRead: No token available');
+                return;
+            }
+
+            const supabase = createClient(
+                process.env.EXPO_PUBLIC_SUPABASE_URL!,
+                process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+                { global: { headers: { Authorization: `Bearer ${token}` } } }
+            );
+
+            const { error } = await supabase
+                .from('chat_read_status')
+                .upsert({
+                    user_id: userId,
+                    league_id: leagueId,
+                    last_read_at: now
+                }, { onConflict: 'user_id,league_id' });
+
+            if (error) {
+                console.error('[SessionContext] Error marking as read in Supabase:', error);
+                // We don't necessarily want to revert optimistic update here 
+                // because a retry on next focus will handle it, but we log it.
+            } else {
+                console.log('[SessionContext] markAsRead successful in Supabase');
+            }
+        } catch (e) {
+            console.error('[SessionContext] Exception in markAsRead:', e);
+        }
+    }, [userId]); // Removed unreadCount dependency, uses ref instead
+
+    // Refresh unread count when session changes
     useEffect(() => {
-        // No cleanup needed
-    }, []);
+        refreshUnreadCount();
+    }, [currentSession?.id, userId]);
 
+    // Initial fetch on mount or when auth state changes
     useEffect(() => {
         fetchSessions();
-        // We depend on userId/isLoaded/isSignedIn implicitly via fetchSessions
-        // BUT strict deps on fetchSessions causes loops if useAuth returns unstable refs.
-        // We trust fetchSessions execution is safe to re-run if these change.
-        // To be safe against "Maximum update depth", we should check if we really need to run.
-    }, [userId, isLoaded, isSignedIn]); // <--- CHANGED DEPS: Removed fetchSessions, added primitives
+    }, [userId, isLoaded, isSignedIn, fetchSessions]);
 
     // Add AppState listener to refresh when coming to foreground
     useEffect(() => {
         const subscription = AppState.addEventListener('change', (nextAppState) => {
             if (nextAppState === 'active') {
-                console.log('[SessionContext] App became active. Refreshing sessions...');
+                console.log('[SessionContext] App became active. Refreshing...');
                 fetchSessions();
+                refreshUnreadCount();
             }
         });
 
         return () => {
             subscription.remove();
         };
-    }, [fetchSessions]);
+    }, [fetchSessions, refreshUnreadCount]);
 
     const setCurrentSession = useCallback((session: Session) => {
         setCurrentSessionState(session);
@@ -231,7 +340,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
         } catch (e) {
             console.error('[SessionContext] Exception setting primary:', e);
         }
-    }, [userId, getToken]);
+    }, [userId]); // Removed getToken
 
     const refreshSessions = useCallback(async () => {
         setLoading(true);
@@ -242,12 +351,17 @@ export function SessionProvider({ children }: SessionProviderProps) {
         <SessionContext.Provider value={{
             sessions,
             currentSession,
+            unreadCount,
+            lastReadAt,
             loading,
             setCurrentSession,
             setPrimarySession,
-            refreshSessions
+            refreshSessions,
+            refreshUnreadCount,
+            markAsRead
         }}>
             {children}
         </SessionContext.Provider>
     );
 }
+

@@ -1,8 +1,10 @@
 import { Tabs } from "expo-router";
 import { FontAwesome5 } from "@expo/vector-icons";
-import { View } from "react-native";
+import { View, Platform } from "react-native";
+import { useSession } from "../../lib/SessionContext";
 
 export default function TabLayout() {
+    const { unreadCount, markAsRead } = useSession();
     return (
         <Tabs
             screenOptions={{
@@ -23,6 +25,7 @@ export default function TabLayout() {
                 },
                 tabBarActiveTintColor: "#D4AF37", // Primary Gold
                 tabBarInactiveTintColor: "#666",
+                tabBarHideOnKeyboard: Platform.OS !== 'ios',
             }}
         >
             <Tabs.Screen
@@ -51,6 +54,26 @@ export default function TabLayout() {
                 options={{
                     title: "Matches",
                     tabBarIcon: ({ color }) => <FontAwesome5 name="list" size={20} color={color} />,
+                }}
+            />
+            <Tabs.Screen
+                name="chat"
+                options={{
+                    title: "Chat",
+                    tabBarIcon: ({ color }) => <FontAwesome5 name="comments" size={20} color={color} />,
+                    tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+                    tabBarBadgeStyle: {
+                        backgroundColor: '#D4AF37',
+                        color: '#000',
+                        fontSize: 10,
+                        fontWeight: 'bold',
+                    }
+                }}
+                listeners={{
+                    tabPress: () => {
+                        console.log('[TabLayout] Chat tab pressed');
+                        markAsRead();
+                    },
                 }}
             />
             <Tabs.Screen
