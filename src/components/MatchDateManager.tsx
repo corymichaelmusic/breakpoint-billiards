@@ -96,7 +96,16 @@ export default function MatchDateManager({ matchId, initialDate, initialTime, in
                             </span>
                             {(initialTime || initialTable) && (
                                 <span style={{ fontSize: '0.75rem', color: '#aaa' }}>
-                                    {[initialTime, initialTable].filter(Boolean).join(' • ')}
+                                    {[
+                                        initialTime ? (() => {
+                                            const [h, m] = initialTime.split(':');
+                                            const hour = parseInt(h);
+                                            const ampm = hour >= 12 ? 'PM' : 'AM';
+                                            const hour12 = hour % 12 || 12;
+                                            return `${hour12}:${m} ${ampm}`;
+                                        })() : null,
+                                        initialTable
+                                    ].filter(Boolean).join(' • ')}
                                 </span>
                             )}
                         </div>
