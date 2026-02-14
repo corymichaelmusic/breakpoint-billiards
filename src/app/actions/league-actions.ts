@@ -1060,13 +1060,16 @@ export async function startSession(leagueId: string) {
 
     if (league.status === 'active') return { error: "Session is already active." };
 
-    // 2. Check Fees
+    // 2.Check Fees
     const { data: leaguePlayers } = await supabase
         .from("league_players")
         .select("payment_status")
-        .eq("league_id", leagueId);
+        .eq("league_id", leagueId)
+        .eq("status", "active");
 
-    const unpaidPlayers = leaguePlayers?.filter(lp => lp.payment_status !== 'paid');
+    const validPaidStatuses = ['paid', 'paid_cash', 'paid_online', 'waived'];
+    const unpaidPlayers = leaguePlayers?.filter(lp => !validPaidStatuses.includes(lp.payment_status));
+
     if (unpaidPlayers && unpaidPlayers.length > 0) {
         return { error: "All players must pay the session fee before starting the session." };
     }
