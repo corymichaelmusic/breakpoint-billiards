@@ -84,7 +84,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     // Fetch All Leagues (to see who has one)
     const { data: leagues } = await adminSupabase
         .from("leagues")
-        .select("*, profiles(full_name, email), league_operators(profiles(full_name, email))")
+        .select("*, profiles:operator_id(full_name, email), league_operators(profiles(full_name, email))")
         .eq("type", "league")
         .in("status", ["active", "setup"]);
 
