@@ -389,7 +389,13 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                                     <tr key={match.id} className="hover:bg-white/5 transition-colors">
                                                         <td className="p-2 font-mono text-gray-400">{match.week_number}</td>
                                                         <td className="p-2 text-sm">
-                                                            <MatchDateManager matchId={match.id} initialDate={match.scheduled_date} isUnlocked={match.is_manually_unlocked} />
+                                                            <MatchDateManager
+                                                                matchId={match.id}
+                                                                initialDate={match.scheduled_date}
+                                                                initialTime={match.scheduled_time}
+                                                                initialTable={match.table_name}
+                                                                isUnlocked={match.is_manually_unlocked}
+                                                            />
                                                         </td>
                                                         <td className="p-2">
                                                             <div className="flex flex-col gap-1 text-sm">

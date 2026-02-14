@@ -240,6 +240,10 @@ export async function checkMatchLock(matchId: string) {
 }
 
 export async function updateMatchDate(matchId: string, newDate: string) {
+    return updateMatchSchedule(matchId, newDate, undefined, undefined);
+}
+
+export async function updateMatchSchedule(matchId: string, newDate: string, newTime?: string, newTable?: string) {
     const supabase = createAdminClient();
     const { userId } = await import("@clerk/nextjs/server").then(mod => mod.auth());
     if (!userId) return { error: "Unauthorized" };
@@ -255,16 +259,22 @@ export async function updateMatchDate(matchId: string, newDate: string) {
         if (profile?.role !== 'admin') return { error: "Unauthorized" };
     }
 
+    const updates: any = {};
+    if (newDate) updates.scheduled_date = newDate;
+    if (newTime !== undefined) updates.scheduled_time = newTime;
+    if (newTable !== undefined) updates.table_name = newTable;
+
     const { error } = await supabase
         .from("matches")
-        .update({ scheduled_date: newDate })
+        .update(updates)
         .eq("id", matchId);
 
-    if (error) return { error: "Failed to update date" };
+    if (error) return { error: "Failed to update schedule" };
 
     revalidatePath(`/dashboard/operator/leagues/${match.league_id}`);
     return { success: true };
 }
+
 
 export async function toggleMatchLock(matchId: string, unlock: boolean) {
     const supabase = createAdminClient();
