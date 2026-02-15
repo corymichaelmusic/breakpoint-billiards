@@ -194,7 +194,7 @@ export async function checkMatchLock(matchId: string) {
 
     const { data: match } = await supabase
         .from("matches")
-        .select("scheduled_date, is_manually_unlocked, submitted_at")
+        .select("scheduled_date, is_manually_unlocked, submitted_at, leagues(timezone)")
         .eq("id", matchId)
         .single();
 
@@ -208,35 +208,125 @@ export async function checkMatchLock(matchId: string) {
 
     if (!match.scheduled_date) return { locked: false }; // If no date set, assume unlocked
 
-    const scheduledTime = new Date(match.scheduled_date).getTime();
-    const now = new Date().getTime();
+    // Parse the scheduled_date string (YYYY-MM-DD)
+    // We treat the date part as the intended "Day of Play" in CST.
+    const datePart = new Date(match.scheduled_date).toISOString().split('T')[0]; // "2026-02-16"
 
-    // Window: 8 AM on scheduled date to 8 AM next day
-    // Assuming scheduled_date is stored as the date (e.g., 2025-05-12 00:00:00 UTC)
-    // We need to parse it correctly.
-    // Let's assume scheduled_date includes the time or is just the date.
-    // If it's just date, we set window from 8 AM that day.
+    // Construct the Unlock Window Start: 8 AM CST on that date.
+    // We can use a string construction "YYYY-MM-DDT08:00:00" and parse it as CST/local?
+    // Safer: Work in UTC equivalents or use Intl.
 
-    const matchDate = new Date(match.scheduled_date);
-    // Set to 8 AM local time? Or UTC?
-    // The requirement says "Beginning at 8 AM and ending at 8 AM the next day".
-    // Assuming the league is in a specific timezone or user's local time.
-    // For simplicity, let's use the stored time as the reference.
-    // If scheduled_date is "2025-05-12", we assume that's the day.
+    // Target: 8 AM CST (or CDT). "America/Chicago".
+    // We need to check if NOW (in Chicago) is >= 8 AM on the Match Day.
 
-    // Let's construct the window start/end.
-    // We'll treat scheduled_date as the "Day".
-    const startWindow = new Date(matchDate);
-    startWindow.setHours(8, 0, 0, 0);
+    const now = new Date();
 
-    const endWindow = new Date(startWindow);
-    endWindow.setDate(endWindow.getDate() + 1);
+    // Get "Now" in Chicago Time parts
+    const chicagoNowStr = now.toLocaleString("en-US", { timeZone: "America/Chicago", hour12: false });
+    // This gives "2/15/2026, 10:24:32" format roughly, but format varies.
+    // Better to use Intl.DateTimeFormat to get ISO-like parts or timestamps.
 
-    if (now >= startWindow.getTime() && now < endWindow.getTime()) {
+    // Alternative:
+    // Create the 'Start Window' timestamp in absolute ms.
+    // We want 8:00 AM America/Chicago on `datePart`.
+    // Since we are in Node, we might not have a heavy timezone lib.
+    // But we can approximate or use offsets if we assume CST is -6 (Standard) or -5 (Daylight).
+    // Spring 2026 starts DST in March. Feb is Standard (-06:00).
+    // "Spring 2026" - User said match is "Tomorrow" (Feb 16). That is Standard Time.
+
+    // Let's rely on string parsing which is cleaner than offsets.
+    // We want to construct a Date object that represents 08:00 CST on `datePart`.
+    // "2026-02-16T08:00:00-06:00"
+
+    // Determine offset for that date?
+    // We can just assume -06:00 for Feb? Or better:
+
+    // Let's compare "Day strings".
+    // 1. Get Current Chicago Time.
+    // 2. Check if Current Chicago Date < Match Date -> Locked (Too early day)
+    // 3. Check if Current Chicago Date == Match Date:
+    //      Check if Current Chicago Hour >= 8 -> Unlocked
+    //      Else -> Locked
+    // 4. Check if Current Chicago Date > Match Date -> Unlocked (Past day, but same week usually ok?)
+    //    User said "Ending at 8 AM the next day".
+
+    // Get League Timezone or default to CST (Chicago) or UTC if undefined
+    // @ts-ignore
+    const leagueData = Array.isArray(match.leagues) ? match.leagues[0] : match.leagues;
+    const timeZone = leagueData?.timezone || "America/Chicago";
+
+    const formatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: timeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    });
+
+    const parts = formatter.formatToParts(now);
+    const getPart = (type: string) => parts.find(p => p.type === type)?.value;
+
+    const nowYear = parseInt(getPart('year')!);
+    const nowMonth = parseInt(getPart('month')!);
+    const nowDay = parseInt(getPart('day')!);
+    const nowHour = parseInt(getPart('hour')!);
+
+    // Parse Match Date (YYYY-MM-DD from the DB string)
+    // match.scheduled_date is likely "2026-02-16T00:00:00+00:00" or similar
+    // We want just the YMD.
+    const [mYear, mMonth, mDay] = datePart.split('-').map(Number);
+
+    // Compare Dates
+    // Create comparable numbers YYYYMMDD
+    const nowYMD = nowYear * 10000 + nowMonth * 100 + nowDay;
+    const matchYMD = mYear * 10000 + mMonth * 100 + mDay;
+
+    // Window Start: Match Day @ 08:00
+    // Window End: Next Day @ 08:00
+
+    if (nowYMD < matchYMD) {
+        // Today is BEFORE Match Day
+        return { locked: true, reason: `Match starts on ${datePart} at 8:00 AM (${timeZone}).` };
+    }
+
+    if (nowYMD === matchYMD) {
+        // Today IS Match Day
+        if (nowHour < 8) {
+            return { locked: true, reason: `Match starts at 8:00 AM (${timeZone}).` };
+        }
         return { locked: false };
     }
 
-    return { locked: true, reason: `Match is locked. Play window: ${startWindow.toLocaleString()} - ${endWindow.toLocaleString()}` };
+    if (nowYMD > matchYMD) {
+        // Today is AFTER Match Day.
+        // Check if it's the "Next Day" and before 8 AM.
+
+        // Calculate Next Day YMD
+        const matchDateObj = new Date(mYear, mMonth - 1, mDay);
+        const nextDateObj = new Date(matchDateObj);
+        nextDateObj.setDate(nextDateObj.getDate() + 1);
+
+        const nYear = nextDateObj.getFullYear();
+        const nMonth = nextDateObj.getMonth() + 1;
+        const nDay = nextDateObj.getDate();
+
+        const nextYMD = nYear * 10000 + nMonth * 100 + nDay;
+
+        if (nowYMD === nextYMD) {
+            // It is the day strictly after.
+            if (nowHour < 8) {
+                return { locked: false }; // Still in the window (until 8 AM)
+            }
+            return { locked: true, reason: `Match window ended today at 8:00 AM (${timeZone}).` };
+        }
+
+        // If more than 1 day past
+        return { locked: true, reason: `Match window expired.` };
+    }
+
+    return { locked: true, reason: "Match is locked." };
 }
 
 export async function updateMatchDate(matchId: string, newDate: string) {
