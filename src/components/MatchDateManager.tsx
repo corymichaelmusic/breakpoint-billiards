@@ -9,9 +9,10 @@ interface Props {
     initialTime: string | null;
     initialTable: string | null;
     isUnlocked: boolean;
+    isDateLocked: boolean;
 }
 
-export default function MatchDateManager({ matchId, initialDate, initialTime, initialTable, isUnlocked }: Props) {
+export default function MatchDateManager({ matchId, initialDate, initialTime, initialTable, isUnlocked, isDateLocked }: Props) {
     const [isEditing, setIsEditing] = useState(false);
 
     // Date part only for the input
@@ -118,72 +119,33 @@ export default function MatchDateManager({ matchId, initialDate, initialTime, in
                         </button>
                     </div>
 
-                    {/* Logic: Unlocked if Manually Unlocked OR Date has passed (or is today) */}
-                    {(() => {
-                        const now = new Date();
-                        let isAutoUnlocked = false;
-                        let isExpired = false;
-
-                        if (initialDate) {
-                            const scheduled = new Date(initialDate);
-                            // UTC date from DB, we want to construct local window.
-                            // Simply taking the Date object as "start of day" is tricky with timezones.
-                            // Let's do a naive compare on YYYY-MM-DD for current local time.
-
-                            // Better yet, just use the helper from match actions logic if possible, 
-                            // OR replicate simplified check here.
-
-                            // Let's use the Date object directly parsed from the ISO string
-                            const windowStart = new Date(scheduled);
-                            // If it's pure date (YYYY-MM-DD), it parses to UTC midnight.
-                            // We want to unlock at 8AM Local Time on that date? Or 8AM UTC?
-                            // Let's assume the simplified logic: Is it "Today"?
-
-                            // Replicating previous logic roughly:
-                            windowStart.setHours(8, 0, 0, 0);
-                            const windowEnd = new Date(windowStart);
-                            windowEnd.setDate(windowEnd.getDate() + 1);
-
-                            // This client-side check is approximate due to timezone diffs between client/server.
-                            // Reliable check is done on server for actual enforcement.
-                            // Visual indicator is "Good Enough".
-
-                            isAutoUnlocked = now >= windowStart && now < windowEnd;
-                            isExpired = now >= windowEnd;
-                        }
-
-                        const isEffectiveUnlocked = isUnlocked || (isAutoUnlocked && !isExpired);
-
-                        return (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
-                                <span style={{
-                                    fontSize: '0.65rem',
-                                    padding: '0.1rem 0.4rem',
-                                    borderRadius: '1rem',
-                                    background: isEffectiveUnlocked ? 'rgba(74, 222, 128, 0.1)' : '#222',
-                                    color: isEffectiveUnlocked ? '#4ade80' : '#666',
-                                    border: isEffectiveUnlocked ? '1px solid #22c55e' : '1px solid #444',
-                                    whiteSpace: 'nowrap'
-                                }}>
-                                    {isUnlocked ? 'UNLOCKED' : isEffectiveUnlocked ? 'OPEN' : isExpired ? 'LOCKED' : 'LOCKED'}
-                                </span>
-                                <button
-                                    onClick={handleToggleLock}
-                                    disabled={loading}
-                                    style={{
-                                        fontSize: '0.65rem',
-                                        color: isUnlocked ? '#888' : '#D4AF37',
-                                        background: 'none',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        textDecoration: 'underline'
-                                    }}
-                                >
-                                    {isUnlocked ? 'Lock' : 'Force Unlock'}
-                                </button>
-                            </div>
-                        );
-                    })()}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+                        <span style={{
+                            fontSize: '0.65rem',
+                            padding: '0.1rem 0.4rem',
+                            borderRadius: '1rem',
+                            background: (isUnlocked || !isDateLocked) ? 'rgba(74, 222, 128, 0.1)' : '#222',
+                            color: (isUnlocked || !isDateLocked) ? '#4ade80' : '#666',
+                            border: (isUnlocked || !isDateLocked) ? '1px solid #22c55e' : '1px solid #444',
+                            whiteSpace: 'nowrap'
+                        }}>
+                            {isUnlocked ? 'UNLOCKED' : (!isDateLocked) ? 'OPEN' : 'LOCKED'}
+                        </span>
+                        <button
+                            onClick={handleToggleLock}
+                            disabled={loading}
+                            style={{
+                                fontSize: '0.65rem',
+                                color: isUnlocked ? '#888' : '#D4AF37',
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                textDecoration: 'underline'
+                            }}
+                        >
+                            {isUnlocked ? 'Lock' : 'Force Unlock'}
+                        </button>
+                    </div>
                 </div>
             )}
         </div>

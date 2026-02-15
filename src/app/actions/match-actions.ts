@@ -3,6 +3,7 @@
 import { createAdminClient } from "@/utils/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { isMatchDateLocked } from "@/utils/match-utils";
 
 export async function submitMatchScore(formData: FormData) {
     const matchId = formData.get("matchId") as string;

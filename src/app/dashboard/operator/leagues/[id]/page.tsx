@@ -13,6 +13,7 @@ import GenerateScheduleForm from "@/components/GenerateScheduleForm";
 import ResetMatchButton from "@/components/ResetMatchButton";
 
 import { verifyOperator } from "@/utils/auth-helpers";
+import { isMatchDateLocked } from "@/utils/match-utils";
 
 export default async function LeaguePage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -395,6 +396,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                                                 initialTime={match.scheduled_time}
                                                                 initialTable={match.table_name}
                                                                 isUnlocked={match.is_manually_unlocked}
+                                                                isDateLocked={isMatchDateLocked(match.scheduled_date, league.timezone || 'America/Chicago').locked}
                                                             />
                                                         </td>
                                                         <td className="p-2">
