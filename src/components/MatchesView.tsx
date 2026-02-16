@@ -69,7 +69,7 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                             onClick={() => setSelectedWeek('all')}
                             className={`px-4 py-2 text-sm font-bold rounded-t-lg border-b-2 transition-all ${selectedWeek === 'all'
                                 ? '!bg-white !text-black border-white'
-                                : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
+                                : 'border-transparent text-white/70 hover:text-white hover:bg-white/5'
                                 }`}
                         >
                             All Weeks
@@ -80,7 +80,7 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                                 onClick={() => setSelectedWeek(week as number)}
                                 className={`px-4 py-2 text-sm font-bold rounded-t-lg border-b-2 transition-all ${selectedWeek === week
                                     ? '!bg-white !text-black border-white'
-                                    : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
+                                    : 'border-transparent text-white/70 hover:text-white hover:bg-white/5'
                                     }`}
                             >
                                 Week {week as number}
