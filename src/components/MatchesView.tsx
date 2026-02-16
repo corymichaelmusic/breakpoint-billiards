@@ -48,7 +48,7 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                         Table View
                     </h2>
                     <div className="flex gap-2">
-                        <Link href={`/dashboard/operator/leagues/${leagueId}`} className="btn bg-surface border border-border hover:bg-white/10 text-xs px-3 py-1 font-bold rounded transition-colors text-white">
+                        <Link href={`/dashboard/operator/leagues/${leagueId}`} className="btn bg-white hover:bg-gray-200 border border-white text-xs px-3 py-1 font-bold rounded transition-colors text-black shadow-lg shadow-white/10">
                             &larr; Back to List
                         </Link>
                         {leagueStatus === 'active' && (
@@ -68,8 +68,8 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                         <button
                             onClick={() => setSelectedWeek('all')}
                             className={`px-4 py-2 text-sm font-bold rounded-t-lg border-b-2 transition-all ${selectedWeek === 'all'
-                                    ? 'border-[#D4AF37] text-[#D4AF37] bg-white/5'
-                                    : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
+                                ? 'border-white text-white bg-white/10'
+                                : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
                                 }`}
                         >
                             All Weeks
@@ -79,8 +79,8 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                                 key={week as number}
                                 onClick={() => setSelectedWeek(week as number)}
                                 className={`px-4 py-2 text-sm font-bold rounded-t-lg border-b-2 transition-all ${selectedWeek === week
-                                        ? 'border-[#D4AF37] text-[#D4AF37] bg-white/5'
-                                        : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
+                                    ? 'border-white text-white bg-white/10'
+                                    : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
                                     }`}
                             >
                                 Week {week as number}
@@ -145,82 +145,77 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                     }
 
                     return (
-                        <div key={match.id} className="relative w-full aspect-[1.6/1] bg-black border-[3px] border-white p-4 flex flex-col justify-between">
+                        <div key={match.id} className="relative w-full aspect-[2/1] bg-black border-[3px] border-white p-3 flex flex-col justify-between shadow-xl shadow-black/50">
                             {/* Top Section: Header */}
-                            <div className="flex justify-between items-start text-center mb-2">
+                            <div className="flex justify-between items-start text-center mb-1">
                                 {/* P1 Stats */}
                                 <div className="flex-1 flex flex-col items-center">
-                                    <h3 className="text-[#D4AF37] font-bold text-sm sm:text-base leading-none mb-1 tracking-wide">{p1Name}</h3>
-                                    <span className="text-white font-bold text-xs">{p1Rating.rating.toFixed(1)} ({p1Rating.confidence.toFixed(0)})</span>
+                                    <h3 className="text-[#D4AF37] font-bold text-xs sm:text-sm leading-none mb-1 tracking-wide truncate w-full">{p1Name}</h3>
+                                    <span className="text-white font-bold text-[10px] sm:text-xs">{p1Rating.rating.toFixed(1)} ({p1Rating.confidence.toFixed(0)})</span>
                                 </div>
 
                                 {/* VS / Table */}
-                                <div className="flex flex-col items-center justify-start mx-2">
-                                    <span className="text-[#D4AF37] text-xs font-bold mb-1">-VS-</span>
-                                    <span className="text-white text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">{match.table_name || "TBD"}</span>
+                                <div className="flex flex-col items-center justify-start mx-2 mt-1">
+                                    <span className="text-white text-[9px] font-bold uppercase tracking-wider whitespace-nowrap bg-white/10 px-2 py-0.5 rounded">{match.table_name || "TBD"}</span>
                                 </div>
 
                                 {/* P2 Stats */}
                                 <div className="flex-1 flex flex-col items-center">
-                                    <h3 className="text-[#D4AF37] font-bold text-sm sm:text-base leading-none mb-1 tracking-wide">{p2Name}</h3>
-                                    <span className="text-white font-bold text-xs">{p2Rating.rating.toFixed(1)} ({p2Rating.confidence.toFixed(0)})</span>
+                                    <h3 className="text-[#D4AF37] font-bold text-xs sm:text-sm leading-none mb-1 tracking-wide truncate w-full">{p2Name}</h3>
+                                    <span className="text-white font-bold text-[10px] sm:text-xs">{p2Rating.rating.toFixed(1)} ({p2Rating.confidence.toFixed(0)})</span>
                                 </div>
                             </div>
 
                             {/* Divider Line */}
-                            <div className="w-full h-[2px] bg-[#D4AF37] mb-3"></div>
+                            <div className="w-full h-[1px] bg-[#D4AF37]/50 mb-2"></div>
 
                             {/* Games Section */}
-                            <div className="flex-1 flex gap-4">
+                            <div className="flex-1 flex gap-2 min-h-0">
                                 {/* 8-Ball Box */}
-                                <div className="flex-1 flex flex-col">
-                                    <h4 className="text-[#D4AF37] font-bold text-center mb-1 text-sm tracking-wider">8-BALL</h4>
-                                    <div className="flex-1 border-[2px] border-white flex relative">
+                                <div className="flex-1 flex flex-col min-h-0">
+                                    <h4 className="text-[#D4AF37] font-bold text-center mb-1 text-[10px] tracking-wider">8-BALL</h4>
+                                    <div className="flex-1 border border-white flex relative min-h-0">
                                         {/* P1 Score */}
-                                        <div className="flex-1 flex flex-col items-center justify-center border-r-[2px] border-white relative p-1">
+                                        <div className="flex-1 flex flex-col items-center justify-center border-r border-white relative p-1">
                                             <div className="absolute top-1 text-center w-full">
-                                                <div className="text-[#D4AF37] font-bold text-xs leading-none">{p1Initial}</div>
-                                                <div className="text-white text-[8px] font-bold leading-none mt-[1px]">RACE TO {race8.p1}</div>
+                                                <div className="text-white text-[8px] font-bold leading-none mt-[1px] opacity-70">RACE TO {race8.p1}</div>
                                             </div>
-                                            <div className="text-[#D4AF37] font-bold text-3xl mt-3">{match.points_8ball_p1 || 0}</div>
+                                            <div className="text-[#D4AF37] font-bold text-2xl sm:text-3xl mt-2">{match.points_8ball_p1 || 0}</div>
                                         </div>
                                         {/* P2 Score */}
                                         <div className="flex-1 flex flex-col items-center justify-center relative p-1">
                                             <div className="absolute top-1 text-center w-full">
-                                                <div className="text-[#D4AF37] font-bold text-xs leading-none">{p2Initial}</div>
-                                                <div className="text-white text-[8px] font-bold leading-none mt-[1px]">RACE TO {race8.p2}</div>
+                                                <div className="text-white text-[8px] font-bold leading-none mt-[1px] opacity-70">RACE TO {race8.p2}</div>
                                             </div>
-                                            <div className="text-[#D4AF37] font-bold text-3xl mt-3">{match.points_8ball_p2 || 0}</div>
+                                            <div className="text-[#D4AF37] font-bold text-2xl sm:text-3xl mt-2">{match.points_8ball_p2 || 0}</div>
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* 9-Ball Box */}
-                                <div className="flex-1 flex flex-col">
-                                    <h4 className="text-[#D4AF37] font-bold text-center mb-1 text-sm tracking-wider">9-BALL</h4>
-                                    <div className="flex-1 border-[2px] border-white flex relative">
+                                <div className="flex-1 flex flex-col min-h-0">
+                                    <h4 className="text-[#D4AF37] font-bold text-center mb-1 text-[10px] tracking-wider">9-BALL</h4>
+                                    <div className="flex-1 border border-white flex relative min-h-0">
                                         {/* P1 Score */}
-                                        <div className="flex-1 flex flex-col items-center justify-center border-r-[2px] border-white relative p-1">
+                                        <div className="flex-1 flex flex-col items-center justify-center border-r border-white relative p-1">
                                             <div className="absolute top-1 text-center w-full">
-                                                <div className="text-[#D4AF37] font-bold text-xs leading-none">{p1Initial}</div>
-                                                <div className="text-white text-[8px] font-bold leading-none mt-[1px]">RACE TO {race9.p1}</div>
+                                                <div className="text-white text-[8px] font-bold leading-none mt-[1px] opacity-70">RACE TO {race9.p1}</div>
                                             </div>
-                                            <div className="text-[#D4AF37] font-bold text-3xl mt-3">{match.points_9ball_p1 || 0}</div>
+                                            <div className="text-[#D4AF37] font-bold text-2xl sm:text-3xl mt-2">{match.points_9ball_p1 || 0}</div>
                                         </div>
                                         {/* P2 Score */}
                                         <div className="flex-1 flex flex-col items-center justify-center relative p-1">
                                             <div className="absolute top-1 text-center w-full">
-                                                <div className="text-[#D4AF37] font-bold text-xs leading-none">{p2Initial}</div>
-                                                <div className="text-white text-[8px] font-bold leading-none mt-[1px]">RACE TO {race9.p2}</div>
+                                                <div className="text-white text-[8px] font-bold leading-none mt-[1px] opacity-70">RACE TO {race9.p2}</div>
                                             </div>
-                                            <div className="text-[#D4AF37] font-bold text-3xl mt-3">{match.points_9ball_p2 || 0}</div>
+                                            <div className="text-[#D4AF37] font-bold text-2xl sm:text-3xl mt-2">{match.points_9ball_p2 || 0}</div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Footer Status */}
-                            <div className={`text-center font-bold tracking-widest text-sm mt-3 uppercase ${statusColor}`}>
+                            <div className={`text-center font-bold tracking-widest text-xs mt-2 uppercase ${statusColor}`}>
                                 {statusText}
                             </div>
 
@@ -237,4 +232,5 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
             </div>
         </div>
     );
+
 }
