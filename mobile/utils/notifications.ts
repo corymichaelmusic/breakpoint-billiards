@@ -60,7 +60,7 @@ export async function registerForPushNotificationsAsync() {
     }
 }
 
-export async function scheduleMatchReminder(match: any) {
+export async function scheduleMatchReminder(match: any, currentUserId?: string) {
     if (isAndroidExpoGo || !match || !match.scheduled_date) return;
 
     try {
@@ -84,14 +84,34 @@ export async function scheduleMatchReminder(match: any) {
         // Cancel existing notification for this match if any (avoid dupes)
         await Notifications.cancelScheduledNotificationAsync(identifier);
 
-        const opponentName = match.player1?.full_name || match.player2?.full_name || 'your opponent';
-        const time = match.scheduled_time || 'scheduled time';
+        let opponentName = 'your opponent';
+        if (currentUserId) {
+            opponentName = match.player1_id === currentUserId
+                ? match.player2?.full_name
+                : match.player1?.full_name;
+        }
+
+        // Fallback names if still empty
+        if (!opponentName) opponentName = 'your opponent';
+
+        let timeDisplay = 'scheduled time';
+        if (match.scheduled_time) {
+            if (match.scheduled_time.includes(':')) {
+                const [h, m] = match.scheduled_time.split(':');
+                const hour = parseInt(h, 10);
+                const suffix = hour >= 12 ? 'PM' : 'AM';
+                const hour12 = hour % 12 || 12;
+                timeDisplay = `${hour12}:${m} ${suffix}`;
+            } else {
+                timeDisplay = match.scheduled_time;
+            }
+        }
 
         await Notifications.scheduleNotificationAsync({
             identifier,
             content: {
                 title: "Match Today! 🎱",
-                body: `You play ${opponentName} at ${time}. Good luck!`,
+                body: `You play ${opponentName} at ${timeDisplay}. Good luck!`,
                 data: { matchId: match.id },
             },
             trigger: {
