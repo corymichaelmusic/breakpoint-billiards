@@ -68,7 +68,7 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                         <button
                             onClick={() => setSelectedWeek('all')}
                             className={`px-4 py-2 text-sm font-bold rounded-t-lg border-b-2 transition-all ${selectedWeek === 'all'
-                                ? 'border-white text-white bg-white/10'
+                                ? 'border-white bg-white text-black'
                                 : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
                                 }`}
                         >
@@ -79,7 +79,7 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                                 key={week as number}
                                 onClick={() => setSelectedWeek(week as number)}
                                 className={`px-4 py-2 text-sm font-bold rounded-t-lg border-b-2 transition-all ${selectedWeek === week
-                                    ? 'border-white text-white bg-white/10'
+                                    ? 'border-white bg-white text-black'
                                     : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
                                     }`}
                             >
