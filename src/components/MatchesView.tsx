@@ -56,9 +56,6 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                 </h2>
                 {leagueStatus === 'active' && (
                     <form action={async () => {
-                        // This form action needs to be passed down or imported differently if we want to keep it
-                        // For now we can keep the import if it's a server action, but we are in a client component.
-                        // Server actions can be imported in client components.
                         const { submitLeagueResults } = await import("@/app/actions/league-actions");
                         await submitLeagueResults(leagueId);
                     }}>
@@ -170,91 +167,140 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                             effectiveStatus = 'in_progress';
                         }
 
-                        // Determine match background
-                        // Green felt for active/started? Gray for not started?
-                        // Let's go with a pool table look for all, but maybe dim the not-started ones.
                         const isStarted = effectiveStatus === 'in_progress' || effectiveStatus === 'finalized';
-                        const tableColor = isStarted ? 'bg-[#0a4d2e]' : 'bg-[#1a1a1a]';
-                        const feltTexture = isStarted ? 'radial-gradient(circle, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0) 100%)' : 'none';
 
                         // Get Ratings
                         const p1Rating = playerRatings[match.player1_id] || { rating: 500, confidence: 0 };
                         const p2Rating = playerRatings[match.player2_id] || { rating: 500, confidence: 0 };
 
+                        // Get First name / Initials
+                        const p1Name = match.player1?.full_name?.toUpperCase() || "PLAYER 1";
+                        const p2Name = match.player2?.full_name?.toUpperCase() || "PLAYER 2";
+                        const p1Initial = p1Name.charAt(0);
+                        const p2Initial = p2Name.charAt(0);
+
                         // Calculate Races
                         const race8 = calculateRace(p1Rating.rating, p2Rating.rating, '8ball');
                         const race9 = calculateRace(p1Rating.rating, p2Rating.rating, '9ball');
 
+                        // Winner status logic
+                        let statusText = "SCHEDULED";
+                        let statusColor = "text-gray-500";
+
+                        if (effectiveStatus === 'in_progress') {
+                            statusText = "IN PROGRESS";
+                            statusColor = "text-[#D4AF37]"; // Gold
+                        } else if (effectiveStatus === 'finalized') {
+                            // Can deduce winner roughly by points although not perfect without game logic
+                            // Visuals: just show who won if possible or Finalized
+                            // For this MVP step, lets just show status
+                            statusText = "FINALIZED";
+                            statusColor = "text-[#4ade80]"; // Green
+                        }
+
+                        // Determine winner based on game status
+                        // Ideally we'd have a winner field, but we can check points vs race
+                        // Or just use the status text as requested in design "CORY WINS"
+                        if (effectiveStatus === 'finalized') {
+                            // Simple heuristic: Whoever has most total points? 
+                            // Real logic depends on league rules (e.g. 8-ball + 9-ball aggregate?)
+                            // VNEA is total points.
+                            const p1Total = (match.points_8ball_p1 || 0) + (match.points_9ball_p1 || 0);
+                            const p2Total = (match.points_8ball_p2 || 0) + (match.points_9ball_p2 || 0);
+
+                            if (p1Total > p2Total) {
+                                statusText = `${p1Name.split(' ')[0]} WINS`;
+                            } else if (p2Total > p1Total) {
+                                statusText = `${p2Name.split(' ')[0]} WINS`;
+                            } else {
+                                statusText = "DRAW";
+                            }
+                        }
+
                         return (
-                            <div key={match.id} className={`${tableColor} border-8 border-[#3d2b1f] rounded-lg p-4 relative shadow-xl overflow-hidden`} style={{ backgroundImage: feltTexture }}>
-                                {/* Pockets Visuals (Corners) */}
-                                <div className="absolute top-0 left-0 w-8 h-8 bg-[#111] rounded-br-2xl border-r border-b border-[#222]"></div>
-                                <div className="absolute top-0 right-0 w-8 h-8 bg-[#111] rounded-bl-2xl border-l border-b border-[#222]"></div>
-                                <div className="absolute bottom-0 left-0 w-8 h-8 bg-[#111] rounded-tr-2xl border-r border-t border-[#222]"></div>
-                                <div className="absolute bottom-0 right-0 w-8 h-8 bg-[#111] rounded-tl-2xl border-l border-t border-[#222]"></div>
-
-                                <div className="relative z-10 flex flex-col gap-4">
-                                    {/* Header: Table Name & Status */}
-                                    <div className="flex justify-between items-center bg-black/30 p-2 rounded">
-                                        <h3 className="text-[#D4AF37] font-bold text-sm uppercase tracking-wider">{match.table_name || 'Unassigned Table'}</h3>
-                                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${isStarted ? 'bg-black text-white' : 'bg-gray-700 text-gray-400'}`}>
-                                            {effectiveStatus === 'in_progress' ? 'LIVE' : effectiveStatus}
-                                        </span>
+                            <div key={match.id} className="relative w-full aspect-[1.6/1] bg-black border-[3px] border-white p-4 flex flex-col justify-between">
+                                {/* Top Section: Header */}
+                                <div className="flex justify-between items-start text-center mb-2">
+                                    {/* P1 Stats */}
+                                    <div className="flex-1 flex flex-col items-center">
+                                        <h3 className="text-[#D4AF37] font-bold text-sm sm:text-base leading-none mb-1 tracking-wide">{p1Name}</h3>
+                                        <span className="text-white font-bold text-xs">{p1Rating.rating.toFixed(1)} ({p1Rating.confidence.toFixed(0)})</span>
                                     </div>
 
-                                    {/* Players Grid */}
-                                    <div className="grid grid-cols-2 gap-4">
-                                        {/* Player 1 */}
-                                        <div className="bg-black/40 p-3 rounded flex flex-col items-center text-center">
-                                            <div className="font-bold text-white text-lg leading-tight mb-1">{match.player1?.full_name}</div>
-                                            <div className="text-[10px] text-gray-400 font-mono mb-2 flex flex-col">
-                                                <span>R: {p1Rating.rating}</span>
-                                                <span>C: {p1Rating.confidence.toFixed(1)}</span>
-                                            </div>
-
-                                            {/* Score 8-Ball */}
-                                            <div className="flex items-center justify-between w-full text-xs mb-1 px-2 border-b border-white/10 pb-1">
-                                                <span className="text-gray-400">8-Ball</span>
-                                                <span className="font-bold text-white text-lg">{match.points_8ball_p1} <span className="text-[10px] text-gray-500 font-normal">/ {race8.p1}</span></span>
-                                            </div>
-                                            {/* Score 9-Ball */}
-                                            <div className="flex items-center justify-between w-full text-xs px-2">
-                                                <span className="text-gray-400">9-Ball</span>
-                                                <span className="font-bold text-white text-lg">{match.points_9ball_p1} <span className="text-[10px] text-gray-500 font-normal">/ {race9.p1}</span></span>
-                                            </div>
-                                        </div>
-
-                                        {/* Player 2 */}
-                                        <div className="bg-black/40 p-3 rounded flex flex-col items-center text-center">
-                                            <div className="font-bold text-white text-lg leading-tight mb-1">{match.player2?.full_name}</div>
-                                            <div className="text-[10px] text-gray-400 font-mono mb-2 flex flex-col">
-                                                <span>R: {p2Rating.rating}</span>
-                                                <span>C: {p2Rating.confidence.toFixed(1)}</span>
-                                            </div>
-
-                                            {/* Score 8-Ball */}
-                                            <div className="flex items-center justify-between w-full text-xs mb-1 px-2 border-b border-white/10 pb-1">
-                                                <span className="text-gray-400">8-Ball</span>
-                                                <span className="font-bold text-white text-lg">{match.points_8ball_p2} <span className="text-[10px] text-gray-500 font-normal">/ {race8.p2}</span></span>
-                                            </div>
-                                            {/* Score 9-Ball */}
-                                            <div className="flex items-center justify-between w-full text-xs px-2">
-                                                <span className="text-gray-400">9-Ball</span>
-                                                <span className="font-bold text-white text-lg">{match.points_9ball_p2} <span className="text-[10px] text-gray-500 font-normal">/ {race9.p2}</span></span>
-                                            </div>
-                                        </div>
+                                    {/* VS / Table */}
+                                    <div className="flex flex-col items-center justify-start mx-2">
+                                        <span className="text-[#D4AF37] text-xs font-bold mb-1">-VS-</span>
+                                        <span className="text-white text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">{match.table_name || "TBD"}</span>
                                     </div>
 
-                                    {/* Action Button */}
-                                    <div className="flex justify-center mt-2">
-                                        {(leagueStatus === 'active' || leagueStatus === 'completed') && (
-                                            <Link href={`/dashboard/operator/leagues/${leagueId}/matches/${match.id}/score`} className="btn bg-[#D4AF37] hover:bg-yellow-500 text-black text-xs font-bold px-6 py-2 rounded-full shadow-lg hover:scale-105 transition-all">
-                                                To Scoreboard &rarr;
-                                            </Link>
-                                        )}
+                                    {/* P2 Stats */}
+                                    <div className="flex-1 flex flex-col items-center">
+                                        <h3 className="text-[#D4AF37] font-bold text-sm sm:text-base leading-none mb-1 tracking-wide">{p2Name}</h3>
+                                        <span className="text-white font-bold text-xs">{p2Rating.rating.toFixed(1)} ({p2Rating.confidence.toFixed(0)})</span>
                                     </div>
-
                                 </div>
+
+                                {/* Divider Line */}
+                                <div className="w-full h-[2px] bg-[#D4AF37] mb-3"></div>
+
+                                {/* Games Section */}
+                                <div className="flex-1 flex gap-4">
+                                    {/* 8-Ball Box */}
+                                    <div className="flex-1 flex flex-col">
+                                        <h4 className="text-[#D4AF37] font-bold text-center mb-1 text-sm tracking-wider">8-BALL</h4>
+                                        <div className="flex-1 border-[2px] border-white flex relative">
+                                            {/* P1 Score */}
+                                            <div className="flex-1 flex flex-col items-center justify-center border-r-[2px] border-white relative p-1">
+                                                <div className="absolute top-1 text-center w-full">
+                                                    <div className="text-[#D4AF37] font-bold text-xs leading-none">{p1Initial}</div>
+                                                    <div className="text-white text-[8px] font-bold leading-none mt-[1px]">RACE TO {race8.p1}</div>
+                                                </div>
+                                                <div className="text-[#D4AF37] font-bold text-3xl mt-3">{match.points_8ball_p1 || 0}</div>
+                                            </div>
+                                            {/* P2 Score */}
+                                            <div className="flex-1 flex flex-col items-center justify-center relative p-1">
+                                                <div className="absolute top-1 text-center w-full">
+                                                    <div className="text-[#D4AF37] font-bold text-xs leading-none">{p2Initial}</div>
+                                                    <div className="text-white text-[8px] font-bold leading-none mt-[1px]">RACE TO {race8.p2}</div>
+                                                </div>
+                                                <div className="text-[#D4AF37] font-bold text-3xl mt-3">{match.points_8ball_p2 || 0}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 9-Ball Box */}
+                                    <div className="flex-1 flex flex-col">
+                                        <h4 className="text-[#D4AF37] font-bold text-center mb-1 text-sm tracking-wider">9-BALL</h4>
+                                        <div className="flex-1 border-[2px] border-white flex relative">
+                                            {/* P1 Score */}
+                                            <div className="flex-1 flex flex-col items-center justify-center border-r-[2px] border-white relative p-1">
+                                                <div className="absolute top-1 text-center w-full">
+                                                    <div className="text-[#D4AF37] font-bold text-xs leading-none">{p1Initial}</div>
+                                                    <div className="text-white text-[8px] font-bold leading-none mt-[1px]">RACE TO {race9.p1}</div>
+                                                </div>
+                                                <div className="text-[#D4AF37] font-bold text-3xl mt-3">{match.points_9ball_p1 || 0}</div>
+                                            </div>
+                                            {/* P2 Score */}
+                                            <div className="flex-1 flex flex-col items-center justify-center relative p-1">
+                                                <div className="absolute top-1 text-center w-full">
+                                                    <div className="text-[#D4AF37] font-bold text-xs leading-none">{p2Initial}</div>
+                                                    <div className="text-white text-[8px] font-bold leading-none mt-[1px]">RACE TO {race9.p2}</div>
+                                                </div>
+                                                <div className="text-[#D4AF37] font-bold text-3xl mt-3">{match.points_9ball_p2 || 0}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Footer Status */}
+                                <div className={`text-center font-bold tracking-widest text-sm mt-3 uppercase ${statusColor}`}>
+                                    {statusText}
+                                </div>
+
+                                {/* Link Overlay (Full Card Click) */}
+                                {(leagueStatus === 'active' || leagueStatus === 'completed') && (
+                                    <Link href={`/dashboard/operator/leagues/${leagueId}/matches/${match.id}/score`} className="absolute inset-0 z-20 cursor-pointer" title="Go to Scoreboard"></Link>
+                                )}
                             </div>
                         );
                     })}
