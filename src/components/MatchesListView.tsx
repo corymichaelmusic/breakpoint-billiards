@@ -41,7 +41,7 @@ export default function MatchesListView({ matches, leagueId, leagueStatus, timez
                     )}
                 </h2>
                 <div className="flex items-center gap-2">
-                    <Link href={`/dashboard/operator/leagues/${leagueId}/matches`} className="btn bg-surface border border-border hover:bg-white/10 text-xs px-3 py-1 font-bold rounded transition-colors text-[#D4AF37]">
+                    <Link href={`/dashboard/operator/leagues/${leagueId}/matches`} className="btn bg-white border border-white hover:bg-gray-200 text-xs px-3 py-1 font-bold rounded transition-colors text-black shadow-lg shadow-white/10">
                         View Table Mode &rarr;
                     </Link>
                     {leagueStatus === 'active' && (
