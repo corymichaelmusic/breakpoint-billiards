@@ -151,7 +151,7 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                                 {/* P1 Stats */}
                                 <div className="flex-1 flex flex-col items-center">
                                     <h3 className="text-[#D4AF37] font-bold text-xs sm:text-sm leading-none mb-1 tracking-wide truncate w-full">{p1Name}</h3>
-                                    <span className="text-white font-bold text-[10px] sm:text-xs">{p1Rating.rating.toFixed(1)} ({p1Rating.confidence.toFixed(0)})</span>
+                                    <span className="text-white font-bold text-[10px] sm:text-xs">{(Math.floor(p1Rating.rating / 10) / 10).toFixed(1)} ({p1Rating.confidence})</span>
                                 </div>
 
                                 {/* VS / Table */}
@@ -162,7 +162,7 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                                 {/* P2 Stats */}
                                 <div className="flex-1 flex flex-col items-center">
                                     <h3 className="text-[#D4AF37] font-bold text-xs sm:text-sm leading-none mb-1 tracking-wide truncate w-full">{p2Name}</h3>
-                                    <span className="text-white font-bold text-[10px] sm:text-xs">{p2Rating.rating.toFixed(1)} ({p2Rating.confidence.toFixed(0)})</span>
+                                    <span className="text-white font-bold text-[10px] sm:text-xs">{(Math.floor(p2Rating.rating / 10) / 10).toFixed(1)} ({p2Rating.confidence})</span>
                                 </div>
                             </div>
 

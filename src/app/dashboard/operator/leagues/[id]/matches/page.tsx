@@ -33,18 +33,31 @@ export default async function MatchesPage({ params }: { params: Promise<{ id: st
         .order("week_number", { ascending: true })
         .order("created_at", { ascending: true });
 
-    // Fetch Player Ratings for Table View
-    const { data: lpRatings } = await supabase
+    // Fetch League Players to get the roster
+    const { data: lpData } = await supabase
         .from("league_players")
-        .select("player_id, breakpoint_rating, breakpoint_confidence")
+        .select("player_id, breakpoint_racks_played")
         .eq("league_id", id);
 
+    const playerIds = lpData?.map(p => p.player_id) || [];
+
+    // Fetch Global Ratings from Profiles
+    const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("id, breakpoint_rating, full_name")
+        .in("id", playerIds);
+
     const playerRatings: Record<string, { rating: number, confidence: number }> = {};
-    if (lpRatings) {
-        lpRatings.forEach(p => {
-            playerRatings[p.player_id] = {
-                rating: p.breakpoint_rating ?? 500,
-                confidence: p.breakpoint_confidence ?? 0
+
+    if (profilesData) {
+        profilesData.forEach(p => {
+            // Find matching league_player for confidence/racks (using local racks for now)
+            const lp = lpData?.find(l => l.player_id === p.id);
+            const racks = lp?.breakpoint_racks_played || 0;
+
+            playerRatings[p.id] = {
+                rating: p.breakpoint_rating ?? 500, // Global Rating
+                confidence: racks // Use Racks Played as confidence
             };
         });
     }
