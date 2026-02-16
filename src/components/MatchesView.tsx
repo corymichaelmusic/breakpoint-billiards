@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import MatchDateManager from '@/components/MatchDateManager';
 import PaymentStatusManager from '@/components/PaymentStatusManager';
@@ -18,8 +18,23 @@ interface MatchesViewProps {
 
 export default function MatchesView({ matches, leagueId, leagueStatus, timezone, playerRatings }: MatchesViewProps) {
     const [viewMode, setViewMode] = useState<'list' | 'table'>('list');
+    const [selectedWeek, setSelectedWeek] = useState<number | 'all'>('all');
 
     const hasMatches = matches && matches.length > 0;
+
+    // Get unique weeks
+    const weeks = useMemo(() => {
+        if (!hasMatches) return [];
+        const w = new Set(matches.map(m => m.week_number));
+        return Array.from(w).sort((a, b) => (a as number) - (b as number));
+    }, [matches, hasMatches]);
+
+    // Filter matches
+    const filteredMatches = useMemo(() => {
+        if (selectedWeek === 'all') return matches;
+        return matches.filter(m => m.week_number === selectedWeek);
+    }, [matches, selectedWeek]);
+
 
     if (!hasMatches) {
         return (
@@ -36,31 +51,61 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
 
     return (
         <div className="card-glass p-6">
-            <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-white flex items-center gap-4">
-                    Matches
-                    <div className="flex bg-surface rounded-lg p-1 border border-border">
+            <div className="flex flex-col gap-4 mb-6">
+                {/* Header Row: Title & View Toggle */}
+                <div className="flex justify-between items-center">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-4">
+                        Matches
+                        <div className="flex bg-surface rounded-lg p-1 border border-border">
+                            <button
+                                onClick={() => setViewMode('list')}
+                                className={`px-3 py-1 text-xs font-bold rounded transition-colors ${viewMode === 'list' ? 'bg-[#D4AF37] text-black' : 'text-gray-400 hover:text-white'}`}
+                            >
+                                List
+                            </button>
+                            <button
+                                onClick={() => setViewMode('table')}
+                                className={`px-3 py-1 text-xs font-bold rounded transition-colors ${viewMode === 'table' ? 'bg-[#D4AF37] text-black' : 'text-gray-400 hover:text-white'}`}
+                            >
+                                Table View
+                            </button>
+                        </div>
+                    </h2>
+                    {leagueStatus === 'active' && (
+                        <form action={async () => {
+                            const { submitLeagueResults } = await import("@/app/actions/league-actions");
+                            await submitLeagueResults(leagueId);
+                        }}>
+                            <button className="btn text-xs px-3 py-1 font-bold" style={{ backgroundColor: '#D4AF37', color: 'black', border: '1px solid #D4AF37' }}>End Season</button>
+                        </form>
+                    )}
+                </div>
+
+                {/* Week Tabs */}
+                {weeks.length > 0 && (
+                    <div className="flex flex-wrap gap-2 border-b border-white/10 pb-4">
                         <button
-                            onClick={() => setViewMode('list')}
-                            className={`px-3 py-1 text-xs font-bold rounded transition-colors ${viewMode === 'list' ? 'bg-[#D4AF37] text-black' : 'text-gray-400 hover:text-white'}`}
+                            onClick={() => setSelectedWeek('all')}
+                            className={`px-4 py-2 text-sm font-bold rounded-t-lg border-b-2 transition-all ${selectedWeek === 'all'
+                                    ? 'border-[#D4AF37] text-[#D4AF37] bg-white/5'
+                                    : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
+                                }`}
                         >
-                            List
+                            All Weeks
                         </button>
-                        <button
-                            onClick={() => setViewMode('table')}
-                            className={`px-3 py-1 text-xs font-bold rounded transition-colors ${viewMode === 'table' ? 'bg-[#D4AF37] text-black' : 'text-gray-400 hover:text-white'}`}
-                        >
-                            Table View
-                        </button>
+                        {weeks.map(week => (
+                            <button
+                                key={week as number}
+                                onClick={() => setSelectedWeek(week as number)}
+                                className={`px-4 py-2 text-sm font-bold rounded-t-lg border-b-2 transition-all ${selectedWeek === week
+                                        ? 'border-[#D4AF37] text-[#D4AF37] bg-white/5'
+                                        : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
+                                    }`}
+                            >
+                                Week {week as number}
+                            </button>
+                        ))}
                     </div>
-                </h2>
-                {leagueStatus === 'active' && (
-                    <form action={async () => {
-                        const { submitLeagueResults } = await import("@/app/actions/league-actions");
-                        await submitLeagueResults(leagueId);
-                    }}>
-                        <button className="btn text-xs px-3 py-1 font-bold" style={{ backgroundColor: '#D4AF37', color: 'black', border: '1px solid #D4AF37' }}>End Season</button>
-                    </form>
                 )}
             </div>
 
@@ -77,13 +122,13 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
-                            {matches.map((match, index) => {
+                            {filteredMatches.map((match, index) => {
                                 const hasPoints = (match.points_8ball_p1 || 0) > 0 || (match.points_8ball_p2 || 0) > 0 || (match.points_9ball_p1 || 0) > 0 || (match.points_9ball_p2 || 0) > 0;
                                 const is8BallDone = match.status_8ball === 'finalized';
                                 const is9BallDone = match.status_9ball === 'finalized';
 
                                 // Check if likely near bottom of viewport
-                                const isNearBottom = index >= matches.length - 4;
+                                const isNearBottom = index >= filteredMatches.length - 4;
 
                                 let effectiveStatus = match.status;
                                 if (is8BallDone && is9BallDone) {
@@ -150,12 +195,17 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                                     </tr>
                                 );
                             })}
+                            {filteredMatches.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className="text-center py-8 text-gray-500 italic">No matches for this week.</td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {matches.map((match) => {
+                    {filteredMatches.map((match) => {
                         const hasPoints = (match.points_8ball_p1 || 0) > 0 || (match.points_8ball_p2 || 0) > 0 || (match.points_9ball_p1 || 0) > 0 || (match.points_9ball_p2 || 0) > 0;
                         const is8BallDone = match.status_8ball === 'finalized';
                         const is9BallDone = match.status_9ball === 'finalized';
@@ -191,20 +241,11 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                             statusText = "IN PROGRESS";
                             statusColor = "text-[#D4AF37]"; // Gold
                         } else if (effectiveStatus === 'finalized') {
-                            // Can deduce winner roughly by points although not perfect without game logic
-                            // Visuals: just show who won if possible or Finalized
-                            // For this MVP step, lets just show status
                             statusText = "FINALIZED";
                             statusColor = "text-[#4ade80]"; // Green
                         }
 
-                        // Determine winner based on game status
-                        // Ideally we'd have a winner field, but we can check points vs race
-                        // Or just use the status text as requested in design "CORY WINS"
                         if (effectiveStatus === 'finalized') {
-                            // Simple heuristic: Whoever has most total points? 
-                            // Real logic depends on league rules (e.g. 8-ball + 9-ball aggregate?)
-                            // VNEA is total points.
                             const p1Total = (match.points_8ball_p1 || 0) + (match.points_9ball_p1 || 0);
                             const p2Total = (match.points_8ball_p2 || 0) + (match.points_9ball_p2 || 0);
 
@@ -304,6 +345,9 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                             </div>
                         );
                     })}
+                    {filteredMatches.length === 0 && (
+                        <div className="col-span-full text-center py-8 text-gray-500 italic">No matches for this week.</div>
+                    )}
                 </div>
             )}
         </div>
