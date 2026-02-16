@@ -15,6 +15,8 @@ import * as NavigationBar from 'expo-navigation-bar';
 import * as SystemUI from 'expo-system-ui';
 import { SessionProvider } from "../lib/SessionContext";
 import { SubscriptionProvider } from "../lib/SubscriptionContext";
+import { useMinimumVersionCheck } from "../hooks/useMinimumVersionCheck";
+import ForceUpdateScreen from "../components/ForceUpdateScreen";
 
 // Handle OAuth redirects instantly
 try {
@@ -118,13 +120,20 @@ const InitialLayout = () => {
     }
   }, [isSignedIn, isLoaded, segments, pathname]);
 
-  if (!isLoaded) {
+  // Perform version check
+  const { isUpdateRequired, storeUrl, loading: versionCheckLoading } = useMinimumVersionCheck();
+
+  if (!isLoaded || versionCheckLoading) {
     return (
       <View className="flex-1 justify-center items-center bg-background">
         <ActivityIndicator size="large" color="#D4AF37" />
-        <Text style={{ color: 'white', marginTop: 20 }}>Initializing Auth...</Text>
+        <Text style={{ color: 'white', marginTop: 20 }}>Initializing...</Text>
       </View>
     );
+  }
+
+  if (isUpdateRequired) {
+    return <ForceUpdateScreen storeUrl={storeUrl} />;
   }
 
   // TEMPORARY DEBUG OVERLAY
