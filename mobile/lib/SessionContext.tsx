@@ -14,6 +14,7 @@ export interface Session {
     location?: string;
     city?: string;
     scheduleDay?: string;
+    timezone?: string;
 }
 
 interface SessionContextValue {
@@ -124,6 +125,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
                         location,
                         city,
                         schedule_day,
+                        timezone,
                         parent_league:parent_league_id(name, location, city)
                     )
                 `)
@@ -162,7 +164,8 @@ export function SessionProvider({ children }: SessionProviderProps) {
                     paymentStatus: m.payment_status,
                     location: league.parent_league?.location || league.location,
                     city: league.parent_league?.city || league.city,
-                    scheduleDay: league.schedule_day
+                    scheduleDay: league.schedule_day,
+                    timezone: league.timezone || 'America/Chicago'
                 };
             });
 

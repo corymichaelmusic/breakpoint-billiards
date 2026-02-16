@@ -8,6 +8,7 @@ import { createClient } from "@supabase/supabase-js";
 import NextMatchCard from "../../components/NextMatchCard";
 import { fetchMatchRaces } from "../../utils/rating";
 import { useSession } from "../../lib/SessionContext";
+import { isMatchLocked } from "../../utils/match";
 
 export default function MatchesScreen() {
     const { userId, getToken } = useAuth();
@@ -126,15 +127,6 @@ export default function MatchesScreen() {
             >
                 {matches.length > 0 ? (
                     matches.map((match) => {
-                        // Logic for status/score calculation (Same as Dashboard)
-                        const now = new Date();
-                        const [year, month, day] = match.scheduled_date.split('-').map(Number);
-                        const windowStart = new Date(year, month - 1, day, 8, 0, 0);
-                        const windowEnd = new Date(windowStart);
-                        windowEnd.setDate(windowEnd.getDate() + 1);
-
-                        const isTimeOpen = now >= windowStart && now < windowEnd;
-
                         const isBothSetsFinalized = match.status_8ball === 'finalized' && match.status_9ball === 'finalized';
                         const totalPoints = (match.points_8ball_p1 || 0) + (match.points_8ball_p2 || 0) + (match.points_9ball_p1 || 0) + (match.points_9ball_p2 || 0);
                         const isStarted = totalPoints > 0;
@@ -146,7 +138,13 @@ export default function MatchesScreen() {
                             effectiveStatus = 'in_progress';
                         }
 
-                        const isMatchLocked = !match.is_manually_unlocked && !isTimeOpen && effectiveStatus !== 'finalized' && effectiveStatus !== 'in_progress';
+                        const matchLocked = isMatchLocked(
+                            match.scheduled_date,
+                            activeSession?.timezone || 'America/Chicago',
+                            match.is_manually_unlocked,
+                            effectiveStatus,
+                            isStarted
+                        );
 
                         const isP1 = match.player1_id === userId;
                         const opponent = isP1 ? match.player2 : match.player1;
@@ -208,7 +206,7 @@ export default function MatchesScreen() {
                                         return new Date(year, month - 1, day).toLocaleDateString();
                                     })()
                                     : 'TBD'}
-                                isLocked={isMatchLocked}
+                                isLocked={matchLocked}
                                 weekNumber={undefined}
                                 status={effectiveStatus}
                                 player1Id={match.player1_id}

@@ -12,6 +12,7 @@ import BreakpointGraph from "../../components/BreakpointGraph";
 import { calculateEloChange, getBreakpointLevel, fetchMatchRaces } from "../../utils/rating";
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useSession } from "../../lib/SessionContext";
+import { isMatchLocked } from "../../utils/match";
 import MatchReminderBanner from "../../components/MatchReminderBanner";
 import { registerForPushNotificationsAsync, scheduleMatchReminder } from "../../utils/notifications";
 
@@ -467,7 +468,7 @@ export default function HomeScreen() {
           // Schedule local notification if not dismissed
           const alreadyDismissed = dismissalData?.some((d: any) => d.reminder_type === 'dayof');
           if (!alreadyDismissed) {
-            scheduleMatchReminder(globalMatchData);
+            scheduleMatchReminder(globalMatchData, userId);
           }
         }
       }
@@ -786,7 +787,13 @@ export default function HomeScreen() {
                   effectiveStatus = 'in_progress';
                 }
 
-                const isMatchLocked = !nextMatch.is_manually_unlocked && !isTimeOpen && effectiveStatus !== 'finalized' && effectiveStatus !== 'in_progress';
+                const matchLocked = isMatchLocked(
+                  nextMatch.scheduled_date,
+                  activeSession?.timezone || 'America/Chicago',
+                  nextMatch.is_manually_unlocked,
+                  effectiveStatus,
+                  isStarted
+                );
 
                 const formattedDate = nextMatch.scheduled_date
                   ? (() => {
@@ -810,7 +817,7 @@ export default function HomeScreen() {
                     opponentName={opponent?.full_name || 'Unknown'}
                     opponentRating={opponent?.breakpoint_rating}
                     date={formattedDate}
-                    isLocked={isMatchLocked}
+                    isLocked={matchLocked}
                     matchId={nextMatch.id}
                     leagueName={activeSession.parent_league?.name}
                     sessionName={activeSession.name}
