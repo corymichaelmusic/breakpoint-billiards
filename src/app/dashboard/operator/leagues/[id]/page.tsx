@@ -11,7 +11,7 @@ import MatchDateManager from "@/components/MatchDateManager";
 import { createAdminClient } from "@/utils/supabase/admin";
 import GenerateScheduleForm from "@/components/GenerateScheduleForm";
 import ResetMatchButton from "@/components/ResetMatchButton";
-
+import MatchesListView from "@/components/MatchesListView";
 
 import { verifyOperator } from "@/utils/auth-helpers";
 import { isMatchDateLocked } from "@/utils/match-utils";
@@ -346,29 +346,13 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                             </div>
                         )}
 
-                        <div className="card-glass p-6">
-                            <div className="flex justify-between items-center mb-4">
-                                <h2 className="text-xl font-bold text-white">Matches</h2>
-                                {matches && matches.length > 0 && (
-                                    <span className="text-sm text-gray-400">
-                                        {matches.length} matches scheduled
-                                    </span>
-                                )}
-                            </div>
+                        <MatchesListView
+                            matches={matches || []}
+                            leagueId={id}
+                            leagueStatus={league.status}
+                            timezone={league.timezone}
+                        />
 
-                            {matches && matches.length > 0 ? (
-                                <div className="text-center py-4">
-                                    <p className="text-gray-400 mb-6">Manage match results, view scoreboard, and track progress.</p>
-                                    <Link href={`/dashboard/operator/leagues/${id}/matches`} className="btn btn-primary w-full max-w-xs mx-auto block text-center">
-                                        View All Matches &rarr;
-                                    </Link>
-                                </div>
-                            ) : (
-                                <div className="text-center py-8 text-gray-500 italic">
-                                    No matches scheduled.
-                                </div>
-                            )}
-                        </div>
                     </div>
 
 
