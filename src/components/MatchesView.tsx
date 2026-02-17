@@ -107,9 +107,12 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
 
                     const isStarted = effectiveStatus === 'in_progress' || effectiveStatus === 'finalized';
 
-                    // Get Ratings
-                    const p1Rating = playerRatings[match.player1_id] || { rating: 500, confidence: 0 };
-                    const p2Rating = playerRatings[match.player2_id] || { rating: 500, confidence: 0 };
+                    // Get Ratings (Prefer Stored Frozen Ratings, fallback to Current)
+                    const p1RatingVal = match.player1_rating ?? playerRatings[match.player1_id]?.rating ?? 500;
+                    const p2RatingVal = match.player2_rating ?? playerRatings[match.player2_id]?.rating ?? 500;
+
+                    const p1Rating = { rating: p1RatingVal, confidence: playerRatings[match.player1_id]?.confidence || 0 };
+                    const p2Rating = { rating: p2RatingVal, confidence: playerRatings[match.player2_id]?.confidence || 0 };
 
                     // Get First name / Initials
                     const p1Name = match.player1?.full_name?.toUpperCase() || "PLAYER 1";
@@ -117,12 +120,22 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                     const p1Initial = p1Name.charAt(0);
                     const p2Initial = p2Name.charAt(0);
 
-                    // Calculate Races
-                    const races = calculateRace(p1Rating.rating, p2Rating.rating);
-                    const race8 = races.race8;
-                    const race9 = races.race9;
+                    // Calculate Races (Use Frozen Ratings)
+                    // Note: If match has `race_8ball_p1` stored, we could use that directly?
+                    // But `calculateRace` is safer if we trust our formula.
+                    // However, for PERFECT history, we should trust the DB columns if they are populated.
+                    // The DB columns are `race_8ball_p1`, `race_8ball_p2`, etc.
 
+                    let race8, race9;
 
+                    if (match.race_8ball_p1 && match.race_8ball_p2 && match.race_9ball_p1 && match.race_9ball_p2) {
+                        race8 = { p1: match.race_8ball_p1, p2: match.race_8ball_p2 };
+                        race9 = { p1: match.race_9ball_p1, p2: match.race_9ball_p2 };
+                    } else {
+                        const calculated = calculateRace(p1Rating.rating, p2Rating.rating);
+                        race8 = calculated.race8;
+                        race9 = calculated.race9;
+                    }
 
                     // Calculate Stats from Games (Client-Side)
                     let p1_8br = 0, p2_8br = 0;
