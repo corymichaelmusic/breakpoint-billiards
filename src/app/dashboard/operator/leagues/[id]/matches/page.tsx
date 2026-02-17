@@ -25,6 +25,9 @@ export default async function MatchesPage({ params }: { params: Promise<{ id: st
     const { data: matches, error } = await supabase
         .from("matches")
         .select(`
+      *,
+      player1:player1_id(full_name),
+      player2:player2_id(full_name),
       games(winner_id, is_break_and_run, is_9_on_snap, game_type)
     `)
         .eq("league_id", id)
