@@ -22,17 +22,19 @@ export default async function MatchesPage({ params }: { params: Promise<{ id: st
     }
 
     // Fetch matches
-    const { data: matches } = await supabase
+    const { data: matches, error } = await supabase
         .from("matches")
         .select(`
-      *,
-      player1:player1_id(full_name),
-      player2:player2_id(full_name),
-      /* games(winner_id, is_break_and_run, is_9_on_snap, game_type) */
+      games(winner_id, is_break_and_run, is_9_on_snap, game_type)
     `)
         .eq("league_id", id)
         .order("week_number", { ascending: true })
         .order("created_at", { ascending: true });
+
+    if (error) {
+        console.error("Match fetch error:", error);
+        return <div className="text-red-500 p-4 border border-red-500 rounded">Error loading matches: {error.message}</div>;
+    }
 
     console.log(`[MatchesPage] Fetched ${matches?.length || 0} matches for league ${id}`);
     if (matches && matches.length > 0) {
