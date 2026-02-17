@@ -120,30 +120,7 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                     const race8 = races.race8;
                     const race9 = races.race9;
 
-                    // Winner status logic
-                    let statusText = "SCHEDULED";
-                    let statusColor = "text-gray-500";
 
-                    if (effectiveStatus === 'in_progress') {
-                        statusText = "IN PROGRESS";
-                        statusColor = "text-[#D4AF37]"; // Gold
-                    } else if (effectiveStatus === 'finalized') {
-                        statusText = "FINALIZED";
-                        statusColor = "text-[#4ade80]"; // Green
-                    }
-
-                    if (effectiveStatus === 'finalized') {
-                        const p1Total = (match.points_8ball_p1 || 0) + (match.points_9ball_p1 || 0);
-                        const p2Total = (match.points_8ball_p2 || 0) + (match.points_9ball_p2 || 0);
-
-                        if (p1Total > p2Total) {
-                            statusText = `${p1Name.split(' ')[0]} WINS`;
-                        } else if (p2Total > p1Total) {
-                            statusText = `${p2Name.split(' ')[0]} WINS`;
-                        } else {
-                            statusText = "DRAW";
-                        }
-                    }
 
                     return (
                         <div key={match.id} className="relative w-full aspect-[2/1] bg-black border-[3px] border-white p-3 flex flex-col justify-between shadow-xl shadow-black/50">
@@ -177,19 +154,31 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                                     <h4 className="text-[#D4AF37] font-bold text-center mb-1 text-[10px] tracking-wider">8-BALL</h4>
                                     <div className="flex-1 border border-white flex relative min-h-0">
                                         {/* P1 Score */}
-                                        <div className="flex-1 flex flex-col items-center justify-center border-r border-white relative p-1">
+                                        <div className={`flex-1 flex flex-col items-center justify-center border-r border-white relative p-1 ${match.winner_id_8ball === match.player1_id ? 'bg-green-900/40' : ''}`}>
                                             <div className="absolute top-1 text-center w-full">
                                                 <div className="text-white text-[8px] font-bold leading-none mt-[1px] opacity-70">RACE TO {race8.p1}</div>
                                             </div>
-                                            <div className="text-[#D4AF37] font-bold text-2xl sm:text-3xl mt-2">{match.points_8ball_p1 || 0}</div>
+                                            <div className={`font-bold text-2xl sm:text-3xl mt-2 ${match.winner_id_8ball === match.player1_id ? 'text-green-400' : 'text-[#D4AF37]'}`}>{match.points_8ball_p1 || 0}</div>
+                                            {match.winner_id_8ball === match.player1_id && <div className="absolute bottom-1 text-[8px] font-bold text-green-400">WINNER</div>}
                                         </div>
                                         {/* P2 Score */}
-                                        <div className="flex-1 flex flex-col items-center justify-center relative p-1">
+                                        <div className={`flex-1 flex flex-col items-center justify-center relative p-1 ${match.winner_id_8ball === match.player2_id ? 'bg-green-900/40' : ''}`}>
                                             <div className="absolute top-1 text-center w-full">
                                                 <div className="text-white text-[8px] font-bold leading-none mt-[1px] opacity-70">RACE TO {race8.p2}</div>
                                             </div>
-                                            <div className="text-[#D4AF37] font-bold text-2xl sm:text-3xl mt-2">{match.points_8ball_p2 || 0}</div>
+                                            <div className={`font-bold text-2xl sm:text-3xl mt-2 ${match.winner_id_8ball === match.player2_id ? 'text-green-400' : 'text-[#D4AF37]'}`}>{match.points_8ball_p2 || 0}</div>
+                                            {match.winner_id_8ball === match.player2_id && <div className="absolute bottom-1 text-[8px] font-bold text-green-400">WINNER</div>}
                                         </div>
+                                    </div>
+                                    {/* 8-Ball Status */}
+                                    <div className="text-center mt-1">
+                                        {match.status_8ball === 'finalized' ? (
+                                            <span className="text-[9px] font-bold text-green-400 uppercase">FINAL</span>
+                                        ) : match.status_8ball === 'in_progress' ? (
+                                            <span className="text-[9px] font-bold text-yellow-400 uppercase">IN PROGRESS</span>
+                                        ) : (
+                                            <span className="text-[9px] font-bold text-gray-500 uppercase">SCHEDULED</span>
+                                        )}
                                     </div>
                                 </div>
 
@@ -198,26 +187,33 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                                     <h4 className="text-[#D4AF37] font-bold text-center mb-1 text-[10px] tracking-wider">9-BALL</h4>
                                     <div className="flex-1 border border-white flex relative min-h-0">
                                         {/* P1 Score */}
-                                        <div className="flex-1 flex flex-col items-center justify-center border-r border-white relative p-1">
+                                        <div className={`flex-1 flex flex-col items-center justify-center border-r border-white relative p-1 ${match.winner_id_9ball === match.player1_id ? 'bg-green-900/40' : ''}`}>
                                             <div className="absolute top-1 text-center w-full">
                                                 <div className="text-white text-[8px] font-bold leading-none mt-[1px] opacity-70">RACE TO {race9.p1}</div>
                                             </div>
-                                            <div className="text-[#D4AF37] font-bold text-2xl sm:text-3xl mt-2">{match.points_9ball_p1 || 0}</div>
+                                            <div className={`font-bold text-2xl sm:text-3xl mt-2 ${match.winner_id_9ball === match.player1_id ? 'text-green-400' : 'text-[#D4AF37]'}`}>{match.points_9ball_p1 || 0}</div>
+                                            {match.winner_id_9ball === match.player1_id && <div className="absolute bottom-1 text-[8px] font-bold text-green-400">WINNER</div>}
                                         </div>
                                         {/* P2 Score */}
-                                        <div className="flex-1 flex flex-col items-center justify-center relative p-1">
+                                        <div className={`flex-1 flex flex-col items-center justify-center relative p-1 ${match.winner_id_9ball === match.player2_id ? 'bg-green-900/40' : ''}`}>
                                             <div className="absolute top-1 text-center w-full">
                                                 <div className="text-white text-[8px] font-bold leading-none mt-[1px] opacity-70">RACE TO {race9.p2}</div>
                                             </div>
-                                            <div className="text-[#D4AF37] font-bold text-2xl sm:text-3xl mt-2">{match.points_9ball_p2 || 0}</div>
+                                            <div className={`font-bold text-2xl sm:text-3xl mt-2 ${match.winner_id_9ball === match.player2_id ? 'text-green-400' : 'text-[#D4AF37]'}`}>{match.points_9ball_p2 || 0}</div>
+                                            {match.winner_id_9ball === match.player2_id && <div className="absolute bottom-1 text-[8px] font-bold text-green-400">WINNER</div>}
                                         </div>
                                     </div>
+                                    {/* 9-Ball Status */}
+                                    <div className="text-center mt-1">
+                                        {match.status_9ball === 'finalized' ? (
+                                            <span className="text-[9px] font-bold text-green-400 uppercase">FINAL</span>
+                                        ) : match.status_9ball === 'in_progress' ? (
+                                            <span className="text-[9px] font-bold text-yellow-400 uppercase">IN PROGRESS</span>
+                                        ) : (
+                                            <span className="text-[9px] font-bold text-gray-500 uppercase">SCHEDULED</span>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-
-                            {/* Footer Status */}
-                            <div className={`text-center font-bold tracking-widest text-xs mt-2 uppercase ${statusColor}`}>
-                                {statusText}
                             </div>
 
                             {/* Link Overlay (Full Card Click) */}
