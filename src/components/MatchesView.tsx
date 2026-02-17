@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { calculateRace } from '@/utils/race-utils';
+import { calculateRace } from '@/utils/bbrs';
 
 interface MatchesViewProps {
     matches: any[];
@@ -116,8 +116,9 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                     const p2Initial = p2Name.charAt(0);
 
                     // Calculate Races
-                    const race8 = calculateRace(p1Rating.rating, p2Rating.rating, '8ball');
-                    const race9 = calculateRace(p1Rating.rating, p2Rating.rating, '9ball');
+                    const races = calculateRace(p1Rating.rating, p2Rating.rating);
+                    const race8 = races.race8;
+                    const race9 = races.race9;
 
                     // Winner status logic
                     let statusText = "SCHEDULED";
