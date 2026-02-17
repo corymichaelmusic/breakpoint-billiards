@@ -218,13 +218,58 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
 
 
                         </div>
-                    );
-                })}
-                {filteredMatches.length === 0 && (
-                    <div className="col-span-full text-center py-8 text-gray-500 italic">No matches for this week.</div>
-                )}
+                            </div>
+
+            {/* Stats Footer */}
+            <div className="flex gap-2 mt-3">
+                {/* P1 Stats */}
+                <div className="flex-1 bg-white/5 rounded p-2 border border-white/10">
+                    <h5 className="text-[#D4AF37] text-[10px] font-bold text-center mb-1 truncate">{p1Name}</h5>
+                    <div className="flex flex-col gap-[1px]">
+                        <div className="flex justify-between items-center text-[9px]">
+                            <span className="text-gray-400 font-bold">8BR</span>
+                            <span className="text-white font-mono font-bold">{match.break_and_runs_8ball_p1 || 0}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-[9px]">
+                            <span className="text-gray-400 font-bold">9BR</span>
+                            <span className="text-white font-mono font-bold">{match.break_and_runs_9ball_p1 || 0}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-[9px]">
+                            <span className="text-gray-400 font-bold">9BS</span>
+                            <span className="text-white font-mono font-bold">{match.break_and_snaps_9ball_p1 || 0}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* P2 Stats */}
+                <div className="flex-1 bg-white/5 rounded p-2 border border-white/10">
+                    <h5 className="text-[#D4AF37] text-[10px] font-bold text-center mb-1 truncate">{p2Name}</h5>
+                    <div className="flex flex-col gap-[1px]">
+                        <div className="flex justify-between items-center text-[9px]">
+                            <span className="text-gray-400 font-bold">8BR</span>
+                            <span className="text-white font-mono font-bold">{match.break_and_runs_8ball_p2 || 0}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-[9px]">
+                            <span className="text-gray-400 font-bold">9BR</span>
+                            <span className="text-white font-mono font-bold">{match.break_and_runs_9ball_p2 || 0}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-[9px]">
+                            <span className="text-gray-400 font-bold">9BS</span>
+                            <span className="text-white font-mono font-bold">{match.break_and_snaps_9ball_p2 || 0}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
+    );
+})}
+{
+    filteredMatches.length === 0 && (
+        <div className="col-span-full text-center py-8 text-gray-500 italic">No matches for this week.</div>
+    )
+}
+            </div >
+        </div >
     );
 
 }

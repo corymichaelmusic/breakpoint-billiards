@@ -27,7 +27,13 @@ export default async function MatchesPage({ params }: { params: Promise<{ id: st
         .select(`
       *,
       player1:player1_id(full_name),
-      player2:player2_id(full_name)
+      player2:player2_id(full_name),
+      break_and_runs_8ball_p1,
+      break_and_runs_8ball_p2,
+      break_and_runs_9ball_p1,
+      break_and_runs_9ball_p2,
+      break_and_snaps_9ball_p1,
+      break_and_snaps_9ball_p2
     `)
         .eq("league_id", id)
         .order("week_number", { ascending: true })
