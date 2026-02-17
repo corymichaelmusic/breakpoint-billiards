@@ -143,7 +143,15 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                     let p1_snap = 0, p2_snap = 0;
 
                     if (match.games) {
+                        const uniqueGames = new Map();
                         match.games.forEach((g: any) => {
+                            const key = `${g.game_type}-${g.game_number}`;
+                            if (!uniqueGames.has(key)) {
+                                uniqueGames.set(key, g);
+                            }
+                        });
+
+                        uniqueGames.forEach((g: any) => {
                             if (g.is_break_and_run) {
                                 if (g.game_type === '8ball') {
                                     if (g.winner_id === match.player1_id) p1_8br++;
