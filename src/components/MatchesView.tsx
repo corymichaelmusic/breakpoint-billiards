@@ -122,6 +122,29 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
 
 
 
+                    // Calculate Stats from Games (Client-Side)
+                    let p1_8br = 0, p2_8br = 0;
+                    let p1_9br = 0, p2_9br = 0;
+                    let p1_snap = 0, p2_snap = 0;
+
+                    if (match.games) {
+                        match.games.forEach((g: any) => {
+                            if (g.is_break_and_run) {
+                                if (g.game_type === '8ball') {
+                                    if (g.winner_id === match.player1_id) p1_8br++;
+                                    else if (g.winner_id === match.player2_id) p2_8br++;
+                                } else if (g.game_type === '9ball') {
+                                    if (g.winner_id === match.player1_id) p1_9br++;
+                                    else if (g.winner_id === match.player2_id) p2_9br++;
+                                }
+                            }
+                            if (g.is_9_on_snap) {
+                                if (g.winner_id === match.player1_id) p1_snap++;
+                                else if (g.winner_id === match.player2_id) p2_snap++;
+                            }
+                        });
+                    }
+
                     return (
                         <div key={match.id} className="relative w-full aspect-[2/1] bg-black border-[3px] border-white p-3 flex flex-col justify-between shadow-xl shadow-black/50">
                             {/* Top Section: Header */}
@@ -224,15 +247,15 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                                     <div className="flex flex-col gap-[1px]">
                                         <div className="flex justify-between items-center text-[9px]">
                                             <span className="text-gray-400 font-bold">8BR</span>
-                                            <span className="text-white font-mono font-bold">{match.break_and_runs_8ball_p1 || 0}</span>
+                                            <span className="text-white font-mono font-bold">{p1_8br}</span>
                                         </div>
                                         <div className="flex justify-between items-center text-[9px]">
                                             <span className="text-gray-400 font-bold">9BR</span>
-                                            <span className="text-white font-mono font-bold">{match.break_and_runs_9ball_p1 || 0}</span>
+                                            <span className="text-white font-mono font-bold">{p1_9br}</span>
                                         </div>
                                         <div className="flex justify-between items-center text-[9px]">
                                             <span className="text-gray-400 font-bold">9BS</span>
-                                            <span className="text-white font-mono font-bold">{match.break_and_snaps_9ball_p1 || 0}</span>
+                                            <span className="text-white font-mono font-bold">{p1_snap}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -243,15 +266,15 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                                     <div className="flex flex-col gap-[1px]">
                                         <div className="flex justify-between items-center text-[9px]">
                                             <span className="text-gray-400 font-bold">8BR</span>
-                                            <span className="text-white font-mono font-bold">{match.break_and_runs_8ball_p2 || 0}</span>
+                                            <span className="text-white font-mono font-bold">{p2_8br}</span>
                                         </div>
                                         <div className="flex justify-between items-center text-[9px]">
                                             <span className="text-gray-400 font-bold">9BR</span>
-                                            <span className="text-white font-mono font-bold">{match.break_and_runs_9ball_p2 || 0}</span>
+                                            <span className="text-white font-mono font-bold">{p2_9br}</span>
                                         </div>
                                         <div className="flex justify-between items-center text-[9px]">
                                             <span className="text-gray-400 font-bold">9BS</span>
-                                            <span className="text-white font-mono font-bold">{match.break_and_snaps_9ball_p2 || 0}</span>
+                                            <span className="text-white font-mono font-bold">{p2_snap}</span>
                                         </div>
                                     </div>
                                 </div>
