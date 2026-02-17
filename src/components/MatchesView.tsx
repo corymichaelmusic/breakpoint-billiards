@@ -15,8 +15,7 @@ interface MatchesViewProps {
 export default function MatchesView({ matches, leagueId, leagueStatus, timezone, playerRatings }: MatchesViewProps) {
     const [selectedWeek, setSelectedWeek] = useState<number | 'all'>('all');
 
-    console.log('[MatchesView] Rendered with matches:', matches?.length);
-    console.log('[MatchesView] League Status:', leagueStatus);
+
 
     const hasMatches = matches && matches.length > 0;
 
