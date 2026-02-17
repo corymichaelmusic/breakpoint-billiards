@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "402652328271",
+    "project_id": "breakpoint-billiards-6c853",
+    "storage_bucket": "breakpoint-billiards-6c853.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:402652328271:android:9a3827cf82feb46c91553a",
+        "android_client_info": {
+          "package_name": "com.breakpoint.billiards"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCf7lrt49JP06Ua0c8DAbF6moJmo0XUarg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

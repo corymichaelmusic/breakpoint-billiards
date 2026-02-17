@@ -12,6 +12,7 @@ import { createAdminClient } from "@/utils/supabase/admin";
 import GenerateScheduleForm from "@/components/GenerateScheduleForm";
 import ResetMatchButton from "@/components/ResetMatchButton";
 import MatchesListView from "@/components/MatchesListView";
+import SendNotificationButton from "@/components/SendNotificationButton";
 
 import { verifyOperator } from "@/utils/auth-helpers";
 import { isMatchDateLocked } from "@/utils/match-utils";
@@ -291,6 +292,8 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                     {/* Left Column: Matches & Actions */}
                     <div className="space-y-8">
 
+
+
                         {/* Session Actions Panel */}
                         {!isCompleted && (
                             <div className="card-glass p-6">
@@ -311,6 +314,9 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                             Pay Session Fee
                                         </Link>
                                     )}
+
+                                    {/* Send Notification Button - Always available if session is active/setup */}
+                                    <SendNotificationButton sessionId={id} />
 
                                     {isSetup && hasMatches && (
                                         <div className="space-y-2">
