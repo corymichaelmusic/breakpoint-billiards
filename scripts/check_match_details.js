@@ -8,12 +8,12 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function checkRatings() {
+async function checkMatch() {
     const { data, error } = await supabase
-        .from('league_players')
-        .select('player_id, breakpoint_rating, fargo_rating')
-        .eq('league_id', '5180cb9d-9cf3-40e1-abc2-9694e502c462')
-        .in('player_id', ['24b025d5-865f-4099-aabc-0761e3d09e3e', 'f6327318-7b92-426b-a81d-e0655a6d71b3']);
+        .from('matches')
+        .select('*')
+        .eq('id', 'a1064e0e-f02e-4fa1-901e-ce25428df36a')
+        .single();
 
     if (error) {
         console.error(error);
@@ -23,4 +23,4 @@ async function checkRatings() {
     console.log(JSON.stringify(data, null, 2));
 }
 
-checkRatings();
+checkMatch();

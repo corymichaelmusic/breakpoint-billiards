@@ -85,9 +85,9 @@ BEGIN
     SELECT fargo_rating INTO v_p1_rating_fargo FROM profiles WHERE id = v_player1_id;
     SELECT fargo_rating INTO v_p2_rating_fargo FROM profiles WHERE id = v_player2_id;
 
-    -- Determine Effective Rating (Fargo Priority)
-    v_p1_effective_rating := COALESCE(v_p1_rating_fargo, v_p1_rating_bbrs, 500);
-    v_p2_effective_rating := COALESCE(v_p2_rating_fargo, v_p2_rating_bbrs, 500);
+    -- Determine Effective Rating (BBRS Priority)
+    v_p1_effective_rating := COALESCE(v_p1_rating_bbrs, v_p1_rating_fargo, 500);
+    v_p2_effective_rating := COALESCE(v_p2_rating_bbrs, v_p2_rating_fargo, 500);
 
     -- Defaults
     v_p1_rating_bbrs := COALESCE(v_p1_rating_bbrs, 500);

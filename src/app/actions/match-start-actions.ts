@@ -1,11 +1,11 @@
 'use server'
 
 import { createAdminClient } from "@/utils/supabase/admin";
-import { calculateRace } from "@/utils/fargo";
+import { calculateRace } from "@/utils/bbrs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-export async function startMatch(matchId: string, leagueId: string, raceType: 'short' | 'long', gameType: '8ball' | '9ball') {
+export async function startMatch(matchId: string, leagueId: string, gameType: '8ball' | '9ball') {
     const { createClient } = await import("@/utils/supabase/server");
     const supabase = await createClient();
     const { auth } = await import("@clerk/nextjs/server");
@@ -39,18 +39,8 @@ export async function startMatch(matchId: string, leagueId: string, raceType: 's
     }
 
     // 2. Calculate Race using Breakpoint Rating (Matrix-based)
-    // Note: calculateRace returns { short: 8Ball, long: 9Ball } based on new implementation
-    // BUT raceType argument is 'short' or 'long'.
-    // Logic: If user selected 'short', they likely want the 8Ball race? 
-    // Or did we map Short->8Ball and Long->9Ball?
-    // In MatrixStartScreen: "Select Race Format" -> Short/Long.
-    // If we map short->8Ball, does selecting 8Ball game type force "Short"?
-    // User selects Game Type (8ball/9ball) AND Race Format (Short/Long).
-    // This is confusing if we mapped Short=8ball Matrix.
-    // However, for now, we pass Breakpoint Rating.
-
     const races = calculateRace(match.player1.breakpoint_rating, match.player2.breakpoint_rating);
-    const selectedRace = races[raceType];
+    const selectedRace = gameType === '8ball' ? races.race8 : races.race9;
 
     // 3. Update Match
     const updates: any = {

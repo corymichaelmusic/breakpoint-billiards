@@ -3,7 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import { createAdminClient } from "@/utils/supabase/admin";
-import { calculateRace } from "@/utils/fargo";
+import { calculateRace } from "@/utils/bbrs";
 import MatchScoringContainer from "@/components/MatchScoringContainer";
 import Link from "next/link";
 

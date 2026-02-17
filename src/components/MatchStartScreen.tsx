@@ -15,7 +15,6 @@ type Props = {
 
 export default function MatchStartScreen({ match, races, onSelectGame, backLink, backText }: Props) {
     const [selectedGame, setSelectedGame] = useState<'8ball' | '9ball' | null>(null);
-    const [selectedRace, setSelectedRace] = useState<'short' | 'long'>('short');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Determine available games
@@ -26,7 +25,7 @@ export default function MatchStartScreen({ match, races, onSelectGame, backLink,
     const handleStart = async () => {
         if (!selectedGame) return;
         setIsSubmitting(true);
-        await startMatch(match.id, match.league_id, selectedRace, selectedGame);
+        await startMatch(match.id, match.league_id, selectedGame);
         // After starting, we tell the container to switch view
         onSelectGame(selectedGame);
     };
@@ -141,42 +140,39 @@ export default function MatchStartScreen({ match, races, onSelectGame, backLink,
         );
     }
 
-    // Race Selection for the selected game (Only if starting new)
+    // Race Confirmation for the selected game (Only if starting new)
+    const raceToP1 = selectedGame === '8ball' ? races.race8.p1 : races.race9.p1;
+    const raceToP2 = selectedGame === '8ball' ? races.race8.p2 : races.race9.p2;
+
     return (
         <div className={styles.container}>
             <button className={styles.backBtn} onClick={() => setSelectedGame(null)}>← Back</button>
             <h1>Start {selectedGame === '8ball' ? '8-Ball' : '9-Ball'} Match</h1>
 
-            <div className={styles.raceSelection}>
-                <h3>Select Race Format</h3>
-                <div className={styles.options}>
-                    <button
-                        className={`${styles.option} ${selectedRace === 'short' ? styles.selected : ''}`}
-                        onClick={() => setSelectedRace('short')}
-                    >
-                        <span className={styles.optionTitle}>Short Race</span>
-                        <div className={styles.raceDetails}>
-                            <span>{match.player1.full_name}: <strong>{races.short.p1}</strong></span>
-                            <span>{match.player2.full_name}: <strong>{races.short.p2}</strong></span>
-                        </div>
-                    </button>
-
-                    <button
-                        className={`${styles.option} ${selectedRace === 'long' ? styles.selected : ''}`}
-                        onClick={() => setSelectedRace('long')}
-                    >
-                        <span className={styles.optionTitle}>Long Race</span>
-                        <div className={styles.raceDetails}>
-                            <span>{match.player1.full_name}: <strong>{races.long.p1}</strong></span>
-                            <span>{match.player2.full_name}: <strong>{races.long.p2}</strong></span>
-                        </div>
-                    </button>
+            <div className={styles.raceSelection} style={{ marginTop: '2rem', marginBottom: '2rem' }}>
+                <h3>Race Target</h3>
+                <div className={styles.raceDetails} style={{ justifyContent: 'center', gap: '2rem', fontSize: '1.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <span style={{ fontSize: '1rem', color: '#888' }}>{match.player1.full_name}</span>
+                        <strong style={{ fontSize: '3rem', color: 'var(--yellow)' }}>{raceToP1}</strong>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontSize: '1rem', color: '#666' }}>VS</span>
+                        <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>To</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <span style={{ fontSize: '1rem', color: '#888' }}>{match.player2.full_name}</span>
+                        <strong style={{ fontSize: '3rem', color: 'var(--yellow)' }}>{raceToP2}</strong>
+                    </div>
                 </div>
+                <p style={{ textAlign: 'center', color: '#666', marginTop: '1rem', fontSize: '0.9rem' }}>
+                    Race targets are automatically calculated based on the BBRS {selectedGame === '8ball' ? '8-Ball' : '9-Ball'} Matrix.
+                </p>
             </div>
 
             <button
                 className="btn btn-primary"
-                style={{ width: '100%', marginTop: '2rem', fontSize: '1.2rem' }}
+                style={{ width: '100%', marginTop: '1rem', fontSize: '1.2rem' }}
                 onClick={handleStart}
                 disabled={isSubmitting}
             >

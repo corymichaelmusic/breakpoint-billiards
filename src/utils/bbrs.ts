@@ -105,7 +105,7 @@ export function calculateRace(rating1: number, rating2: number) {
         // short: 8-Ball Matrix result
         // long: 9-Ball Matrix result
 
-        short: { p1: race8[0], p2: race8[1] },
-        long: { p1: race9[0], p2: race9[1] }
+        race8: { p1: race8[0], p2: race8[1] },
+        race9: { p1: race9[0], p2: race9[1] }
     };
 }
