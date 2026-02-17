@@ -55,55 +55,7 @@ export function calculateRace(rating1: number, rating2: number) {
     const race9 = matrix9[idx1][idx2];
 
     return {
-        // Map to expected structure { short: {p1, p2}, long: {p1, p2} }
-        // BUT wait, short/long was old logic.
-        // The App expects 'short' and 'long'.
-        // "short" usually corresponds to 8-ball or 9-ball?
-        // MatchStartScreen.tsx allows selecting "Short Race" or "Long Race".
-        // And then "8ball" or "9ball".
-        // Wait, MatchStartScreen has `selectedRace` ('short'/'long') AND `selectedGame` ('8ball'/'9ball').
-        // `races` prop has `short` and `long`.
-        // If I replace logic, do I map 8ball to 'short' and 9ball to 'long'?
-        // No. The user provided "8-Ball Race Matrix" and "9-Ball Race Matrix".
-        // This implies the race depends on the GAME chosen, not just "short/long".
-        // MatchStartScreen logic:
-        // `startMatch(..., selectedRace, selectedGame)`
-        // If I select "Short Race" in UI, what does that mean if I'm playing 8-Ball?
-        // The UI separates Race Selection (Short/Long) from Game Type.
-        // This seems conflated.
 
-        // If the User provided separate matrices for 8-ball and 9-ball, that implies:
-        // If I play 8-Ball, I use 8-Ball Matrix.
-        // If I play 9-Ball, I use 9-Ball Matrix.
-
-        // Is "Short" 8-Ball and "Long" 9-Ball?
-        // Let's look at `startMatch` in `match-start-actions.ts`:
-        // `if (gameType === '8ball') { updates.race_8ball_p1 = selectedRace.p1 ... }`
-        // `const selectedRace = races[raceType];` (raceType is 'short' or 'long').
-
-        // It seems the current app structure assumes "Short" and "Long" are two OPTIONS available, regardless of game?
-        // OR does Short=8Ball and Long=9Ball?
-        // Code: `const selectedRace = races[raceType];`
-        // If I pick "Short", I get `races.short`.
-
-        // If I only have ONE matrix for 8-ball and ONE matrix for 9-ball...
-        // Then `races.short` should probably be the 8-ball race? And `races.long` the 9-ball race?
-        // BUT what if I play 8-Ball "Long"? The matrix doesn't seem to support that.
-
-        // User request: "Here are the race matrices that we need to be implimenting."
-        // I should probably map:
-        // Short -> 8-Ball Matrix
-        // Long -> 9-Ball Matrix
-        // (Since 8-ball races are typically shorter/different than 9-ball?)
-
-        // Let's look at the arrays.
-        // 8-Ball Row 4: 5/5
-        // 9-Ball Row 4: 6/6
-        // 9-ball races appear slightly longer.
-
-        // I will map:
-        // short: 8-Ball Matrix result
-        // long: 9-Ball Matrix result
 
         race8: { p1: race8[0], p2: race8[1] },
         race9: { p1: race9[0], p2: race9[1] }

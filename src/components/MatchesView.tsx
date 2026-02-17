@@ -216,10 +216,7 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                                 </div>
                             </div>
 
-                            {/* Link Overlay (Full Card Click) */}
-                            {(leagueStatus === 'active' || leagueStatus === 'completed') && (
-                                <Link href={`/dashboard/operator/leagues/${leagueId}/matches/${match.id}/score`} className="absolute inset-0 z-20 cursor-pointer" title="Go to Scoreboard"></Link>
-                            )}
+
                         </div>
                     );
                 })}
