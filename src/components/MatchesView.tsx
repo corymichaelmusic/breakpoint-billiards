@@ -147,7 +147,12 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                         match.games.forEach((g: any) => {
                             const key = `${g.game_type}-${g.game_number}`;
                             if (!uniqueGames.has(key)) {
-                                uniqueGames.set(key, g);
+                                uniqueGames.set(key, { ...g });
+                            } else {
+                                // Merge flags: if ANY record says true, treat as true
+                                const existing = uniqueGames.get(key);
+                                existing.is_break_and_run = existing.is_break_and_run || g.is_break_and_run;
+                                existing.is_9_on_snap = existing.is_9_on_snap || g.is_9_on_snap;
                             }
                         });
 
