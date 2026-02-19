@@ -40,3 +40,4 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+\n# Generated binaries\n*.ipa\n*.apk\n*.aab
