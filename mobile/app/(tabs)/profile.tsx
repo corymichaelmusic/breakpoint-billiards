@@ -11,6 +11,8 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 import { getBreakpointLevel, getBreakpointRatingDescription, getConfidenceDescription } from "../../utils/rating";
+import { useSubscription } from "../../lib/SubscriptionContext";
+import UpgradeModal from "../../components/UpgradeModal";
 
 const CONFIDENCE_LEVELS = [
     { range: "< 100", name: "Provisional" },
@@ -57,6 +59,9 @@ export default function ProfileScreen() {
     const [showSettings, setShowSettings] = useState(false);
     const [showRatingInfo, setShowRatingInfo] = useState(false);
     const [showConfidenceInfo, setShowConfidenceInfo] = useState(false);
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+    const [cancellingSubscription, setCancellingSubscription] = useState(false);
+    const { isPro, refreshSubscription } = useSubscription();
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -764,6 +769,81 @@ export default function ProfileScreen() {
                                     )}
                                 </View>
 
+                                {/* Subscription Management */}
+                                {isPro ? (
+                                    <View className="bg-primary/10 border border-primary/50 rounded-lg p-4">
+                                        <View className="flex-row items-center justify-center gap-2 mb-3">
+                                            <Ionicons name="star" size={20} color="#D4AF37" />
+                                            <Text className="text-primary font-bold text-lg uppercase tracking-widest" style={{ includeFontPadding: false }}>Pro Member</Text>
+                                        </View>
+                                        <TouchableOpacity
+                                            onPress={() => {
+                                                Alert.alert(
+                                                    "Cancel Pro Subscription",
+                                                    "Are you sure you want to cancel? You'll keep Pro access until the end of your current billing period.",
+                                                    [
+                                                        { text: "Keep Pro", style: "cancel" },
+                                                        {
+                                                            text: "Cancel Subscription",
+                                                            style: "destructive",
+                                                            onPress: async () => {
+                                                                setCancellingSubscription(true);
+                                                                try {
+                                                                    const token = await getToken();
+                                                                    const apiUrl = process.env.EXPO_PUBLIC_APP_URL || 'https://breakpointbilliardsleague.com';
+                                                                    const response = await fetch(`${apiUrl}/api/cancel-subscription`, {
+                                                                        method: 'POST',
+                                                                        headers: {
+                                                                            'Content-Type': 'application/json',
+                                                                            'Authorization': `Bearer ${token}`
+                                                                        }
+                                                                    });
+                                                                    const data = await response.json();
+                                                                    if (!response.ok) throw new Error(data.error || 'Failed to cancel');
+
+                                                                    if (data.immediate) {
+                                                                        await refreshSubscription();
+                                                                        Alert.alert("Subscription Cancelled", "Your Pro subscription has been cancelled.");
+                                                                    } else {
+                                                                        const expiresDate = new Date(data.expires_at).toLocaleDateString('en-US', {
+                                                                            month: 'long', day: 'numeric', year: 'numeric'
+                                                                        });
+                                                                        Alert.alert(
+                                                                            "Subscription Cancelled",
+                                                                            `Your Pro access will remain active until ${expiresDate}. You won't be charged again.`
+                                                                        );
+                                                                    }
+                                                                } catch (e: any) {
+                                                                    console.error("Cancel subscription error:", e);
+                                                                    Alert.alert("Error", "Failed to cancel subscription. Please try again.");
+                                                                } finally {
+                                                                    setCancellingSubscription(false);
+                                                                }
+                                                            }
+                                                        }
+                                                    ]
+                                                );
+                                            }}
+                                            disabled={cancellingSubscription}
+                                            className="bg-transparent border border-gray-600 py-3 rounded-lg items-center active:bg-gray-800"
+                                        >
+                                            {cancellingSubscription ? (
+                                                <ActivityIndicator color="#9CA3AF" />
+                                            ) : (
+                                                <Text className="text-gray-400 text-sm uppercase tracking-widest" style={{ includeFontPadding: false }}>Cancel Subscription</Text>
+                                            )}
+                                        </TouchableOpacity>
+                                    </View>
+                                ) : (
+                                    <TouchableOpacity
+                                        onPress={() => setShowUpgradeModal(true)}
+                                        className="bg-primary/10 border border-primary/50 py-4 rounded-lg items-center active:bg-primary/20 flex-row justify-center gap-2"
+                                    >
+                                        <Ionicons name="star" size={18} color="#D4AF37" />
+                                        <Text className="text-primary font-bold uppercase tracking-widest" style={{ includeFontPadding: false }}>Upgrade to Pro</Text>
+                                    </TouchableOpacity>
+                                )}
+
                                 <TouchableOpacity onPress={() => signOut()} className="bg-red-500/10 border border-red-500/50 py-4 rounded-lg items-center active:bg-red-500/20">
                                     <Text className="text-red-500 font-bold uppercase tracking-widest" style={{ includeFontPadding: false }}>Sign Out </Text>
                                 </TouchableOpacity>
@@ -815,6 +895,12 @@ export default function ProfileScreen() {
                                 </TouchableOpacity>
                             </View>
                         )}
+
+                        {/* Upgrade Modal */}
+                        <UpgradeModal visible={showUpgradeModal} onClose={() => {
+                            setShowUpgradeModal(false);
+                            refreshSubscription();
+                        }} />
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
