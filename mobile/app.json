@@ -3,19 +3,19 @@
     "name": "Breakpoint Billiards",
     "slug": "breakpoint-billiards",
     "scheme": "breakpoint-billiards",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#121212"
+      "backgroundColor": "#000000"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.breakpoint.billiards",
-      "buildNumber": "101",
+      "buildNumber": "114",
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -29,6 +29,7 @@
         "backgroundColor": "#121212"
       },
       "package": "com.breakpoint.billiards",
+      "googleServicesFile": "./google-services.json",
       "icon": "./assets/icon.png",
       "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false,
@@ -37,7 +38,7 @@
         "barStyle": "light-content",
         "softwareKeyboardLayoutMode": "adjustResize"
       },
-      "versionCode": 107
+      "versionCode": 111
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -46,7 +47,14 @@
       "expo-router",
       "expo-font",
       "expo-apple-authentication",
-      "expo-navigation-bar"
+      "expo-navigation-bar",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#ffffff"
+        }
+      ]
     ],
     "extra": {
       "router": {},

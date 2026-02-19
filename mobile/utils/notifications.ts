@@ -1,4 +1,4 @@
-import { Platform, Alert } from 'react-native';
+import { Platform, Alert, Linking } from 'react-native';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 
 /**
@@ -8,7 +8,15 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 
 const isAndroidExpoGo = Platform.OS === 'android' && Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
+let _registering = false;
+
 export async function registerForPushNotificationsAsync() {
+    // Prevent concurrent calls (useEffect can fire multiple times)
+    if (_registering) {
+        console.log("[Notification] Registration already in progress, skipping.");
+        return null;
+    }
+    _registering = true;
     if (isAndroidExpoGo) {
         console.warn("[Notification] Notifications are disabled in Android Expo Go (SDK 53+ limitation).");
         return null;
@@ -30,36 +38,56 @@ export async function registerForPushNotificationsAsync() {
         }
 
         if (Device.isDevice) {
-            const { status: existingStatus } = await Notifications.getPermissionsAsync();
-            let finalStatus = existingStatus;
+            const existingPerms = await Notifications.getPermissionsAsync();
+            console.log("[Notification] Existing permissions:", JSON.stringify(existingPerms));
+            let finalStatus = existingPerms.status;
 
-            if (existingStatus !== 'granted') {
-                const { status } = await Notifications.requestPermissionsAsync();
-                finalStatus = status;
+            if (finalStatus !== 'granted') {
+                const requestedPerms = await Notifications.requestPermissionsAsync({
+                    ios: {
+                        allowAlert: true,
+                        allowBadge: true,
+                        allowSound: true,
+                    },
+                });
+                console.log("[Notification] Requested permissions:", JSON.stringify(requestedPerms));
+                finalStatus = requestedPerms.status;
             }
 
             if (finalStatus !== 'granted') {
-                console.log("[Notification] Permission not granted!");
-                Alert.alert("Notification Error", "Permission not granted for push notifications.");
+                console.warn("[Notification] Permission not granted. Final status:", finalStatus);
+                // iOS won't re-show the prompt once denied — direct user to Settings
+                if (Platform.OS === 'ios') {
+                    Alert.alert(
+                        "Enable Notifications",
+                        "Notifications are disabled. Please enable them in Settings to receive match reminders.",
+                        [
+                            { text: "Not Now", style: "cancel" },
+                            { text: "Open Settings", onPress: () => Linking.openSettings() },
+                        ]
+                    );
+                }
+                _registering = false;
                 return null;
             }
 
             // Get the token that uniquely identifies this device
-            // We use the default project ID from app.json/eas.json if available
-            // If explicit projectId is needed: 
-            // token = (await Notifications.getExpoPushTokenAsync({ projectId: '...' })).data;
             try {
-                const tokenData = await Notifications.getExpoPushTokenAsync();
+                const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+                console.log("[Notification] Using projectId:", projectId);
+                const tokenData = await Notifications.getExpoPushTokenAsync({
+                    projectId: projectId || '3966e8df-bb98-4bf1-8f2e-ea5310944899',
+                });
                 token = tokenData.data;
                 console.log("[Notification] Push Token:", token);
             } catch (tokenError: any) {
                 console.error("[Notification] Token Error:", tokenError);
-                Alert.alert("Notification Error", "Failed to get token: " + tokenError.message);
+                // Don't Alert here to avoid re-render loops
+                _registering = false;
                 return null;
             }
         } else {
             console.log("[Notification] Must use physical device for Push Notifications");
-            Alert.alert("Notification Error", "Must use physical device for Push Notifications.");
         }
 
         // Configure handler
@@ -76,10 +104,11 @@ export async function registerForPushNotificationsAsync() {
         // Clear ghosts
         await Notifications.cancelAllScheduledNotificationsAsync();
 
+        _registering = false;
         return token;
     } catch (e: any) {
         console.warn("[Notification] Error initializing notifications:", e);
-        Alert.alert("Notification Error", "Init Error: " + e.message);
+        _registering = false;
         return null;
     }
 }

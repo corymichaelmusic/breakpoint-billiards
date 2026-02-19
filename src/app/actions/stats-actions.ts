@@ -119,14 +119,14 @@ export async function getSessionStats(sessionId: string): Promise<PlayerStats[]>
         return stat;
     });
 
-    // Sort by Win Rate (desc), then Points (desc), then Matches Won (desc)
+    // Sort by Win Rate (desc), then Rack Win % (desc)
     statsArray.sort((a, b) => {
         // Primary: Win Rate (Set)
         if (b.winRate !== a.winRate) return b.winRate - a.winRate;
-        // Secondary: Total Points
-        if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
-        // Tertiary: Matches Won
-        return b.matchesWon - a.matchesWon;
+        // Secondary: Combined Rack Win %
+        const aRackWinRate = a.totalRacksPlayed > 0 ? (a.racksWon_8ball + a.racksWon_9ball) / a.totalRacksPlayed : 0;
+        const bRackWinRate = b.totalRacksPlayed > 0 ? (b.racksWon_8ball + b.racksWon_9ball) / b.totalRacksPlayed : 0;
+        return bRackWinRate - aRackWinRate;
     });
 
     // Assign Ranks
@@ -139,10 +139,12 @@ export async function getSessionStats(sessionId: string): Promise<PlayerStats[]>
 
 export async function getSessionLeaderboard(sessionId: string, limit: number = 10) {
     const stats = await getSessionStats(sessionId);
-    // Sort by win rate, then points per match
+    // Sort by win rate, then rack win %
     const sortedStats = stats.sort((a, b) => {
         if (b.winRate !== a.winRate) return b.winRate - a.winRate;
-        return parseFloat(b.pointsPerMatch) - parseFloat(a.pointsPerMatch);
+        const aRackWinRate = a.totalRacksPlayed > 0 ? (a.racksWon_8ball + a.racksWon_9ball) / a.totalRacksPlayed : 0;
+        const bRackWinRate = b.totalRacksPlayed > 0 ? (b.racksWon_8ball + b.racksWon_9ball) / b.totalRacksPlayed : 0;
+        return bRackWinRate - aRackWinRate;
     });
 
     // Assign Rank
@@ -505,11 +507,12 @@ export async function getLeagueStats(leagueId: string): Promise<PlayerStats[]> {
         return stat;
     });
 
-    // Sort by Win Rate (desc), then Total Points (desc), then Matches Won (desc)
+    // Sort by Win Rate (desc), then Rack Win % (desc)
     statsArray.sort((a, b) => {
         if (b.winRate !== a.winRate) return b.winRate - a.winRate;
-        if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
-        return b.matchesWon - a.matchesWon;
+        const aRackWinRate = a.totalRacksPlayed > 0 ? (a.racksWon_8ball + a.racksWon_9ball) / a.totalRacksPlayed : 0;
+        const bRackWinRate = b.totalRacksPlayed > 0 ? (b.racksWon_8ball + b.racksWon_9ball) / b.totalRacksPlayed : 0;
+        return bRackWinRate - aRackWinRate;
     });
 
     // Assign Ranks

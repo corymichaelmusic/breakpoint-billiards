@@ -44,9 +44,46 @@ export default function HomeScreen() {
     bnr8: number; bnr9: number; snaps: number; shutoutsCount: number;
   } | null>(null);
 
+  const pushTokenSynced = useRef(false);
+
   useEffect(() => {
-    registerForPushNotificationsAsync();
-  }, []);
+    if (!userId || pushTokenSynced.current) return;
+    pushTokenSynced.current = true;
+
+    const syncPushToken = async () => {
+      try {
+        const token = await registerForPushNotificationsAsync();
+        if (token) {
+          // Get Clerk Token to authenticate with Supabase
+          const clerkToken = await getToken({ template: 'supabase' });
+
+          const supabaseAuth = createClient(
+            process.env.EXPO_PUBLIC_SUPABASE_URL!,
+            process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+            { global: { headers: { Authorization: `Bearer ${clerkToken}` } } }
+          );
+
+          const { error, count } = await supabaseAuth
+            .from('profiles')
+            .update({ push_token: token })
+            .eq('id', userId)
+            .select('*', { count: 'exact' });
+
+          if (error) {
+            console.error("Error saving push token:", error);
+          } else if (count === 0) {
+            console.error("Error: Token update matched 0 rows. RLS failure?");
+          } else {
+            console.log("Push token saved to profile");
+          }
+        }
+      } catch (err) {
+        console.error("Push Token Sync Error:", err);
+      }
+    };
+
+    syncPushToken();
+  }, [userId]);
 
   const lastFetchTime = useRef<number>(0);
   const lastFetchedSessionId = useRef<string | null>(null);
@@ -253,7 +290,7 @@ export default function HomeScreen() {
       let rank = "N/A";
       const { data: leaguePlayers } = await supabaseAuthenticated
         .from("league_players")
-        .select("player_id, matches_won, matches_played, profiles!inner(is_active)")
+        .select("player_id, matches_won, matches_played, breakpoint_racks_won, breakpoint_racks_played, profiles!inner(is_active)")
         .eq("league_id", session.id)
         .eq("profiles.is_active", true);
 
@@ -261,17 +298,20 @@ export default function HomeScreen() {
         const statsArray = leaguePlayers.map((p: any) => {
           const played = p.matches_played || 0;
           const wins = p.matches_won || 0;
+          const racksWon = p.breakpoint_racks_won || 0;
+          const racksPlayed = p.breakpoint_racks_played || 0;
           return {
             id: p.player_id,
             played,
-            winRate: played > 0 ? Math.round((wins / played) * 100) : 0
+            winRate: played > 0 ? Math.round((wins / played) * 100) : 0,
+            rackWinRate: racksPlayed > 0 ? (racksWon / racksPlayed) * 100 : 0
           };
         });
 
         // Exact Sort order from LeaderboardScreen
         statsArray.sort((a, b) => {
           if (b.winRate !== a.winRate) return b.winRate - a.winRate;
-          return b.played - a.played;
+          return b.rackWinRate - a.rackWinRate; // Secondary: Rack win %
         });
 
         // Filter out 0 matches to affect rank? Leaderboard shows them at bottom. 

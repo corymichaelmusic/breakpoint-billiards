@@ -1,31 +1,37 @@
 
-const { Client } = require('pg');
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../.env.local') });
+const { createClient } = require('@supabase/supabase-js');
+const dotenv = require('dotenv');
+dotenv.config({ path: '.env.local' });
 
-const dbUrl = process.env.DATABASE_URL;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+    console.error('Missing Supabase environment variables');
+    process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 async function inspectSchema() {
-    if (!dbUrl) {
-        console.error("DATABASE_URL not found.");
-        process.exit(1);
+    console.log("Inspecting 'matches' table schema...");
+
+    // We can't directly query schema easily with js client without raw sql or inspecting a row
+    // Let's fetch one match and print keys
+    const { data: matches, error } = await supabase
+        .from('matches')
+        .select('*')
+        .limit(1);
+
+    if (error) {
+        console.error('Error fetching match:', error);
+        return;
     }
-    const client = new Client({ connectionString: dbUrl });
-    try {
-        await client.connect();
-        const res = await client.query(`
-            SELECT column_name, data_type 
-            FROM information_schema.columns 
-            WHERE table_name = 'matches';
-        `);
-        console.log("Schema for matches:");
-        res.rows.forEach(row => {
-            console.log(`${row.column_name}: ${row.data_type}`);
-        });
-    } catch (e) {
-        console.error("Inspection Error:", e);
-    } finally {
-        await client.end();
+
+    if (matches && matches.length > 0) {
+        console.log('Match columns:', Object.keys(matches[0]));
+    } else {
+        console.log('No matches found to inspect.');
     }
 }
 

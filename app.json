@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "3966e8df-bb98-4bf1-8f2e-ea5310944899"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.breakpoint.billiards",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}

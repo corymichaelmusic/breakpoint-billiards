@@ -60,7 +60,7 @@ export default function LeaderboardScreen() {
             // This replaces the expensive client-side aggregation
             const { data: players } = await supabaseAuthenticated
                 .from("league_players")
-                .select("player_id, matches_played, matches_won, shutouts, profiles!inner(full_name, breakpoint_rating, is_active)")
+                .select("player_id, matches_played, matches_won, shutouts, breakpoint_racks_won, breakpoint_racks_played, profiles!inner(full_name, breakpoint_rating, is_active)")
                 .eq("league_id", leagueId)
                 .eq("profiles.is_active", true);
 
@@ -71,6 +71,8 @@ export default function LeaderboardScreen() {
                     const played = p.matches_played || 0;
                     const wins = p.matches_won || 0;
                     const shutouts = p.shutouts || 0;
+                    const racksWon = p.breakpoint_racks_won || 0;
+                    const racksPlayed = p.breakpoint_racks_played || 0;
 
                     return {
                         id: p.player_id,
@@ -79,6 +81,7 @@ export default function LeaderboardScreen() {
                         played,
                         shutouts,
                         winRate: played > 0 ? Math.round((wins / played) * 100) : 0,
+                        rackWinRate: racksPlayed > 0 ? (racksWon / racksPlayed) * 100 : 0,
                         breakPoint: getBreakpointLevel(rating),
                         rating // raw for tiebreak
                     };
@@ -86,7 +89,7 @@ export default function LeaderboardScreen() {
 
                 statsArray.sort((a, b) => {
                     if (b.winRate !== a.winRate) return b.winRate - a.winRate;
-                    return b.played - a.played; // Secondary: More matches played
+                    return b.rackWinRate - a.rackWinRate; // Secondary: Rack win %
                 });
 
                 // Assign Rank
