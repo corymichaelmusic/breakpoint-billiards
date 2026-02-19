@@ -21,6 +21,7 @@ export default function ChatScreen() {
     const [sending, setSending] = useState(false);
     const [hasInitialScrolled, setHasInitialScrolled] = useState(false);
     const flatListRef = useRef<FlatList>(null);
+    const listHeight = useRef(0);
 
     // Use refs for stable access in intervals/callbacks without triggering re-renders
     const currentSessionRef = useRef(currentSession);
@@ -107,7 +108,7 @@ export default function ChatScreen() {
     }, []); // Empty dependency array = stable effect, only runs once on mount
 
     // Auto-scroll to bottom when keyboard opens (iOS only)
-    // Android handled by adjustResize and FlatList's onContentSizeChange
+    // Android is handled by onLayout below
     useEffect(() => {
         if (Platform.OS !== 'ios') return;
 
@@ -408,6 +409,16 @@ export default function ChatScreen() {
                         keyExtractor={(item) => item.id}
                         renderItem={renderMessage}
                         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 20 }}
+                        onLayout={(e) => {
+                            const { height } = e.nativeEvent.layout;
+                            // If height decreased significantly (keyboard open), scroll to bottom
+                            if (listHeight.current > height && (listHeight.current - height) > 100) {
+                                setTimeout(() => {
+                                    flatListRef.current?.scrollToEnd({ animated: true });
+                                }, 50);
+                            }
+                            listHeight.current = height;
+                        }}
                         onContentSizeChange={() => {
                             if (hasInitialScrolled) {
                                 flatListRef.current?.scrollToEnd({ animated: false });
