@@ -49,6 +49,7 @@ export async function registerForPushNotificationsAsync() {
                         allowBadge: true,
                         allowSound: true,
                     },
+                    android: {} // Request default permissions based on manifest
                 });
                 console.log("[Notification] Requested permissions:", JSON.stringify(requestedPerms));
                 finalStatus = requestedPerms.status;
@@ -57,7 +58,8 @@ export async function registerForPushNotificationsAsync() {
             if (finalStatus !== 'granted') {
                 console.warn("[Notification] Permission not granted. Final status:", finalStatus);
                 // iOS won't re-show the prompt once denied — direct user to Settings
-                if (Platform.OS === 'ios') {
+                // Alert user if permissions are denied on either platform
+                if (Platform.OS === 'ios' || Platform.OS === 'android') {
                     Alert.alert(
                         "Enable Notifications",
                         "Notifications are disabled. Please enable them in Settings to receive match reminders.",
@@ -82,7 +84,7 @@ export async function registerForPushNotificationsAsync() {
                 console.log("[Notification] Push Token:", token);
             } catch (tokenError: any) {
                 console.error("[Notification] Token Error:", tokenError);
-                // Don't Alert here to avoid re-render loops
+                Alert.alert("Push Token Error", `Failed to get push token: ${tokenError.message}`);
                 _registering = false;
                 return null;
             }

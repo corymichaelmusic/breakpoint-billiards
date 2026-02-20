@@ -24,13 +24,15 @@ export async function sendSessionNotification(sessionId: string, title: string, 
                     id,
                     full_name,
                     push_token,
-                    is_active
+                    is_active,
+                    notify_league
                 )
             `)
             .eq('league_id', sessionId)
             .eq('status', 'active')
             .eq('profiles.is_active', true)
-            .not('profiles.push_token', 'is', null);
+            .not('profiles.push_token', 'is', null)
+            .not('profiles.notify_league', 'is', false);
 
         if (error) {
             console.error("Error fetching session players:", error);

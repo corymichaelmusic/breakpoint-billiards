@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Keyboard, Alert, ScrollView } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Keyboard, Alert, ScrollView, Modal } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useEffect, useState, useRef, useCallback } from "react";
@@ -8,11 +8,13 @@ import * as Haptics from 'expo-haptics';
 import { useSession } from "../../lib/SessionContext";
 import { useNavigation } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
+import { supabase } from "../../lib/supabase";
 
 export default function ChatScreen() {
     const { userId, getToken } = useAuth();
     const { user } = useUser();
     const { currentSession, unreadCount, lastReadAt, markAsRead } = useSession();
+    const navigation = useNavigation();
     const isFocused = useIsFocused();
     const [messages, setMessages] = useState<any[]>([]);
     const [players, setPlayers] = useState<any[]>([]);
@@ -20,8 +22,17 @@ export default function ChatScreen() {
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
     const [hasInitialScrolled, setHasInitialScrolled] = useState(false);
+    const [showTagging, setShowTagging] = useState(false);
     const flatListRef = useRef<FlatList>(null);
-    const listHeight = useRef(0);
+    const inputRef = useRef<TextInput>(null);
+    const pollingInterval = useRef<NodeJS.Timeout | null>(null);
+    const isNearBottom = useRef(false);
+    const initialScrollComplete = useRef(false);
+    const pendingInitialScroll = useRef<{ type: 'index'; index: number } | { type: 'end' } | null>(null);
+    const scrollDebounceTimer = useRef<NodeJS.Timeout | null>(null);
+    const tabBarTimeout = useRef<NodeJS.Timeout | null>(null);
+    const pendingFocus = useRef(false);
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
 
     // Use refs for stable access in intervals/callbacks without triggering re-renders
     const currentSessionRef = useRef(currentSession);
@@ -76,21 +87,77 @@ export default function ChatScreen() {
         }
     }, [getToken]);
 
-    const navigation = useNavigation();
+    const fetchPlayers = useCallback(async () => {
+        if (!currentSession?.id) return;
+        try {
+            const token = await getToken({ template: 'supabase' });
+            const supabase = createClient(
+                process.env.EXPO_PUBLIC_SUPABASE_URL!,
+                process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+                { global: { headers: token ? { Authorization: `Bearer ${token}` } : undefined } }
+            );
+
+            const { data, error } = await supabase
+                .from('league_players')
+                .select(`
+                    player_id,
+                    profiles:player_id(id, full_name, avatar_url, nickname)
+                `)
+                .eq('league_id', currentSession.id)
+                .eq('status', 'active');
+
+            if (error) throw error;
+            if (data) {
+                const mapped = data
+                    .map((d: any) => d.profiles)
+                    .filter(Boolean)
+                    .filter((p: any) => p.id !== userId);
+                setPlayers(mapped);
+            }
+        } catch (e) {
+            console.error("Error fetching players for tagging:", e);
+        }
+    }, [getToken, currentSession?.id, userId]);
+
+    useEffect(() => {
+        fetchPlayers();
+    }, [fetchPlayers]);
+
+    const handleTagPlayer = (player: any) => {
+        const name = player.nickname || player.full_name || 'Unknown';
+        setInputText(prev => prev + `@[${name}] `);
+        pendingFocus.current = true;
+        setShowTagging(false);
+    };
+
+    // Focus input after tag modal closes (works on both iOS and Android)
+    useEffect(() => {
+        if (!showTagging && pendingFocus.current) {
+            pendingFocus.current = false;
+            const delay = Platform.OS === 'android' ? 400 : 100;
+            setTimeout(() => inputRef.current?.focus(), delay);
+        }
+    }, [showTagging]);
+
+
 
     // Polling logic using navigation events
     useEffect(() => {
-        let interval: NodeJS.Timeout;
-
         const startPolling = () => {
-            console.log("Chat focused, starting poll");
+            // Always clear any existing interval before starting a new one
+            if (pollingInterval.current) {
+                clearInterval(pollingInterval.current);
+                pollingInterval.current = null;
+            }
             fetchMessages(); // Initial fetch
-            interval = setInterval(fetchMessages, 10000);
+            pollingInterval.current = setInterval(fetchMessages, 10000);
         };
 
         const stopPolling = () => {
-            console.log("Chat blurred, stopping poll");
-            if (interval) clearInterval(interval);
+            if (pollingInterval.current) {
+                clearInterval(pollingInterval.current);
+                pollingInterval.current = null;
+            }
         };
 
         // Subscribe to focus/blur
@@ -107,22 +174,92 @@ export default function ChatScreen() {
         };
     }, []); // Empty dependency array = stable effect, only runs once on mount
 
-    // Auto-scroll to bottom when keyboard opens (iOS only)
-    // Android is handled by onLayout below
+    // Auto-scroll to bottom when keyboard opens and track keyboard height
     useEffect(() => {
-        if (Platform.OS !== 'ios') return;
-
         const keyboardDidShowListener = Keyboard.addListener(
             'keyboardDidShow',
             () => {
-                flatListRef.current?.scrollToEnd({ animated: true });
+                if (Platform.OS === 'android') {
+                    // Slight delay to allow layout to settle after resize
+                    setTimeout(() => {
+                        flatListRef.current?.scrollToEnd({ animated: true });
+                    }, 200);
+                } else {
+                    flatListRef.current?.scrollToEnd({ animated: true });
+                }
             }
+        );
+
+        const onShow = (e: any) => {
+            setKeyboardHeight(e.endCoordinates.height);
+            if (Platform.OS === 'android') {
+                // Hide tabs immediately
+                navigation.setOptions({ tabBarStyle: { display: 'none' } });
+
+                // Clear any pending restore timer
+                if (tabBarTimeout.current) {
+                    clearTimeout(tabBarTimeout.current);
+                    tabBarTimeout.current = null;
+                }
+            }
+        };
+        const onHide = () => {
+            setKeyboardHeight(0);
+            if (Platform.OS === 'android') {
+                if (tabBarTimeout.current) clearTimeout(tabBarTimeout.current);
+
+                // Delay showing tabs to ensure resize happens first
+                tabBarTimeout.current = setTimeout(() => {
+                    navigation.setOptions({
+                        tabBarStyle: {
+                            backgroundColor: "#121212",
+                            borderTopWidth: 0,
+                            borderTopColor: "#121212",
+                            elevation: 0,
+                            shadowOpacity: 0,
+                            shadowOffset: { width: 0, height: 0 },
+                            shadowRadius: 0,
+                            shadowColor: "transparent",
+                            overflow: 'hidden',
+                            height: 90,
+                            paddingBottom: 30,
+                            paddingTop: 8,
+                        }
+                    });
+                    tabBarTimeout.current = null;
+                }, 300);
+            }
+        };
+
+        const showSubscription = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+            onShow
+        );
+        const hideSubscription = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+            onHide
         );
 
         return () => {
             keyboardDidShowListener.remove();
+            showSubscription.remove();
+            hideSubscription.remove();
+            if (tabBarTimeout.current) {
+                clearTimeout(tabBarTimeout.current);
+            }
         };
     }, []);
+
+    // Save the initial lastReadAt before markAsRead overwrites it
+    const initialLastReadAt = useRef<string | null>(null);
+    const hasStoredInitialReadAt = useRef(false);
+
+    useEffect(() => {
+        if (lastReadAt && !hasStoredInitialReadAt.current) {
+            initialLastReadAt.current = lastReadAt;
+            hasStoredInitialReadAt.current = true;
+        }
+    }, [lastReadAt]);
 
     // Mark as read when focused or when new messages arrive while focused
     useEffect(() => {
@@ -133,29 +270,58 @@ export default function ChatScreen() {
 
     // Handle initial scroll to oldest unread
     useEffect(() => {
-        if (!loading && messages.length > 0 && !hasInitialScrolled && lastReadAt) {
-            const oldestUnreadIndex = messages.findIndex(m =>
-                m.created_at > lastReadAt && m.user_id !== userId
-            );
+        if (!loading && messages.length > 0 && !hasInitialScrolled) {
+            const savedLastRead = initialLastReadAt.current;
 
-            if (oldestUnreadIndex !== -1) {
-                // Scroll to the oldest unread message
-                setTimeout(() => {
-                    flatListRef.current?.scrollToIndex({
-                        index: oldestUnreadIndex,
-                        animated: true,
-                        viewPosition: 0 // Top of the list
-                    });
-                }, 500);
+            if (savedLastRead) {
+                const oldestUnreadIndex = messages.findIndex(m =>
+                    m.created_at > savedLastRead && m.user_id !== userId
+                );
+
+                if (oldestUnreadIndex !== -1) {
+                    pendingInitialScroll.current = { type: 'index', index: oldestUnreadIndex };
+                } else {
+                    pendingInitialScroll.current = { type: 'end' };
+                }
             } else {
-                // Just scroll to bottom
-                setTimeout(() => {
-                    flatListRef.current?.scrollToEnd({ animated: false });
-                }, 100);
+                pendingInitialScroll.current = { type: 'end' };
             }
+
+            // onContentSizeChange will pick this up, but we also set a timeout as backup
+            // in case layout is already stable and onContentSizeChange doesn't fire again
+            setTimeout(() => {
+                executeInitialScroll();
+            }, 500);
+
             setHasInitialScrolled(true);
         }
-    }, [loading, messages.length, hasInitialScrolled, lastReadAt, userId]);
+    }, [loading, messages.length, hasInitialScrolled, userId]);
+
+    const executeInitialScroll = useCallback(() => {
+        // Guard: only fire once
+        if (initialScrollComplete.current) return;
+        const pending = pendingInitialScroll.current;
+        if (!pending) return;
+
+        initialScrollComplete.current = true;
+        pendingInitialScroll.current = null;
+
+        if (pending.type === 'index') {
+            try {
+                flatListRef.current?.scrollToIndex({
+                    index: pending.index,
+                    animated: false,
+                    viewPosition: 0
+                });
+            } catch (e) {
+                flatListRef.current?.scrollToEnd({ animated: false });
+            }
+            isNearBottom.current = false;
+        } else {
+            flatListRef.current?.scrollToEnd({ animated: false });
+            isNearBottom.current = true;
+        }
+    }, []);
 
     const handleDelete = async (message: any) => {
         Alert.alert(
@@ -251,6 +417,30 @@ export default function ChatScreen() {
 
             // Replace optimistic
             setMessages(prev => prev.map(m => m.id === tempId ? data : m));
+
+            // Fire-and-forget: send push notification for @mentions
+            const mentionMatches = content.match(/@\[[^\]]+\]/g);
+            if (mentionMatches && mentionMatches.length > 0) {
+                const taggedNames = mentionMatches.map((m: string) => m.slice(2, -1));
+                const taggedPlayerIds = players
+                    .filter((p: any) => {
+                        const name = (p.nickname || p.full_name || '').toLowerCase();
+                        return taggedNames.some((t: string) => t.toLowerCase() === name);
+                    })
+                    .map((p: any) => p.id);
+
+                if (taggedPlayerIds.length > 0) {
+                    supabase.functions.invoke('send-mention-notification', {
+                        body: {
+                            taggedPlayerIds,
+                            senderName: user?.fullName || 'Someone',
+                            sessionName: currentSession?.parentLeagueName
+                                ? `${currentSession.parentLeagueName} - ${currentSession.name}`
+                                : currentSession?.name || 'Session'
+                        }
+                    }).catch((e: any) => console.error('Mention notification error:', e));
+                }
+            }
 
         } catch (e) {
             console.error("Error sending message:", e);
@@ -368,9 +558,29 @@ export default function ChatScreen() {
                             </View>
                         )}
 
-                        <Text style={{ fontSize: 15, color: isMe ? '#000' : '#fff', opacity: isMe ? 0.9 : 1 }}>
-                            {item.content}
-                        </Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' }}>
+                            {item.content.split(/(@\[[^\]]+\])/).map((part: string, i: number) =>
+                                part.startsWith('@[') && part.endsWith(']') ? (
+                                    <View key={i} style={{
+                                        backgroundColor: isMe ? 'rgba(0,0,0,0.15)' : 'rgba(212, 175, 55, 0.15)',
+                                        paddingHorizontal: 8,
+                                        paddingVertical: 2,
+                                        borderRadius: 6,
+                                        borderWidth: 1,
+                                        borderColor: isMe ? 'rgba(0,0,0,0.3)' : 'rgba(212, 175, 55, 0.3)',
+                                        marginVertical: 2,
+                                    }}>
+                                        <Text style={{
+                                            color: isMe ? '#000' : '#D4AF37',
+                                            fontSize: 13,
+                                            fontWeight: 'bold',
+                                        }}>@{part.slice(2, -1)}</Text>
+                                    </View>
+                                ) : (
+                                    <Text key={i} style={{ fontSize: 15, color: isMe ? '#000' : '#fff' }}>{part}</Text>
+                                )
+                            )}
+                        </View>
 
                         <Text style={{ fontSize: 10, marginTop: 4, textAlign: 'right', color: isMe ? 'rgba(0,0,0,0.5)' : '#666' }}>
                             {time}
@@ -397,11 +607,7 @@ export default function ChatScreen() {
                     <ActivityIndicator size="large" color="#D4AF37" />
                 </View>
             ) : (
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                    style={{ flex: 1 }}
-                    keyboardVerticalOffset={Platform.OS === 'ios' ? 115 : 0}
-                >
+                <View style={{ flex: 1, paddingBottom: Platform.OS === 'ios' ? Math.max(0, keyboardHeight - 80) : 0 }}>
                     <FlatList
                         ref={flatListRef}
                         style={{ flex: 1 }}
@@ -409,30 +615,42 @@ export default function ChatScreen() {
                         keyExtractor={(item) => item.id}
                         renderItem={renderMessage}
                         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 20 }}
-                        onLayout={(e) => {
-                            const { height } = e.nativeEvent.layout;
-                            // If height decreased significantly (keyboard open), scroll to bottom
-                            if (listHeight.current > height && (listHeight.current - height) > 100) {
-                                setTimeout(() => {
-                                    flatListRef.current?.scrollToEnd({ animated: true });
-                                }, 50);
-                            }
-                            listHeight.current = height;
-                        }}
+                        initialNumToRender={messages.length}
+                        maxToRenderPerBatch={messages.length}
+
                         onContentSizeChange={() => {
-                            if (hasInitialScrolled) {
+                            // If there's a pending initial scroll, debounce until content size stabilizes
+                            if (pendingInitialScroll.current && !initialScrollComplete.current) {
+                                // Clear any previous timer
+                                if (scrollDebounceTimer.current) {
+                                    clearTimeout(scrollDebounceTimer.current);
+                                }
+                                // Wait for content size to stop changing before scrolling
+                                const delay = Platform.OS === 'android' ? 300 : 150;
+                                scrollDebounceTimer.current = setTimeout(() => {
+                                    executeInitialScroll();
+                                    scrollDebounceTimer.current = null;
+                                }, delay);
+                                return;
+                            }
+                            // Only auto-scroll if initial scroll is done and user is near the bottom
+                            if (initialScrollComplete.current && isNearBottom.current) {
                                 flatListRef.current?.scrollToEnd({ animated: false });
                             }
                         }}
+                        onScroll={(e) => {
+                            const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+                            const distanceFromBottom = contentSize.height - contentOffset.y - layoutMeasurement.height;
+                            isNearBottom.current = distanceFromBottom < 150;
+                        }}
+                        scrollEventThrottle={200}
                         onScrollToIndexFailed={(info) => {
                             flatListRef.current?.scrollToOffset({
                                 offset: info.averageItemLength * info.index,
                                 animated: true
                             });
                         }}
-                        getItemLayout={(data, index) => (
-                            { length: 120, offset: 120 * index, index } // Approximate height
-                        )}
+
                         keyboardDismissMode="on-drag"
                         keyboardShouldPersistTaps="handled"
                         ListEmptyComponent={
@@ -445,8 +663,24 @@ export default function ChatScreen() {
                         }
                     />
 
-                    <View style={{ padding: 16, backgroundColor: '#000', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <View style={{ padding: 16, backgroundColor: '#000', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <TouchableOpacity
+                            onPress={() => setShowTagging(true)}
+                            style={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: 20,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: '#1e1e1e',
+                                borderWidth: 1,
+                                borderColor: '#333'
+                            }}
+                        >
+                            <FontAwesome5 name="user-plus" size={14} color="#D4AF37" />
+                        </TouchableOpacity>
                         <TextInput
+                            ref={inputRef}
                             value={inputText}
                             onChangeText={setInputText}
                             placeholder="Type a message..."
@@ -483,8 +717,75 @@ export default function ChatScreen() {
                             )}
                         </TouchableOpacity>
                     </View>
-                </KeyboardAvoidingView>
-            )}
-        </SafeAreaView>
+                </View>
+            )
+            }
+
+            {/* Player Tag Picker Modal */}
+            <Modal
+                visible={showTagging}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowTagging(false)}
+            >
+                <TouchableOpacity
+                    activeOpacity={1}
+                    onPress={() => setShowTagging(false)}
+                    style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}
+                >
+                    <TouchableOpacity activeOpacity={1} onPress={() => { }}>
+                        <View style={{
+                            backgroundColor: '#1a1a1a',
+                            borderTopLeftRadius: 20,
+                            borderTopRightRadius: 20,
+                            paddingTop: 16,
+                            paddingBottom: 40,
+                            maxHeight: 400
+                        }}>
+                            <View style={{ alignItems: 'center', marginBottom: 12 }}>
+                                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#444' }} />
+                            </View>
+                            <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold', textAlign: 'center', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 }}>
+                                Tag a Player
+                            </Text>
+                            {players.length === 0 ? (
+                                <Text style={{ color: '#666', textAlign: 'center', paddingVertical: 20 }}>
+                                    No other players in this session.
+                                </Text>
+                            ) : (
+                                <ScrollView style={{ paddingHorizontal: 16 }}>
+                                    {players.map((player: any) => (
+                                        <TouchableOpacity
+                                            key={player.id}
+                                            onPress={() => handleTagPlayer(player)}
+                                            style={{
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
+                                                paddingVertical: 12,
+                                                paddingHorizontal: 12,
+                                                borderBottomWidth: 1,
+                                                borderBottomColor: 'rgba(255,255,255,0.05)'
+                                            }}
+                                        >
+                                            {player.avatar_url ? (
+                                                <Image source={{ uri: player.avatar_url }} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#333', marginRight: 12 }} />
+                                            ) : (
+                                                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#333', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                                                    <FontAwesome5 name="user" size={14} color="#ccc" />
+                                                </View>
+                                            )}
+                                            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
+                                                {player.nickname || player.full_name || 'Unknown'}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </ScrollView>
+                            )}
+                        </View>
+                    </TouchableOpacity>
+                </TouchableOpacity>
+            </Modal>
+        </SafeAreaView >
     );
 }
+

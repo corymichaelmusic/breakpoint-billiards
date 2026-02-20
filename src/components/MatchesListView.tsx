@@ -130,11 +130,7 @@ export default function MatchesListView({ matches, leagueId, leagueStatus, timez
                                                     </span>
                                                 </div>
                                             )}
-                                            {(leagueStatus === 'active' || leagueStatus === 'completed') && (
-                                                <Link href={`/dashboard/operator/leagues/${leagueId}/matches/${match.id}/score`} className="btn text-xs px-2 py-1 bg-surface border border-border hover:border-white !text-white hover:!text-white hover:bg-white/10 h-full flex items-center">
-                                                    View
-                                                </Link>
-                                            )}
+
                                         </div>
                                     </td>
                                 </tr>

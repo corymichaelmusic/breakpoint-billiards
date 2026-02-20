@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, Dimensions, TextInput, Alert, Image, ActionSheetIOS, Platform, DeviceEventEmitter, ScrollView, Modal, KeyboardAvoidingView } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, Dimensions, TextInput, Alert, Image, ActionSheetIOS, Platform, DeviceEventEmitter, ScrollView, Modal, KeyboardAvoidingView, Switch } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
@@ -63,6 +63,12 @@ export default function ProfileScreen() {
     const [cancellingSubscription, setCancellingSubscription] = useState(false);
     const { isPro, refreshSubscription } = useSubscription();
 
+    // Notification preferences
+    const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+    const [notifyMentions, setNotifyMentions] = useState(true);
+    const [notifyMatchDay, setNotifyMatchDay] = useState(true);
+    const [notifyLeague, setNotifyLeague] = useState(true);
+
     useEffect(() => {
         const fetchProfile = async () => {
             try {
@@ -78,7 +84,7 @@ export default function ProfileScreen() {
 
                 const { data, error } = await supabase
                     .from('profiles')
-                    .select('full_name, player_number, fargo_rating, breakpoint_rating, nickname, avatar_url')
+                    .select('full_name, player_number, fargo_rating, breakpoint_rating, nickname, avatar_url, notify_mentions, notify_match_day, notify_league')
                     .eq('id', userId)
                     .single();
 
@@ -95,6 +101,9 @@ export default function ProfileScreen() {
                     setProfile({ ...data, confidence });
                     setTempFargo(data.fargo_rating ? String(data.fargo_rating) : "500");
                     setTempNickname(data.nickname || "");
+                    setNotifyMentions(data.notify_mentions !== false);
+                    setNotifyMatchDay(data.notify_match_day !== false);
+                    setNotifyLeague(data.notify_league !== false);
                 }
             } catch (e) {
                 console.error(e);
@@ -764,6 +773,126 @@ export default function ProfileScreen() {
                                                         <Text className="text-black font-bold">Update</Text>
                                                     )}
                                                 </TouchableOpacity>
+                                            </View>
+                                        </View>
+                                    )}
+                                </View>
+
+                                {/* Notification Settings */}
+                                <View className="mb-2">
+                                    <TouchableOpacity
+                                        onPress={() => setShowNotificationSettings(!showNotificationSettings)}
+                                        className="bg-primary/10 border border-primary/50 py-4 rounded-lg items-center active:bg-primary/20 flex-row justify-center gap-2"
+                                    >
+                                        <Ionicons name="notifications-outline" size={18} color="#D4AF37" />
+                                        <Text className="text-primary font-bold uppercase tracking-widest" style={{ includeFontPadding: false }}>
+                                            Notification Settings
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    {showNotificationSettings && (
+                                        <View className="bg-surface border border-border rounded-xl p-4 mt-3 gap-4">
+                                            {/* @Mention Notifications */}
+                                            <View className="flex-row items-center justify-between">
+                                                <View className="flex-1 mr-3">
+                                                    <Text className="text-white font-bold text-sm uppercase tracking-wider" style={{ includeFontPadding: false }}>@Mention Notifications</Text>
+                                                    <Text className="text-gray-500 text-xs mt-1">Get notified when someone mentions you in chat</Text>
+                                                </View>
+                                                <Switch
+                                                    value={notifyMentions}
+                                                    onValueChange={async (val) => {
+                                                        setNotifyMentions(val);
+                                                        const token = await getToken({ template: 'supabase' });
+                                                        const authHeader = token ? { Authorization: `Bearer ${token}` } : undefined;
+                                                        const supabase = createClient(
+                                                            process.env.EXPO_PUBLIC_SUPABASE_URL!,
+                                                            process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+                                                            { global: { headers: authHeader } }
+                                                        );
+                                                        await supabase.from('profiles').update({ notify_mentions: val }).eq('id', userId);
+                                                    }}
+                                                    trackColor={{ false: '#3e3e3e', true: '#D4AF3766' }}
+                                                    thumbColor={notifyMentions ? '#D4AF37' : '#888'}
+                                                />
+                                            </View>
+
+                                            <View className="border-t border-white/10" />
+
+                                            {/* Day of Match Notifications */}
+                                            <View className="flex-row items-center justify-between">
+                                                <View className="flex-1 mr-3">
+                                                    <Text className="text-white font-bold text-sm uppercase tracking-wider" style={{ includeFontPadding: false }}>Day of Match Notifications</Text>
+                                                    <Text className="text-gray-500 text-xs mt-1">Reminders on your match day</Text>
+                                                </View>
+                                                <Switch
+                                                    value={notifyMatchDay}
+                                                    onValueChange={async (val) => {
+                                                        setNotifyMatchDay(val);
+                                                        const token = await getToken({ template: 'supabase' });
+                                                        const authHeader = token ? { Authorization: `Bearer ${token}` } : undefined;
+                                                        const supabase = createClient(
+                                                            process.env.EXPO_PUBLIC_SUPABASE_URL!,
+                                                            process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+                                                            { global: { headers: authHeader } }
+                                                        );
+                                                        await supabase.from('profiles').update({ notify_match_day: val }).eq('id', userId);
+                                                    }}
+                                                    trackColor={{ false: '#3e3e3e', true: '#D4AF3766' }}
+                                                    thumbColor={notifyMatchDay ? '#D4AF37' : '#888'}
+                                                />
+                                            </View>
+
+                                            <View className="border-t border-white/10" />
+
+                                            {/* League Notifications */}
+                                            <View className="flex-row items-center justify-between">
+                                                <View className="flex-1 mr-3">
+                                                    <Text className="text-white font-bold text-sm uppercase tracking-wider" style={{ includeFontPadding: false }}>League Notifications</Text>
+                                                    <Text className="text-gray-500 text-xs mt-1">Match updates and messages from the league operator</Text>
+                                                </View>
+                                                <Switch
+                                                    value={notifyLeague}
+                                                    onValueChange={(val) => {
+                                                        if (!val) {
+                                                            Alert.alert(
+                                                                "Turn Off League Notifications?",
+                                                                "League notifications include match updates and important messages from the league operator. Are you sure you want to turn off?",
+                                                                [
+                                                                    { text: "Cancel", style: "cancel" },
+                                                                    {
+                                                                        text: "Turn Off",
+                                                                        style: "destructive",
+                                                                        onPress: async () => {
+                                                                            setNotifyLeague(false);
+                                                                            const token = await getToken({ template: 'supabase' });
+                                                                            const authHeader = token ? { Authorization: `Bearer ${token}` } : undefined;
+                                                                            const supabase = createClient(
+                                                                                process.env.EXPO_PUBLIC_SUPABASE_URL!,
+                                                                                process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+                                                                                { global: { headers: authHeader } }
+                                                                            );
+                                                                            await supabase.from('profiles').update({ notify_league: false }).eq('id', userId);
+                                                                        }
+                                                                    }
+                                                                ]
+                                                            );
+                                                        } else {
+                                                            setNotifyLeague(true);
+                                                            (async () => {
+                                                                const token = await getToken({ template: 'supabase' });
+                                                                const authHeader = token ? { Authorization: `Bearer ${token}` } : undefined;
+                                                                const supabase = createClient(
+                                                                    process.env.EXPO_PUBLIC_SUPABASE_URL!,
+                                                                    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+                                                                    { global: { headers: authHeader } }
+                                                                );
+                                                                await supabase.from('profiles').update({ notify_league: true }).eq('id', userId);
+                                                            })();
+                                                        }
+                                                    }}
+                                                    trackColor={{ false: '#3e3e3e', true: '#D4AF3766' }}
+                                                    thumbColor={notifyLeague ? '#D4AF37' : '#888'}
+                                                />
                                             </View>
                                         </View>
                                     )}
