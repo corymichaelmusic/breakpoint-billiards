@@ -162,143 +162,134 @@ export async function getSessionLeaderboard(sessionId: string, limit: number = 1
 export async function getPlayerLifetimeStats(playerId: string) {
     const supabase = createAdminClient();
 
-    // 1. Fetch All Finalized Matches for Player
-    // 1. Fetch All Matches for Player (Relaxed Filter)
-    // 1. Fetch All Matches for Player (Relaxed Filter)
+    // 1. Fetch Profile Rating
+    const { data: profile } = await supabase.from("profiles").select("fargo_rating, breakpoint_rating, full_name").eq("id", playerId).single();
+    const currentRating = profile?.breakpoint_rating || 500;
+    const stats = getInitStats(playerId, profile?.full_name || "Player");
+    stats.breakPoint = parseFloat(getBreakpointLevel(currentRating));
+
+    // 2. Fetch Aggregated Stats from league_players
+    const { data: leagueStats } = await supabase
+        .from('league_players')
+        .select('*')
+        .eq('player_id', playerId);
+
+    // Default Tracking Vars
+    let db_br8 = 0;
+    let db_br9 = 0;
+    let db_rr8 = 0;
+    let db_rr9 = 0;
+    let db_snap = 0;
+    let totalRacksPlayed = 0;
+    let totalShutouts = 0;
+
+    if (leagueStats) {
+        leagueStats.forEach(ls => {
+            totalRacksPlayed += ls.breakpoint_racks_played || 0;
+            totalShutouts += ls.shutouts || 0;
+
+            db_br8 += ls.total_break_and_runs_8ball || 0;
+            db_br9 += ls.total_break_and_runs_9ball || 0;
+            db_rr8 += ls.total_rack_and_runs_8ball || 0;
+            db_rr9 += ls.total_rack_and_runs_9ball || 0;
+            db_snap += ls.total_nine_on_snap || 0;
+        });
+    }
+
+    stats.totalRacksPlayed = totalRacksPlayed;
+    stats.display_shutouts = totalShutouts;
+    stats.racklessSets_8ball = totalShutouts; // Estimate or simplify
+    stats.breakAndRuns_8ball = db_br8;
+    stats.rackAndRuns_8ball = db_rr8;
+    stats.breakAndRuns_9ball = db_br9;
+    stats.rackAndRuns_9ball = db_rr9;
+    stats.nineOnSnaps_9ball = db_snap;
+
+    // 3. Fetch Matches to determine Wins, Losses and Racks per game type
     const { data: matches } = await supabase
         .from("matches")
         .select(`
-            id, 
-            status, 
-            winner_id, 
-            player1_id, 
-            player2_id,
+            id, winner_id, player1_id, player2_id,
             points_8ball_p1, points_8ball_p2, 
             points_9ball_p1, points_9ball_p2,
             winner_id_8ball, winner_id_9ball,
-            status_8ball, status_9ball,
-            is_forfeit,
-            submitted_by
+            status_8ball, status_9ball
         `)
         .or(`player1_id.eq.${playerId},player2_id.eq.${playerId}`);
 
-    console.log(`[LifetimeStats] Found ${matches?.length} matches for ${playerId}`);
+    if (matches && matches.length > 0) {
+        matches.forEach((m: any) => {
+            const isP1 = m.player1_id === playerId;
+            const myPtsMatch = isP1 ? ((Number(m.points_8ball_p1) || 0) + (Number(m.points_9ball_p1) || 0)) : ((Number(m.points_8ball_p2) || 0) + (Number(m.points_9ball_p2) || 0));
+            stats.totalPoints += myPtsMatch;
 
-    if (!matches || matches.length === 0) {
-        const emptyStats = getInitStats(playerId, "Player");
-        // Fetch Profile Rating to set Breakpoint Level properly
-        const { data: profile } = await supabase.from("profiles").select("breakpoint_rating").eq("id", playerId).single();
-        const currentRating = profile?.breakpoint_rating || 500;
-        emptyStats.breakPoint = parseFloat(getBreakpointLevel(currentRating));
-        return emptyStats;
+            // 8-Ball Stats
+            const p1_8 = Number(m.points_8ball_p1) || 0;
+            const p2_8 = Number(m.points_8ball_p2) || 0;
+
+            if (m.status_8ball === 'finalized') {
+                stats.matchesPlayed_8ball++;
+                if (m.winner_id_8ball === playerId) stats.matchesWon_8ball++;
+                else stats.matchesLost_8ball++;
+
+                stats.racksWon_8ball += (isP1 ? p1_8 : p2_8);
+                stats.racksPlayed_8ball += (p1_8 + p2_8);
+            }
+
+            // 9-Ball Stats
+            const p1_9 = Number(m.points_9ball_p1) || 0;
+            const p2_9 = Number(m.points_9ball_p2) || 0;
+
+            if (m.status_9ball === 'finalized') {
+                stats.matchesPlayed_9ball++;
+                if (m.winner_id_9ball === playerId) stats.matchesWon_9ball++;
+                else stats.matchesLost_9ball++;
+
+                stats.racksWon_9ball += (isP1 ? p1_9 : p2_9);
+                stats.racksPlayed_9ball += (p1_9 + p2_9);
+            }
+        });
     }
 
-    // 2. Fetch Games for these matches
-    const matchIds = matches.map(m => m.id);
-    const { data: games } = await supabase
-        .from("games")
-        .select("*")
-        .in("match_id", matchIds);
+    // Recalculate Aggregates
+    stats.matchesPlayed = stats.matchesPlayed_8ball + stats.matchesPlayed_9ball;
+    stats.matchesWon = stats.matchesWon_8ball + stats.matchesWon_9ball;
+    stats.matchesLost = stats.matchesLost_8ball + stats.matchesLost_9ball;
 
-    const allGames = games || [];
-
-
-
-    // Fetch Profile Rating
-    const { data: profile } = await supabase.from("profiles").select("fargo_rating, breakpoint_rating").eq("id", playerId).single();
-    const currentRating = profile?.breakpoint_rating || 500;
-
-    const stats = getInitStats(playerId, "Player");
-    stats.breakPoint = parseFloat(getBreakpointLevel(currentRating));
-
-    matches.forEach(match => {
-        aggregateMatchStats(stats, match, playerId, allGames);
-    });
+    // Formatting
+    const formatPercent = (won: number, total: number) => total > 0 ? Math.round((won / total) * 100) + "%" : "0%";
+    const formatRecord = (won: number, lost: number) => `${won}-${lost}`;
 
     stats.pointsPerMatch = stats.matchesPlayed > 0 ? (stats.totalPoints / stats.matchesPlayed).toFixed(2) : "0.00";
     stats.winRate = stats.matchesPlayed > 0 ? Math.round((stats.matchesWon / stats.matchesPlayed) * 100) : 0;
     stats.winRate_8ball = stats.matchesPlayed_8ball > 0 ? Math.round((stats.matchesWon_8ball / stats.matchesPlayed_8ball) * 100) : 0;
     stats.winRate_9ball = stats.matchesPlayed_9ball > 0 ? Math.round((stats.matchesWon_9ball / stats.matchesPlayed_9ball) * 100) : 0;
+
+    stats.display_setWinRate = formatPercent(stats.matchesWon, stats.matchesPlayed);
+    stats.display_setRecord = formatRecord(stats.matchesWon, stats.matchesLost);
+    stats.display_setWinRate8 = formatPercent(stats.matchesWon_8ball, stats.matchesPlayed_8ball);
+    stats.display_setRecord8 = formatRecord(stats.matchesWon_8ball, stats.matchesLost_8ball);
+    stats.display_setWinRate9 = formatPercent(stats.matchesWon_9ball, stats.matchesPlayed_9ball);
+    stats.display_setRecord9 = formatRecord(stats.matchesWon_9ball, stats.matchesLost_9ball);
+
+    const totalRacksWon = stats.racksWon_8ball + stats.racksWon_9ball;
+    const actualRacksPlayed = stats.racksPlayed_8ball + stats.racksPlayed_9ball;
+
+    stats.display_gameWinRate = formatPercent(totalRacksWon, actualRacksPlayed);
+    stats.display_gameRecord = formatRecord(totalRacksWon, actualRacksPlayed - totalRacksWon);
+
+    stats.display_gameWinRate8 = formatPercent(stats.racksWon_8ball, stats.racksPlayed_8ball);
+    stats.display_gameRecord8 = formatRecord(stats.racksWon_8ball, stats.racksPlayed_8ball - stats.racksWon_8ball);
+
+    stats.display_gameWinRate9 = formatPercent(stats.racksWon_9ball, stats.racksPlayed_9ball);
+    stats.display_gameRecord9 = formatRecord(stats.racksWon_9ball, stats.racksPlayed_9ball - stats.racksWon_9ball);
 
     return stats;
 }
 
 export async function getPlayerSessionStats(playerId: string, sessionId: string) {
-    const supabase = createAdminClient();
-
-    // 1. Fetch Finalized Matches for Player in Session
-    // Fetch all matches for the player that are not just scheduled
-    const { data: matches } = await supabase
-        .from("matches")
-        .select(`
-            id, 
-            status, 
-            winner_id, 
-            player1_id, 
-            player2_id,
-            points_8ball_p1, points_8ball_p2, 
-            points_9ball_p1, points_9ball_p2,
-            winner_id_8ball, winner_id_9ball,
-            status_8ball, status_9ball,
-            is_forfeit,
-            submitted_by
-        `)
-        .eq("league_id", sessionId)
-        .or(`player1_id.eq.${playerId},player2_id.eq.${playerId}`)
-        .or(`player1_id.eq.${playerId},player2_id.eq.${playerId}`);
-
-    console.log(`[Stats] Found ${matches?.length} matches for ${playerId} (ignoring status filter)`);
-
-    if (!matches || matches.length === 0) {
-        return getInitStats(playerId, "Player");
-    }
-
-    // 2. Fetch Games for these matches
-    const matchIds = matches.map(m => m.id);
-    const { data: games } = await supabase
-        .from("games")
-        .select("*")
-        .in("match_id", matchIds);
-
-    const allGames = games || [];
-
-    // Calculate Global Confidence Score (Lifetime Games Played)
-    // We need to fetch ALL matches for this player globally to count total racks
-    const { data: globalMatches } = await supabase
-        .from("matches")
-        .select("id")
-        .or(`player1_id.eq.${playerId},player2_id.eq.${playerId}`)
-        .not("status", "eq", "scheduled"); // Only played matches
-
-    let lifetimeGames = 0;
-    if (globalMatches && globalMatches.length > 0) {
-        const globalMatchIds = globalMatches.map(m => m.id);
-        const { count } = await supabase
-            .from("games")
-            .select("*", { count: 'exact', head: true })
-            .in("match_id", globalMatchIds);
-        lifetimeGames = count || 0;
-    }
-
-
-
-    // Fetch Profile Rating
-    const { data: profile } = await supabase.from("profiles").select("fargo_rating, breakpoint_rating").eq("id", playerId).single();
-    const currentRating = profile?.breakpoint_rating || 500;
-
-    const stats = getInitStats(playerId, "Player");
-    stats.breakPoint = parseFloat(getBreakpointLevel(currentRating));
-
-    matches.forEach(match => {
-        aggregateMatchStats(stats, match, playerId, allGames);
-    });
-
-    stats.pointsPerMatch = stats.matchesPlayed > 0 ? (stats.totalPoints / stats.matchesPlayed).toFixed(2) : "0.00";
-    stats.winRate = stats.matchesPlayed > 0 ? Math.round((stats.matchesWon / stats.matchesPlayed) * 100) : 0;
-    stats.winRate_8ball = stats.matchesPlayed_8ball > 0 ? Math.round((stats.matchesWon_8ball / stats.matchesPlayed_8ball) * 100) : 0;
-    stats.winRate_9ball = stats.matchesPlayed_9ball > 0 ? Math.round((stats.matchesWon_9ball / stats.matchesPlayed_9ball) * 100) : 0;
-
-    return stats;
+    // We defer this heavily to getPlayerLeagueStats to centralize identical logic.
+    return getPlayerLeagueStats(playerId, sessionId);
 }
 
 export async function getPlayerBreakpointHistory(playerId: string) {
@@ -501,13 +492,9 @@ export async function getPlayerLeagueStats(playerId: string, leagueId: string) {
     const supabase = createAdminClient();
 
     // 1. Identify Target Scope (Is leagueId a Parent or Session?)
-    // We assume the intent is "Stats for this League Organization".
-    // So if leagueId is a Session, find its Parent. If Parent, use it.
-
-    // Check if leagueId is a parent
     const { data: leagueInfo } = await supabase.from("leagues").select("id, type, parent_league_id").eq("id", leagueId).single();
 
-    let targetLeagueId = leagueId; // Default to provided ID
+    let targetLeagueId = leagueId;
     let isParent = false;
 
     if (leagueInfo) {
@@ -519,58 +506,138 @@ export async function getPlayerLeagueStats(playerId: string, leagueId: string) {
         }
     }
 
-    // 2. Fetch Matches
-    // If Parent: Matches where match.league_id IN (children of targetLeagueId)
-    // If Session/Single: Matches where match.league_id = targetLeagueId
-    // Actually simpler: 
-    // If Parent: Join leagues to filter by parent_league_id of the match's league.
-    // Or fetch all session IDs first.
+    // 2. Fetch Profile Rating & Init Stats
+    const { data: profile } = await supabase.from("profiles").select("breakpoint_rating, full_name").eq("id", playerId).single();
+    const currentRating = profile?.breakpoint_rating || 500;
+    const breakPointLevel = parseFloat(getBreakpointLevel(currentRating));
+    const stats = getInitStats(playerId, profile?.full_name || "Player");
+    stats.breakPoint = breakPointLevel;
 
-    let matchesQuery = supabase
-        .from("matches")
-        .select("id, player1_id, player2_id, winner_id, current_points_p1, current_points_p2, points_8ball_p1, points_8ball_p2, points_9ball_p1, points_9ball_p2, status_8ball, status_9ball, winner_id_8ball, winner_id_9ball, is_forfeit, league_id, leagues!inner(parent_league_id)")
-        .or(`player1_id.eq.${playerId},player2_id.eq.${playerId}`)
-        .or("status.eq.finalized,winner_id.not.is.null"); // Only finalized
+    // 3. Fetch Aggregated Stats from league_players
+    let leagueStatsQuery = supabase
+        .from('league_players')
+        .select('*, leagues!inner(parent_league_id, id)')
+        .eq('player_id', playerId);
 
     if (isParent) {
-        matchesQuery = matchesQuery.eq("leagues.parent_league_id", targetLeagueId);
+        leagueStatsQuery = leagueStatsQuery.or(`league_id.eq.${targetLeagueId},leagues.parent_league_id.eq.${targetLeagueId}`);
     } else {
-        // Fallback if we just want single league stats
+        leagueStatsQuery = leagueStatsQuery.eq("league_id", targetLeagueId);
+    }
+
+    const { data: leagueStats } = await leagueStatsQuery;
+
+    let db_br8 = 0;
+    let db_br9 = 0;
+    let db_rr8 = 0;
+    let db_rr9 = 0;
+    let db_snap = 0;
+    let totalRacksPlayed = 0;
+    let totalShutouts = 0;
+
+    if (leagueStats) {
+        leagueStats.forEach((ls: any) => {
+            totalRacksPlayed += ls.breakpoint_racks_played || 0;
+            totalShutouts += ls.shutouts || 0;
+
+            db_br8 += ls.total_break_and_runs_8ball || 0;
+            db_br9 += ls.total_break_and_runs_9ball || 0;
+            db_rr8 += ls.total_rack_and_runs_8ball || 0;
+            db_rr9 += ls.total_rack_and_runs_9ball || 0;
+            db_snap += ls.total_nine_on_snap || 0;
+        });
+    }
+
+    stats.totalRacksPlayed = totalRacksPlayed;
+    stats.display_shutouts = totalShutouts;
+    stats.racklessSets_8ball = totalShutouts;
+    stats.breakAndRuns_8ball = db_br8;
+    stats.rackAndRuns_8ball = db_rr8;
+    stats.breakAndRuns_9ball = db_br9;
+    stats.rackAndRuns_9ball = db_rr9;
+    stats.nineOnSnaps_9ball = db_snap;
+
+    // 4. Fetch Matches
+    let matchesQuery = supabase
+        .from("matches")
+        .select("id, player1_id, player2_id, winner_id, current_points_p1, current_points_p2, points_8ball_p1, points_8ball_p2, points_9ball_p1, points_9ball_p2, status_8ball, status_9ball, winner_id_8ball, winner_id_9ball, is_forfeit, league_id, leagues!inner(parent_league_id, id)")
+        .or(`player1_id.eq.${playerId},player2_id.eq.${playerId}`)
+        .or("status_8ball.eq.finalized,status_9ball.eq.finalized");
+
+    if (isParent) {
+        matchesQuery = matchesQuery.or(`league_id.eq.${targetLeagueId},leagues.parent_league_id.eq.${targetLeagueId}`);
+    } else {
         matchesQuery = matchesQuery.eq("league_id", targetLeagueId);
     }
 
     const { data: matches } = await matchesQuery;
 
-    // Fetch Profile Rating for BreakPoint Level (Always fetch this)
-    const { data: profile } = await supabase.from("profiles").select("breakpoint_rating").eq("id", playerId).single();
-    const currentRating = profile?.breakpoint_rating || 500;
-    const breakPointLevel = parseFloat(getBreakpointLevel(currentRating));
+    if (matches && matches.length > 0) {
+        matches.forEach((m: any) => {
+            const isP1 = m.player1_id === playerId;
+            const myPtsMatch = isP1 ? ((Number(m.points_8ball_p1) || 0) + (Number(m.points_9ball_p1) || 0)) : ((Number(m.points_8ball_p2) || 0) + (Number(m.points_9ball_p2) || 0));
+            stats.totalPoints += myPtsMatch;
 
-    if (!matches || matches.length === 0) {
-        const emptyStats = getInitStats(playerId, "Player");
-        emptyStats.breakPoint = breakPointLevel;
-        return emptyStats;
+            // 8-Ball Stats
+            const p1_8 = Number(m.points_8ball_p1) || 0;
+            const p2_8 = Number(m.points_8ball_p2) || 0;
+
+            if (m.status_8ball === 'finalized') {
+                stats.matchesPlayed_8ball++;
+                if (m.winner_id_8ball === playerId) stats.matchesWon_8ball++;
+                else stats.matchesLost_8ball++;
+
+                stats.racksWon_8ball += (isP1 ? p1_8 : p2_8);
+                stats.racksPlayed_8ball += (p1_8 + p2_8);
+            }
+
+            // 9-Ball Stats
+            const p1_9 = Number(m.points_9ball_p1) || 0;
+            const p2_9 = Number(m.points_9ball_p2) || 0;
+
+            if (m.status_9ball === 'finalized') {
+                stats.matchesPlayed_9ball++;
+                if (m.winner_id_9ball === playerId) stats.matchesWon_9ball++;
+                else stats.matchesLost_9ball++;
+
+                stats.racksWon_9ball += (isP1 ? p1_9 : p2_9);
+                stats.racksPlayed_9ball += (p1_9 + p2_9);
+            }
+        });
     }
 
-    // 3. Fetch Games
-    const matchIds = matches.map(m => m.id);
-    const { data: games } = await supabase
-        .from("games")
-        .select("*")
-        .in("match_id", matchIds);
+    // Recalculate Aggregates
+    stats.matchesPlayed = stats.matchesPlayed_8ball + stats.matchesPlayed_9ball;
+    stats.matchesWon = stats.matchesWon_8ball + stats.matchesWon_9ball;
+    stats.matchesLost = stats.matchesLost_8ball + stats.matchesLost_9ball;
 
-    const allGames = games || [];
-    const stats = getInitStats(playerId, "Player");
-    stats.breakPoint = breakPointLevel;
-
-    matches.forEach(match => {
-        aggregateMatchStats(stats, match, playerId, allGames);
-    });
+    // Formatting
+    const formatPercent = (won: number, total: number) => total > 0 ? Math.round((won / total) * 100) + "%" : "0%";
+    const formatRecord = (won: number, lost: number) => `${won}-${lost}`;
 
     stats.pointsPerMatch = stats.matchesPlayed > 0 ? (stats.totalPoints / stats.matchesPlayed).toFixed(2) : "0.00";
     stats.winRate = stats.matchesPlayed > 0 ? Math.round((stats.matchesWon / stats.matchesPlayed) * 100) : 0;
     stats.winRate_8ball = stats.matchesPlayed_8ball > 0 ? Math.round((stats.matchesWon_8ball / stats.matchesPlayed_8ball) * 100) : 0;
     stats.winRate_9ball = stats.matchesPlayed_9ball > 0 ? Math.round((stats.matchesWon_9ball / stats.matchesPlayed_9ball) * 100) : 0;
+
+    stats.display_setWinRate = formatPercent(stats.matchesWon, stats.matchesPlayed);
+    stats.display_setRecord = formatRecord(stats.matchesWon, stats.matchesLost);
+    stats.display_setWinRate8 = formatPercent(stats.matchesWon_8ball, stats.matchesPlayed_8ball);
+    stats.display_setRecord8 = formatRecord(stats.matchesWon_8ball, stats.matchesLost_8ball);
+    stats.display_setWinRate9 = formatPercent(stats.matchesWon_9ball, stats.matchesPlayed_9ball);
+    stats.display_setRecord9 = formatRecord(stats.matchesWon_9ball, stats.matchesLost_9ball);
+
+    const totalRacksWon = stats.racksWon_8ball + stats.racksWon_9ball;
+    const actualRacksPlayed = stats.racksPlayed_8ball + stats.racksPlayed_9ball;
+
+    stats.display_gameWinRate = formatPercent(totalRacksWon, actualRacksPlayed);
+    stats.display_gameRecord = formatRecord(totalRacksWon, actualRacksPlayed - totalRacksWon);
+
+    stats.display_gameWinRate8 = formatPercent(stats.racksWon_8ball, stats.racksPlayed_8ball);
+    stats.display_gameRecord8 = formatRecord(stats.racksWon_8ball, stats.racksPlayed_8ball - stats.racksWon_8ball);
+
+    stats.display_gameWinRate9 = formatPercent(stats.racksWon_9ball, stats.racksPlayed_9ball);
+    stats.display_gameRecord9 = formatRecord(stats.racksWon_9ball, stats.racksPlayed_9ball - stats.racksWon_9ball);
 
     return stats;
 }
