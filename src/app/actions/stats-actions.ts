@@ -226,10 +226,11 @@ export async function getPlayerLifetimeStats(playerId: string) {
             // 8-Ball Stats
             const p1_8 = Number(m.points_8ball_p1) || 0;
             const p2_8 = Number(m.points_8ball_p2) || 0;
+            const winner_8 = m.winner_id_8ball || (p1_8 > p2_8 ? m.player1_id : (p2_8 > p1_8 ? m.player2_id : null));
 
             if (m.status_8ball === 'finalized') {
                 stats.matchesPlayed_8ball++;
-                if (m.winner_id_8ball === playerId) stats.matchesWon_8ball++;
+                if (winner_8 === playerId) stats.matchesWon_8ball++;
                 else stats.matchesLost_8ball++;
 
                 stats.racksWon_8ball += (isP1 ? p1_8 : p2_8);
@@ -239,10 +240,11 @@ export async function getPlayerLifetimeStats(playerId: string) {
             // 9-Ball Stats
             const p1_9 = Number(m.points_9ball_p1) || 0;
             const p2_9 = Number(m.points_9ball_p2) || 0;
+            const winner_9 = m.winner_id_9ball || (p1_9 > p2_9 ? m.player1_id : (p2_9 > p1_9 ? m.player2_id : null));
 
             if (m.status_9ball === 'finalized') {
                 stats.matchesPlayed_9ball++;
-                if (m.winner_id_9ball === playerId) stats.matchesWon_9ball++;
+                if (winner_9 === playerId) stats.matchesWon_9ball++;
                 else stats.matchesLost_9ball++;
 
                 stats.racksWon_9ball += (isP1 ? p1_9 : p2_9);
@@ -561,8 +563,7 @@ export async function getPlayerLeagueStats(playerId: string, leagueId: string) {
     let matchesQuery = supabase
         .from("matches")
         .select("id, player1_id, player2_id, winner_id, current_points_p1, current_points_p2, points_8ball_p1, points_8ball_p2, points_9ball_p1, points_9ball_p2, status_8ball, status_9ball, winner_id_8ball, winner_id_9ball, is_forfeit, league_id, leagues!inner(parent_league_id, id)")
-        .or(`player1_id.eq.${playerId},player2_id.eq.${playerId}`)
-        .or("status_8ball.eq.finalized,status_9ball.eq.finalized");
+        .or(`player1_id.eq.${playerId},player2_id.eq.${playerId}`);
 
     if (isParent) {
         matchesQuery = matchesQuery.or(`league_id.eq.${targetLeagueId},leagues.parent_league_id.eq.${targetLeagueId}`);
@@ -581,10 +582,11 @@ export async function getPlayerLeagueStats(playerId: string, leagueId: string) {
             // 8-Ball Stats
             const p1_8 = Number(m.points_8ball_p1) || 0;
             const p2_8 = Number(m.points_8ball_p2) || 0;
+            const winner_8 = m.winner_id_8ball || (p1_8 > p2_8 ? m.player1_id : (p2_8 > p1_8 ? m.player2_id : null));
 
             if (m.status_8ball === 'finalized') {
                 stats.matchesPlayed_8ball++;
-                if (m.winner_id_8ball === playerId) stats.matchesWon_8ball++;
+                if (winner_8 === playerId) stats.matchesWon_8ball++;
                 else stats.matchesLost_8ball++;
 
                 stats.racksWon_8ball += (isP1 ? p1_8 : p2_8);
@@ -594,10 +596,11 @@ export async function getPlayerLeagueStats(playerId: string, leagueId: string) {
             // 9-Ball Stats
             const p1_9 = Number(m.points_9ball_p1) || 0;
             const p2_9 = Number(m.points_9ball_p2) || 0;
+            const winner_9 = m.winner_id_9ball || (p1_9 > p2_9 ? m.player1_id : (p2_9 > p1_9 ? m.player2_id : null));
 
             if (m.status_9ball === 'finalized') {
                 stats.matchesPlayed_9ball++;
-                if (m.winner_id_9ball === playerId) stats.matchesWon_9ball++;
+                if (winner_9 === playerId) stats.matchesWon_9ball++;
                 else stats.matchesLost_9ball++;
 
                 stats.racksWon_9ball += (isP1 ? p1_9 : p2_9);
