@@ -25,12 +25,31 @@ export default async function OperatorPlayerSessionPage({ params }: { params: Pr
 
     const player = playerResponse.data;
     const session = sessionResponse.data;
+    const currentRating = player?.breakpoint_rating || 500;
 
-    // Use lifetime racks played as confidence score
-    const confidenceScore = lifetimeStats?.totalRacksPlayed || 0;
+    // Calculate Global Rank (Consistent with Leaderboard)
+    const { data: topPlayers } = await supabase
+        .from('profiles')
+        .select('id')
+        .order('breakpoint_rating', { ascending: false })
+        .limit(50);
+
+    let rank = 0;
+    const topIndex = topPlayers?.findIndex(p => p.id === playerId);
+
+    if (topIndex !== undefined && topIndex !== -1) {
+        rank = topIndex + 1;
+    } else {
+        // Fallback for outside top 50
+        const { count: higherRankedCount } = await supabase
+            .from('profiles')
+            .select('*', { count: 'exact', head: true })
+            .gt('breakpoint_rating', currentRating);
+        rank = (higherRankedCount || 0) + 1;
+    }
 
     // Fallback if stats are empty/null
-    if (!stats) return <div>Loading...</div>;
+    if (!stats || !lifetimeStats) return <div>Loading...</div>;
 
     return (
         <main className="min-h-screen bg-background pb-12">
@@ -39,109 +58,101 @@ export default async function OperatorPlayerSessionPage({ params }: { params: Pr
                 <div className="h-[10px]" />
                 <BackButton label="Back" className="!text-[#D4AF37] hover:!text-white" />
 
-                <div className="mb-20">
+                <div className="mb-8 mt-2">
                     <h1 className="text-3xl font-bold font-sans text-white">
-                        {player?.full_name}
+                        {player?.full_name || "Player"}
                     </h1>
                     <p className="text-gray-300 text-lg">{session?.name} Stats</p>
                 </div>
 
-                {/* KPI Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-16 mb-12">
-                    <div className="card-glass p-6 text-center">
-                        <div className="text-3xl font-bold text-[#D4AF37]">{stats.display_setWinRate}</div>
-                        <div className="text-gray-400 text-sm uppercase tracking-wider mt-1">Set Win %</div>
+                {/* Lifetime Stats */}
+                <div className="card-glass border border-border rounded-xl p-6 mb-8">
+                    <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-4">
+                        <h2 className="text-white text-xl font-bold max-w-[70%]">
+                            Lifetime Stats
+                        </h2>
+                        <div className="text-[#D4AF37] font-bold text-lg">
+                            Rank: {rank || '-'}
+                        </div>
                     </div>
-                    <div className="card-glass p-6 text-center">
-                        <div className="text-3xl font-bold text-white">{stats.display_setRecord}</div>
-                        <div className="text-gray-400 text-sm uppercase tracking-wider mt-1">Set Record</div>
-                    </div>
-                    <div className="card-glass p-6 text-center">
-                        <div className="text-3xl font-bold text-blue-400">{stats.display_gameWinRate}</div>
-                        <div className="text-gray-400 text-sm uppercase tracking-wider mt-1">Game Win %</div>
-                    </div>
-                    <div className="card-glass p-6 text-center">
-                        <div className="text-3xl font-bold text-white">{stats.display_gameRecord}</div>
-                        <div className="text-gray-400 text-sm uppercase tracking-wider mt-1">Game Record</div>
+                    <div className="grid grid-cols-3 md:grid-cols-6 gap-y-8 gap-x-4 justify-between pt-2">
+                        <StatBox label="Win %" value={`${lifetimeStats.winRate}%`} />
+                        <StatBox label="W-L" value={`${lifetimeStats.matchesWon}-${lifetimeStats.matchesPlayed - lifetimeStats.matchesWon}`} />
+                        <StatBox label="Sets Played" value={lifetimeStats.matchesPlayed} />
+                        <StatBox label="Confidence" value={lifetimeStats.totalRacksPlayed} />
+                        <StatBox label="BP Level" value={lifetimeStats.breakPoint || 1} highlight />
+                        <StatBox label="Shutouts" value={lifetimeStats.display_shutouts} />
                     </div>
                 </div>
 
-                {/* Explicit Spacer for Visual Separation */}
-                <div style={{ height: "50px", width: "100%" }} />
-
-                {/* Detailed Stats Grid */}
-                <div className="grid md:grid-cols-2 gap-16 mb-4">
-                    {/* 8-Ball Panel */}
-                    <div className="card-glass p-6 border-t-4 border-t-purple-500">
-                        <h3 className="text-xl font-bold text-purple-400 mb-6 border-b border-gray-700 pb-2">8-Ball Stats</h3>
-                        <div className="space-y-4">
-                            <StatRow label="Set Performance" value={`${stats.display_setWinRate8} (${stats.display_setRecord8})`} highlight />
-                            <StatRow label="Game Performance" value={`${stats.display_gameWinRate8} (${stats.display_gameRecord8})`} />
-
-                            <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-800">
-                                <div className="text-center">
-                                    <div className="text-2xl font-bold text-white">{stats.breakAndRuns_8ball}</div>
-                                    <div className="text-xs text-gray-500 uppercase">Break & Runs</div>
-                                </div>
-                                <div className="text-center">
-                                    <div className="text-2xl font-bold text-white">{stats.rackAndRuns_8ball}</div>
-                                    <div className="text-xs text-gray-500 uppercase">Rack & Runs</div>
-                                </div>
+                {/* 8-Ball and 9-Ball Detailed Sets Grid */}
+                <div className="grid md:grid-cols-2 gap-8 mb-4">
+                    {/* 8-Ball Sets */}
+                    <div className="card-glass p-6 border-t-4 border-t-purple-500 rounded-xl">
+                        <div className="flex justify-between items-center border-b border-gray-700 pb-3 mb-4">
+                            <h3 className="text-white text-lg font-bold shrink">8-Ball Sets</h3>
+                            <div className="flex items-center gap-1 shrink">
+                                <span className="text-[#D4AF37] text-xs font-bold uppercase tracking-wider">
+                                    {stats.racksPlayed_8ball} Racks: {stats.racksWon_8ball}-{stats.racksPlayed_8ball - stats.racksWon_8ball}
+                                </span>
+                                <span className="text-[#D4AF37] text-xs font-bold uppercase tracking-wider">
+                                    ({stats.display_gameWinRate8})
+                                </span>
                             </div>
                         </div>
+                        <div className="space-y-1">
+                            <StatRow label="Win %" value={stats.display_setWinRate8} />
+                            <StatRow label="W-L" value={stats.display_setRecord8} />
+                            <StatRow label="Break & Runs" value={stats.breakAndRuns_8ball} />
+                            <StatRow label="Rack & Runs" value={stats.rackAndRuns_8ball} />
+                        </div>
                     </div>
 
-                    {/* 9-Ball Panel */}
-                    <div className="card-glass p-6 border-t-4 border-t-yellow-500">
-                        <h3 className="text-xl font-bold text-yellow-400 mb-6 border-b border-gray-700 pb-2">9-Ball Stats</h3>
-                        <div className="space-y-4">
-                            <StatRow label="Set Performance" value={`${stats.display_setWinRate9} (${stats.display_setRecord9})`} highlight />
-                            <StatRow label="Game Performance" value={`${stats.display_gameWinRate9} (${stats.display_gameRecord9})`} />
-
-                            <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-800">
-                                <div className="text-center">
-                                    <div className="text-2xl font-bold text-white">{stats.breakAndRuns_9ball}</div>
-                                    <div className="text-xs text-gray-500 uppercase">Break & Runs</div>
-                                </div>
-                                <div className="text-center">
-                                    <div className="text-2xl font-bold text-white">{stats.nineOnSnaps_9ball}</div>
-                                    <div className="text-xs text-gray-500 uppercase">9 on Snap</div>
-                                </div>
+                    {/* 9-Ball Sets */}
+                    <div className="card-glass p-6 border-t-4 border-t-yellow-500 rounded-xl">
+                        <div className="flex justify-between items-center border-b border-gray-700 pb-3 mb-4">
+                            <h3 className="text-white text-lg font-bold shrink">9-Ball Sets</h3>
+                            <div className="flex items-center gap-1 shrink">
+                                <span className="text-[#D4AF37] text-xs font-bold uppercase tracking-wider">
+                                    {stats.racksPlayed_9ball} Racks: {stats.racksWon_9ball}-{stats.racksPlayed_9ball - stats.racksWon_9ball}
+                                </span>
+                                <span className="text-[#D4AF37] text-xs font-bold uppercase tracking-wider">
+                                    ({stats.display_gameWinRate9})
+                                </span>
                             </div>
                         </div>
+                        <div className="space-y-1">
+                            <StatRow label="Win %" value={stats.display_setWinRate9} />
+                            <StatRow label="W-L" value={stats.display_setRecord9} />
+                            <StatRow label="Break & Runs" value={stats.breakAndRuns_9ball} />
+                            <StatRow label="9 on the Snap" value={stats.nineOnSnaps_9ball} />
+                        </div>
                     </div>
                 </div>
 
-                {/* Additional Metrics */}
-                <div className="mt-0">
-                    <h3 className="text-lg font-bold text-white mb-4">Additional Metrics</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-16">
-                        <div className="card-glass p-6 text-center">
-                            <div className="text-2xl font-bold text-yellow-500">{stats.display_shutouts}</div>
-                            <div className="text-sm text-gray-400">Total Shutouts</div>
-                        </div>
-                        <div className="card-glass p-6 text-center">
-                            <div className="text-2xl font-bold text-[#4ade80]">{confidenceScore}</div>
-                            <div className="text-sm text-gray-400">Confidence Score</div>
-                        </div>
-                        <div className="card-glass p-6 text-center">
-                            <div className="text-2xl font-bold text-white">{stats.breakPoint?.toFixed(1) || "5.0"}</div>
-                            <div className="text-sm text-gray-400">BreakPoint Level</div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </main>
     );
 }
 
-function StatRow({ label, value, highlight = false }: { label: string, value: string | number, highlight?: boolean }) {
+function StatBox({ label, value, highlight }: { label: string, value: string | number, highlight?: boolean }) {
     return (
-        <div className="flex justify-between items-center">
-            <span className="text-gray-400 text-sm uppercase">{label}</span>
-            <span className={`font-mono font-bold ${highlight ? 'text-white text-lg' : 'text-gray-300'}`}>
+        <div className="flex flex-col items-center justify-center text-center">
+            <div className={`text-2xl font-bold ${highlight ? 'text-[#D4AF37]' : 'text-white'}`}>
                 {value}
-            </span>
+            </div>
+            <div className="text-gray-400 text-xs uppercase tracking-wider mt-1 font-semibold">
+                {label}
+            </div>
+        </div>
+    );
+}
+
+function StatRow({ label, value }: { label: string, value: string | number }) {
+    return (
+        <div className="flex justify-between items-center py-3 border-b border-gray-800/50 last:border-0">
+            <span className="text-gray-300 font-medium text-sm">{label}</span>
+            <span className="text-[#D4AF37] font-bold text-lg">{value}</span>
         </div>
     );
 }

@@ -185,38 +185,12 @@ export async function getPlayerLifetimeStats(playerId: string) {
     console.log(`[LifetimeStats] Found ${matches?.length} matches for ${playerId}`);
 
     if (!matches || matches.length === 0) {
-        return {
-            matchesPlayed: 0,
-            matchesWon: 0,
-            matchesLost: 0,
-
-            totalPoints: 0,
-            pointsPerMatch: "0.00",
-            winRate: 0,
-            totalRacksPlayed: 0,
-            matchesPlayed_8ball: 0,
-            matchesWon_8ball: 0,
-            matchesLost_8ball: 0,
-            winRate_8ball: 0,
-            racksWon_8ball: 0,
-            racksPlayed_8ball: 0,
-
-            matchesPlayed_9ball: 0,
-            matchesWon_9ball: 0,
-            matchesLost_9ball: 0,
-            winRate_9ball: 0,
-            racksWon_9ball: 0,
-            racksPlayed_9ball: 0,
-            racklessSets_8ball: 0,
-            racklessSets_9ball: 0,
-            breakAndRuns_8ball: 0,
-            rackAndRuns_8ball: 0,
-            breakAndRuns_9ball: 0,
-            rackAndRuns_9ball: 0,
-            winZips_9ball: 0,
-            nineOnSnaps_9ball: 0,
-            breakPoint: 0 // Default for no matches
-        };
+        const emptyStats = getInitStats(playerId, "Player");
+        // Fetch Profile Rating to set Breakpoint Level properly
+        const { data: profile } = await supabase.from("profiles").select("breakpoint_rating").eq("id", playerId).single();
+        const currentRating = profile?.breakpoint_rating || 500;
+        emptyStats.breakPoint = parseFloat(getBreakpointLevel(currentRating));
+        return emptyStats;
     }
 
     // 2. Fetch Games for these matches
