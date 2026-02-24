@@ -508,6 +508,14 @@ export async function getPlayerLeagueStats(playerId: string, leagueId: string) {
         }
     }
 
+    let validLeagueIds = [targetLeagueId];
+    if (isParent) {
+        const { data: children } = await supabase.from("leagues").select("id").eq("parent_league_id", targetLeagueId);
+        if (children) {
+            validLeagueIds = validLeagueIds.concat(children.map(c => c.id));
+        }
+    }
+
     // 2. Fetch Profile Rating & Init Stats
     const { data: profile } = await supabase.from("profiles").select("breakpoint_rating, full_name").eq("id", playerId).single();
     const currentRating = profile?.breakpoint_rating || 500;
@@ -518,14 +526,9 @@ export async function getPlayerLeagueStats(playerId: string, leagueId: string) {
     // 3. Fetch Aggregated Stats from league_players
     let leagueStatsQuery = supabase
         .from('league_players')
-        .select('*, leagues!inner(parent_league_id, id)')
-        .eq('player_id', playerId);
-
-    if (isParent) {
-        leagueStatsQuery = leagueStatsQuery.or(`league_id.eq.${targetLeagueId},leagues.parent_league_id.eq.${targetLeagueId}`);
-    } else {
-        leagueStatsQuery = leagueStatsQuery.eq("league_id", targetLeagueId);
-    }
+        .select('*')
+        .eq('player_id', playerId)
+        .in('league_id', validLeagueIds);
 
     const { data: leagueStats } = await leagueStatsQuery;
 
@@ -562,14 +565,9 @@ export async function getPlayerLeagueStats(playerId: string, leagueId: string) {
     // 4. Fetch Matches
     let matchesQuery = supabase
         .from("matches")
-        .select("id, player1_id, player2_id, winner_id, current_points_p1, current_points_p2, points_8ball_p1, points_8ball_p2, points_9ball_p1, points_9ball_p2, status_8ball, status_9ball, winner_id_8ball, winner_id_9ball, is_forfeit, league_id, leagues!inner(parent_league_id, id)")
-        .or(`player1_id.eq.${playerId},player2_id.eq.${playerId}`);
-
-    if (isParent) {
-        matchesQuery = matchesQuery.or(`league_id.eq.${targetLeagueId},leagues.parent_league_id.eq.${targetLeagueId}`);
-    } else {
-        matchesQuery = matchesQuery.eq("league_id", targetLeagueId);
-    }
+        .select("id, player1_id, player2_id, winner_id, current_points_p1, current_points_p2, points_8ball_p1, points_8ball_p2, points_9ball_p1, points_9ball_p2, status_8ball, status_9ball, winner_id_8ball, winner_id_9ball, is_forfeit, league_id")
+        .or(`player1_id.eq.${playerId},player2_id.eq.${playerId}`)
+        .in('league_id', validLeagueIds);
 
     const { data: matches } = await matchesQuery;
 
