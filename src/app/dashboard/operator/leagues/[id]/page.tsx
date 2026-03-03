@@ -114,7 +114,9 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
     // Fetch enrolled players for push notifications
     let enrolledPlayers: { id: string, full_name: string }[] = [];
     if (!isLeagueOrg) {
-        const { data: pushPlayers } = await supabase
+        // Use admin client to bypass RLS on profiles.push_token which may be restricted
+        const adminSupabase = createAdminClient();
+        const { data: pushPlayers } = await adminSupabase
             .from('league_players')
             .select(`
                 player_id,
@@ -131,6 +133,10 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                 const profile = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
                 return { id: profile.id, full_name: profile.full_name || 'Unknown User' };
             });
+            console.log(`[DEBUG] Push Players found for session ${id}:`, pushPlayers.length);
+            console.log(`[DEBUG] Enrolled Players parsed:`, enrolledPlayers.length);
+        } else {
+            console.log(`[DEBUG] No push players found or query failed.`);
         }
     }
 
