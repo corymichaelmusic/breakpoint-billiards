@@ -112,11 +112,11 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
     }
 
     // Fetch enrolled players for push notifications
-    let enrolledPlayers: { id: string, full_name: string }[] = [];
+    let notificationPlayers: { id: string, full_name: string, is_enrolled: boolean }[] = [];
     if (!isLeagueOrg) {
         // Use admin client to bypass RLS on profiles.push_token which may be restricted
         const adminSupabase = createAdminClient();
-        const { data: pushPlayers } = await adminSupabase
+        const { data: allPlayers } = await adminSupabase
             .from('league_players')
             .select(`
                 player_id,
@@ -124,19 +124,18 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
             `)
             .eq('league_id', id)
             .eq('status', 'active')
-            .eq('profiles.is_active', true)
-            .not('profiles.push_token', 'is', null)
-            .not('profiles.notify_league', 'is', false);
+            .eq('profiles.is_active', true);
 
-        if (pushPlayers) {
-            enrolledPlayers = pushPlayers.map(p => {
+        if (allPlayers) {
+            notificationPlayers = allPlayers.map(p => {
                 const profile = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
-                return { id: profile.id, full_name: profile.full_name || 'Unknown User' };
+                const is_enrolled = !!profile.push_token && profile.notify_league !== false;
+                return { id: profile.id, full_name: profile.full_name || 'Unknown User', is_enrolled };
             });
-            console.log(`[DEBUG] Push Players found for session ${id}:`, pushPlayers.length);
-            console.log(`[DEBUG] Enrolled Players parsed:`, enrolledPlayers.length);
+            console.log(`[DEBUG] Total Active Players for session ${id}:`, allPlayers.length);
+            console.log(`[DEBUG] Enrolled count:`, notificationPlayers.filter(p => p.is_enrolled).length);
         } else {
-            console.log(`[DEBUG] No push players found or query failed.`);
+            console.log(`[DEBUG] No players found or query failed.`);
         }
     }
 
@@ -351,7 +350,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                     )}
 
                                     {/* Send Notification Button - Always available if session is active/setup */}
-                                    <SendNotificationButton sessionId={id} enrolledPlayers={enrolledPlayers} />
+                                    <SendNotificationButton sessionId={id} notificationPlayers={notificationPlayers} />
 
                                     {isSetup && hasMatches && (
                                         <div className="space-y-2">

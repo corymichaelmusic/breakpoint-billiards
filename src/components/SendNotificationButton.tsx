@@ -5,12 +5,15 @@ import SendNotificationModal from './SendNotificationModal';
 
 interface SendNotificationButtonProps {
     sessionId: string;
-    enrolledPlayers?: { id: string; full_name: string }[];
+    notificationPlayers?: { id: string; full_name: string; is_enrolled: boolean }[];
 }
 
-export default function SendNotificationButton({ sessionId, enrolledPlayers = [] }: SendNotificationButtonProps) {
+export default function SendNotificationButton({ sessionId, notificationPlayers = [] }: SendNotificationButtonProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
+
+    const totalPlayers = notificationPlayers.length;
+    const enrolledCount = notificationPlayers.filter(p => p.is_enrolled).length;
 
     return (
         <div className="space-y-2 relative">
@@ -27,26 +30,35 @@ export default function SendNotificationButton({ sessionId, enrolledPlayers = []
                 onClose={() => setIsOpen(false)}
             />
 
-            {enrolledPlayers.length > 0 ? (
+            {totalPlayers > 0 ? (
                 <div className="bg-surface/30 rounded-lg overflow-hidden border border-border">
                     <button
                         onClick={() => setIsExpanded(!isExpanded)}
-                        className="w-full flex justify-between items-center px-4 py-2 text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors focus:outline-none"
+                        className="w-full flex justify-between items-center px-4 py-2 text-xs text-[#4ade80] hover:bg-white/5 transition-colors focus:outline-none"
                     >
                         <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                            <span>{enrolledPlayers.length} {enrolledPlayers.length === 1 ? 'Player' : 'Players'} Enrolled in Push Notifications</span>
+                            <span className="w-2 h-2 rounded-full bg-[#4ade80]"></span>
+                            <span className="font-semibold">{enrolledCount}/{totalPlayers} Players Enrolled in Notifications</span>
                         </div>
-                        <span className={`transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
+                        <span className={`transform transition-transform text-gray-400 ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
                     </button>
 
                     {isExpanded && (
-                        <div className="px-4 pb-3 pt-1 border-t border-white/5 bg-black/20">
-                            <ul className="space-y-1">
-                                {enrolledPlayers.map((player) => (
-                                    <li key={player.id} className="text-xs text-gray-300 flex items-center gap-2">
-                                        <span className="text-green-500/70">✓</span>
-                                        {player.full_name}
+                        <div className="px-4 py-3 border-t border-white/5 bg-black/20">
+                            <ul className="space-y-1.5 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                                {notificationPlayers.sort((a, b) => a.full_name.localeCompare(b.full_name)).map((player) => (
+                                    <li key={player.id} className="text-xs flex items-center gap-2">
+                                        {player.is_enrolled ? (
+                                            <>
+                                                <span className="text-[#4ade80]">✓</span>
+                                                <span className="text-gray-200">{player.full_name}</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="text-red-400 opacity-70">✕</span>
+                                                <span className="text-gray-500 line-through opacity-70">{player.full_name}</span>
+                                            </>
+                                        )}
                                     </li>
                                 ))}
                             </ul>
@@ -55,7 +67,7 @@ export default function SendNotificationButton({ sessionId, enrolledPlayers = []
                 </div>
             ) : (
                 <div className="text-center px-4 py-2 text-xs text-gray-500">
-                    No players enrolled in push notifications for this session yet.
+                    No players in this session yet.
                 </div>
             )}
         </div>
