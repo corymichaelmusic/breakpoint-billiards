@@ -6,12 +6,11 @@ import Header from "../components/Header";
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { tokenCache } from "../lib/tokenCache";
 import { useEffect, useRef } from "react";
-import { View, ActivityIndicator, Text, StatusBar, Platform } from "react-native";
+import { View, ActivityIndicator, Text, Platform } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import "../global.css";
 import { applyRealtimeAuth } from "../lib/realtimeAuth";
 import { authSignal } from "../lib/authSignal";
-import * as NavigationBar from 'expo-navigation-bar';
 import * as SystemUI from 'expo-system-ui';
 import { SessionProvider } from "../lib/SessionContext";
 import { SubscriptionProvider } from "../lib/SubscriptionContext";
@@ -54,15 +53,8 @@ const InitialLayout = () => {
       try {
         // Set root view background to dark to prevent white flashes or underlays
         SystemUI.setBackgroundColorAsync("#121212");
-
-        // Set to dark color to match app theme
-        NavigationBar.setBackgroundColorAsync("#121212");
-        // Ensure icons are light-colored
-        NavigationBar.setButtonStyleAsync("light");
-        // Hide fine separator line by matching color (or making transparent if supported)
-        NavigationBar.setBorderColorAsync("#121212");
       } catch (e) {
-        console.log("Failed to configure Android navigation bar:", e);
+        console.log("Failed to configure Android SystemUI background:", e);
       }
     }
   }, []);
@@ -156,6 +148,7 @@ const InitialLayout = () => {
 
 
 import { ThemeProvider, DarkTheme } from "@react-navigation/native";
+import { SystemBars } from 'react-native-edge-to-edge';
 
 // ... existing imports
 
@@ -163,11 +156,7 @@ export default function Layout() {
   return (
     // 2. TOKEN CACHE REMOVED
     <SafeAreaProvider>
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor="#121212"
-        translucent={Platform.OS === 'android'}
-      />
+      <SystemBars style="light" />
       <ClerkProvider
         publishableKey={publishableKey}
         tokenCache={tokenCache}

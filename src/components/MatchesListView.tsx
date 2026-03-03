@@ -44,14 +44,7 @@ export default function MatchesListView({ matches, leagueId, leagueStatus, timez
                     <Link href={`/dashboard/operator/leagues/${leagueId}/matches`} className="btn bg-white border border-white hover:bg-gray-200 text-xs px-3 py-1 font-bold rounded transition-colors text-black shadow-lg shadow-white/10">
                         View Table Mode &rarr;
                     </Link>
-                    {leagueStatus === 'active' && (
-                        <form action={async () => {
-                            const { submitLeagueResults } = await import("@/app/actions/league-actions");
-                            await submitLeagueResults(leagueId);
-                        }}>
-                            <button className="btn text-xs px-3 py-1 font-bold" style={{ backgroundColor: '#D4AF37', color: 'black', border: '1px solid #D4AF37' }}>End Season</button>
-                        </form>
-                    )}
+                    {/* End Session Button has been moved to the page header */}
                 </div>
             </div>
 

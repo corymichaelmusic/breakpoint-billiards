@@ -14,11 +14,12 @@
   "dependencies": {
     "@clerk/nextjs": "^6.9.6",
     "@supabase/ssr": "^0.8.0",
-    "@supabase/supabase-js": "^2.96.0",
+    "@supabase/supabase-js": "^2.97.0",
     "expo-server-sdk": "^5.0.0",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "next": "^15.2.3",
+    "node-fetch": "^3.3.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "stripe": "^20.1.0",

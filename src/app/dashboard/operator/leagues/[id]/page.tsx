@@ -13,6 +13,7 @@ import GenerateScheduleForm from "@/components/GenerateScheduleForm";
 import ResetMatchButton from "@/components/ResetMatchButton";
 import MatchesListView from "@/components/MatchesListView";
 import SendNotificationButton from "@/components/SendNotificationButton";
+import EndSessionButton from "@/components/EndSessionButton";
 
 import { verifyOperator } from "@/utils/auth-helpers";
 import { isMatchDateLocked } from "@/utils/match-utils";
@@ -263,6 +264,11 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                 <span className="text-sm text-gray-300 border-l border-border pl-4" style={{ marginLeft: '0.5rem' }}>
                                     Start: {sessionStartDate}
                                 </span>
+                            )}
+                            {league.status === 'active' && (
+                                <div className="ml-auto">
+                                    <EndSessionButton leagueId={id} />
+                                </div>
                             )}
                         </div>
                         <div className="flex gap-2 mt-2">

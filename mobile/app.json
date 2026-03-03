@@ -3,6 +3,7 @@
     "name": "Breakpoint Billiards",
     "slug": "breakpoint-billiards",
     "scheme": "breakpoint-billiards",
+    "backgroundColor": "#121212",
     "version": "1.0.8",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -37,14 +38,12 @@
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.SCHEDULE_EXACT_ALARM"
       ],
-      "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false,
       "androidNavigationBar": {
-        "backgroundColor": "#121212",
-        "barStyle": "light-content",
-        "softwareKeyboardLayoutMode": "adjustResize"
+        "softwareKeyboardLayoutMode": "adjustResize",
+        "enforceContrast": false
       },
-      "versionCode": 120
+      "versionCode": 124
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -61,7 +60,12 @@
       "expo-router",
       "expo-font",
       "expo-apple-authentication",
-      "expo-navigation-bar",
+      [
+        "react-native-edge-to-edge",
+        {
+          "enforceNavigationBarContrast": false
+        }
+      ],
       [
         "expo-notifications",
         {
