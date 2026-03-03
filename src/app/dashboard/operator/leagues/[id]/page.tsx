@@ -111,6 +111,29 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
         totalPlayers = count || 0;
     }
 
+    // Fetch enrolled players for push notifications
+    let enrolledPlayers: { id: string, full_name: string }[] = [];
+    if (!isLeagueOrg) {
+        const { data: pushPlayers } = await supabase
+            .from('league_players')
+            .select(`
+                player_id,
+                profiles!inner(id, full_name, push_token, is_active, notify_league)
+            `)
+            .eq('league_id', id)
+            .eq('status', 'active')
+            .eq('profiles.is_active', true)
+            .not('profiles.push_token', 'is', null)
+            .not('profiles.notify_league', 'is', false);
+
+        if (pushPlayers) {
+            enrolledPlayers = pushPlayers.map(p => {
+                const profile = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
+                return { id: profile.id, full_name: profile.full_name || 'Unknown User' };
+            });
+        }
+    }
+
     // Fetch Reschedule Requests (if session)
     let rescheduleRequests: any[] = [];
     if (!isLeagueOrg) {
@@ -322,7 +345,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                     )}
 
                                     {/* Send Notification Button - Always available if session is active/setup */}
-                                    <SendNotificationButton sessionId={id} />
+                                    <SendNotificationButton sessionId={id} enrolledPlayers={enrolledPlayers} />
 
                                     {isSetup && hasMatches && (
                                         <div className="space-y-2">
