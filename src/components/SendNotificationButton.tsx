@@ -34,11 +34,13 @@ export default function SendNotificationButton({ sessionId, notificationPlayers 
                 <div className="bg-surface/30 rounded-lg overflow-hidden border border-border">
                     <button
                         onClick={() => setIsExpanded(!isExpanded)}
-                        className="w-full flex justify-between items-center px-4 py-2 text-xs text-[#4ade80] hover:bg-white/5 transition-colors focus:outline-none"
+                        className="w-full flex justify-between items-center px-4 py-2 text-xs hover:bg-white/5 transition-colors focus:outline-none bg-transparent border-0"
                     >
                         <div className="flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-[#4ade80]"></span>
-                            <span className="font-semibold">{enrolledCount}/{totalPlayers} Players Enrolled in Notifications</span>
+                            <span className="font-semibold" style={{ color: '#4ade80' }}>
+                                {enrolledCount}/{totalPlayers} Players Enrolled in Notifications
+                            </span>
                         </div>
                         <span className={`transform transition-transform text-gray-400 ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
                     </button>
