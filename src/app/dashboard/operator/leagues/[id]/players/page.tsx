@@ -137,9 +137,23 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
                                         return (
                                             <tr key={p.player_id} className="hover:bg-white/5 transition-colors">
                                                 <td className="p-3 font-medium">
-                                                    <Link href={`/dashboard/operator/leagues/${id}/players/${p.player_id}`} className="!text-white hover:!text-[#D4AF37] transition-colors font-bold" style={{ color: 'white' }}>
-                                                        {profile?.full_name || "Unknown"}
-                                                    </Link>
+                                                    <div className="flex items-center gap-2">
+                                                        <Link href={`/dashboard/operator/leagues/${id}/players/${p.player_id}`} className="!text-white hover:!text-[#D4AF37] transition-colors font-bold whitespace-nowrap" style={{ color: 'white' }}>
+                                                            {profile?.full_name || "Unknown"}
+                                                        </Link>
+                                                        <div className="flex gap-1 shrink-0 mt-0.5">
+                                                            {profile?.bylaws_agreed && (
+                                                                <span title="Signed Bylaws" className="text-[9px] px-1 py-0.5 rounded bg-[#22c55e]/10 text-[#4ade80] border border-[#22c55e]/30 font-semibold tracking-wider">
+                                                                    BYLAWS
+                                                                </span>
+                                                            )}
+                                                            {profile?.bis_rules_agreed && (
+                                                                <span title="Signed BIS Rule Set" className="text-[9px] px-1 py-0.5 rounded bg-[#3b82f6]/10 text-[#60a5fa] border border-[#3b82f6]/30 font-semibold tracking-wider">
+                                                                    BIS RULES
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </td>
                                                 <td className="p-3 text-sm text-gray-400">
                                                     <div>{profile?.email}</div>
