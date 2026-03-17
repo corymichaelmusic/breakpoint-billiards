@@ -49,7 +49,7 @@ export default function ForfeitMatchButton({ matchId, leagueId, player1, player2
         <>
             <button
                 onClick={() => setShowModal(true)}
-                className="text-[10px] bg-red-500/20 hover:bg-red-500/40 text-red-400 px-2 py-0.5 rounded transition-colors uppercase font-bold"
+                className="text-[10px] bg-red-600 hover:bg-red-700 text-white px-2 py-0.5 rounded transition-colors uppercase font-bold shadow-lg shadow-red-900/20"
                 disabled={isSubmitting}
             >
                 Forfeit
