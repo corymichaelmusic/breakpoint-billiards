@@ -40,6 +40,17 @@ export async function submitMatchScore(formData: FormData) {
         return { error: "Failed to submit score" };
     }
 
+    // Sync stats for mobile leaderboard
+    try {
+        const { data: match } = await supabase.from("matches").select("player1_id, player2_id").eq("id", matchId).single();
+        if (match) {
+            const { syncLeaguePlayerStats } = await import("@/utils/stats-sync");
+            await syncLeaguePlayerStats(leagueId, [match.player1_id, match.player2_id]);
+        }
+    } catch (syncError) {
+        console.error("Failed to sync stats after score submission:", syncError);
+    }
+
     revalidatePath(`/dashboard/operator/leagues/${leagueId}`);
     redirect(`/dashboard/operator/leagues/${leagueId}`);
 }

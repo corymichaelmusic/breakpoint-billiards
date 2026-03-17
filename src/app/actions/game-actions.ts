@@ -492,6 +492,15 @@ export async function forfeitMatch(matchId: string, leagueId: string, forfeitedB
         return { error: "Failed to forfeit match" };
     }
 
+    // Sync stats for both players to league_players table (used by mobile app)
+    try {
+        const { syncLeaguePlayerStats } = await import("@/utils/stats-sync");
+        await syncLeaguePlayerStats(leagueId, [match.player1_id, match.player2_id]);
+    } catch (syncError) {
+        console.error("Failed to sync stats after forfeit:", syncError);
+        // We don't return error here because the match WAS forfeited in the DB
+    }
+
     revalidatePath(`/dashboard/operator/leagues/${leagueId}`);
     revalidatePath(`/dashboard/operator/leagues/${leagueId}/matches`);
     revalidatePath(`/dashboard/operator/leagues/${leagueId}/matches/${matchId}/score`);
