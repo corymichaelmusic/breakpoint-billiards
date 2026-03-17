@@ -102,6 +102,7 @@ async function rebuildRatings() {
     const { data: matches, error: mError } = await supabase
         .from('matches')
         .select('*')
+        .eq('is_forfeit', false)
         .order('created_at', { ascending: true }); // Historical order
 
     if (mError) { console.error("Error fetching matches:", mError); return; }

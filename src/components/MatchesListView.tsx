@@ -4,6 +4,7 @@ import Link from 'next/link';
 import MatchDateManager from '@/components/MatchDateManager';
 import PaymentStatusManager from '@/components/PaymentStatusManager';
 import ResetMatchButton from '@/components/ResetMatchButton';
+import ForfeitMatchButton from '@/components/ForfeitMatchButton';
 import { isMatchDateLocked } from '@/utils/match-utils';
 
 interface MatchesListViewProps {
@@ -106,6 +107,16 @@ export default function MatchesListView({ matches, leagueId, leagueStatus, timez
                                                 effectiveStatus === 'in_progress' ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'bg-surface text-gray-300'}`}>
                                             {effectiveStatus}
                                         </span>
+                                        <div className="mt-1">
+                                            <ForfeitMatchButton 
+                                                matchId={match.id} 
+                                                leagueId={leagueId} 
+                                                player1={{ id: match.player1_id, name: match.player1?.full_name || "P1" }}
+                                                player2={{ id: match.player2_id, name: match.player2?.full_name || "P2" }}
+                                                isFinalized={effectiveStatus === 'finalized'}
+                                                isForfeit={match.is_forfeit}
+                                            />
+                                        </div>
                                     </td>
                                     <td className="p-2">
                                         <div className="flex items-center gap-2">

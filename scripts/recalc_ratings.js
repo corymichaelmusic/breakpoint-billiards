@@ -60,7 +60,7 @@ async function run() {
                 status_8ball, status_9ball,
                 scheduled_date, created_at
             FROM matches 
-            WHERE status = 'finalized'
+            WHERE status = 'finalized' AND is_forfeit = false
             ORDER BY scheduled_date ASC, created_at ASC
         `);
 

@@ -94,7 +94,7 @@ export async function getSessionStats(sessionId: string): Promise<PlayerStats[]>
                 else isDraw = true;
             }
 
-            if (!isDraw) {
+            if (!isDraw && !match.is_forfeit) {
                 const p1Delta = calculateEloChange(p1Rating, p2Rating, isP1Win);
                 const p2Delta = calculateEloChange(p2Rating, p1Rating, !isP1Win);
 
