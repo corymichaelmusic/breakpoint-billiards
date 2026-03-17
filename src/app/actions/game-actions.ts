@@ -92,15 +92,20 @@ export async function submitGameScore(
         subMatchStatus = "finalized";
         console.log("Match Finalized!");
 
-        // Determine Winner Logic
+        // Determine Winner Logic: Who reached their race?
         if (raceP1 > 0 && newP1Total >= raceP1 && raceP2 > 0 && newP2Total >= raceP2) {
             // Both reached goal (e.g. finish the rack scenario)
-            // Winner is the winner of the FINAL game (this game)
             subMatchWinnerId = winnerId;
+            console.log(`Both players reached race. Using current game winner as tie-breaker: ${subMatchWinnerId}`);
         } else if (raceP1 > 0 && newP1Total >= raceP1) {
             subMatchWinnerId = match.player1_id;
-        } else {
+            console.log(`P1 reached race first: ${subMatchWinnerId}`);
+        } else if (raceP2 > 0 && newP2Total >= raceP2) {
             subMatchWinnerId = match.player2_id;
+            console.log(`P2 reached race first: ${subMatchWinnerId}`);
+        } else {
+            // Fallback for safety
+            subMatchWinnerId = winnerId;
         }
     }
 
@@ -286,19 +291,18 @@ export async function updateGameScore(
 
     if ((raceP1 > 0 && newP1Total >= raceP1) || (raceP2 > 0 && newP2Total >= raceP2)) {
         subMatchStatus = "finalized";
-        // Logic: Who reached race?
+
         if (raceP1 > 0 && newP1Total >= raceP1 && raceP2 > 0 && newP2Total >= raceP2) {
-            // If both, let's look at the LAST game's winner, or just whoever has more?
-            // Usually it's whoever reached it first, but we are editing history.
-            // Simple logic: If P1 >= Race, P1 wins. If both, maybe tie or check max?
-            // In pool, usually you play TO a score.
             if (newP1Total > newP2Total) subMatchWinnerId = match.player1_id;
             else if (newP2Total > newP1Total) subMatchWinnerId = match.player2_id;
-            else subMatchWinnerId = winnerId; // Fallback to current game winner
+            else subMatchWinnerId = winnerId;
+            console.log(`Both reached race in edit. Tie-breaker: ${subMatchWinnerId}`);
         } else if (raceP1 > 0 && newP1Total >= raceP1) {
             subMatchWinnerId = match.player1_id;
+            console.log(`P1 reached race first in edit: ${subMatchWinnerId}`);
         } else {
             subMatchWinnerId = match.player2_id;
+            console.log(`P2 reached race first in edit: ${subMatchWinnerId}`);
         }
     }
 
@@ -442,23 +446,23 @@ export async function submitMatch(matchId: string, leagueId: string) {
 
 export async function forfeitMatch(matchId: string, leagueId: string, forfeitedByPlayerId: string, opponentId: string) {
     const { createClient } = await import("@/utils/supabase/server");
+    const { createAdminClient } = await import("@/utils/supabase/admin");
     const supabase = await createClient();
+    const adminSupabase = createAdminClient();
     const { auth } = await import("@clerk/nextjs/server");
     const { userId } = await auth();
 
     if (!userId) return { error: "Unauthorized" };
 
-    const { data: match } = await supabase.from('matches').select('started_at, status, leagues(operator_id), player1_id, player2_id').eq('id', matchId).single();
+    const { data: match } = await supabase.from('matches').select('started_at, status, player1_id, player2_id').eq('id', matchId).single();
 
     if (!match) return { error: "Match not found" };
 
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
-    const isAdmin = profile?.role === 'admin';
-    const leagueData = Array.isArray(match.leagues) ? match.leagues[0] : match.leagues;
-    const isOperator = leagueData?.operator_id === userId;
+    const { checkOperator } = await import("@/utils/auth-helpers");
+    const { isAuthorized } = await checkOperator(leagueId);
     const isPlayer = match.player1_id === userId || match.player2_id === userId; // Players can forfeit themselves
 
-    if (!isOperator && !isPlayer && !isAdmin) return { error: "Unauthorized" };
+    if (!isAuthorized && !isPlayer) return { error: "Unauthorized" };
 
     const now = new Date();
     let durationSeconds = 0;
@@ -467,7 +471,7 @@ export async function forfeitMatch(matchId: string, leagueId: string, forfeitedB
         if (durationSeconds < 0) durationSeconds = 0;
     }
 
-    const { error } = await supabase
+    const { error } = await adminSupabase
         .from('matches')
         .update({
             status: 'finalized',
@@ -484,6 +488,8 @@ export async function forfeitMatch(matchId: string, leagueId: string, forfeitedB
         return { error: "Failed to forfeit match" };
     }
 
+    revalidatePath(`/dashboard/operator/leagues/${leagueId}`);
+    revalidatePath(`/dashboard/operator/leagues/${leagueId}/matches`);
     revalidatePath(`/dashboard/operator/leagues/${leagueId}/matches/${matchId}/score`);
     return { success: true };
 }
