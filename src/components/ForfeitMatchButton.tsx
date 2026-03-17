@@ -64,21 +64,21 @@ export default function ForfeitMatchButton({ matchId, leagueId, player1, player2
                         <div className="flex flex-col gap-3">
                             <button
                                 onClick={() => handleForfeit(player1.id, player2.id)}
-                                className="btn bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded transition-colors"
+                                className="btn !bg-red-600 hover:!bg-red-700 !text-white font-bold py-3 rounded-lg transition-colors shadow-lg shadow-red-900/20"
                                 disabled={isSubmitting}
                             >
                                 {player1.name} Forfeits
                             </button>
                             <button
                                 onClick={() => handleForfeit(player2.id, player1.id)}
-                                className="btn bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded transition-colors"
+                                className="btn !bg-red-600 hover:!bg-red-700 !text-white font-bold py-3 rounded-lg transition-colors shadow-lg shadow-red-900/20"
                                 disabled={isSubmitting}
                             >
                                 {player2.name} Forfeits
                             </button>
                             <button
                                 onClick={() => setShowModal(false)}
-                                className="mt-2 text-gray-500 hover:text-white text-sm transition-colors"
+                                className="mt-4 text-gray-400 hover:text-white text-sm transition-colors uppercase font-bold tracking-wider"
                                 disabled={isSubmitting}
                             >
                                 Cancel

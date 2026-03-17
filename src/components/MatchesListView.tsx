@@ -93,11 +93,11 @@ export default function MatchesListView({ matches, leagueId, leagueStatus, timez
                                         <div className="flex flex-col gap-1 text-sm">
                                             <div className="flex items-center gap-2">
                                                 <PaymentStatusManager matchId={match.id} playerId={match.player1_id} status={match.payment_status_p1} playerName={match.player1?.full_name || "P1"} openUpwards={isNearBottom} />
-                                                <span className="!text-gray-300" style={{ color: '#d1d5db' }}>{match.player1?.full_name}</span>
+                                                <span className="!text-white font-medium" style={{ color: '#ffffff' }}>{match.player1?.full_name}</span>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <PaymentStatusManager matchId={match.id} playerId={match.player2_id} status={match.payment_status_p2} playerName={match.player2?.full_name || "P2"} openUpwards={isNearBottom} />
-                                                <span className="!text-gray-300" style={{ color: '#d1d5db' }}>{match.player2?.full_name}</span>
+                                                <span className="!text-white font-medium" style={{ color: '#ffffff' }}>{match.player2?.full_name}</span>
                                             </div>
                                         </div>
                                     </td>
