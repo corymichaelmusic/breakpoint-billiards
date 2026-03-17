@@ -476,6 +476,10 @@ export async function forfeitMatch(matchId: string, leagueId: string, forfeitedB
         .update({
             status: 'finalized',
             winner_id: opponentId,
+            winner_id_8ball: opponentId,
+            winner_id_9ball: opponentId,
+            status_8ball: 'finalized',
+            status_9ball: 'finalized',
             is_forfeit: true,
             forfeited_by: forfeitedByPlayerId,
             submitted_at: now.toISOString(),
