@@ -31,11 +31,11 @@ export default function ForfeitMatchButton({ matchId, leagueId, player1, player2
         setIsSubmitting(true);
         try {
             const result = await forfeitMatch(matchId, leagueId, forfeitedByPlayerId, opponentId);
-            if (result?.error) {
-                alert(result.error);
-            } else {
+            if (result?.success) {
                 setShowModal(false);
                 router.refresh();
+            } else {
+                alert(result?.error || 'An unexpected error occurred while forfeiting the match.');
             }
         } catch (error) {
             console.error('Error forfeiting match:', error);
