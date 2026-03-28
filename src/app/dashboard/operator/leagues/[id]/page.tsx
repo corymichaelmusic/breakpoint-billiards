@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
 import PaymentStatusManager from "@/components/PaymentStatusManager";
-import { generateSchedule, startSeason } from "@/app/actions/league-actions";
+import { generateSchedule, startSeason, approveCaptainRequest, rejectCaptainRequest } from "@/app/actions/league-actions";
 import SessionLeaderboard from "@/components/SessionLeaderboard";
 import RescheduleInbox from "@/components/RescheduleInbox";
 import MatchDateManager from "@/components/MatchDateManager";
@@ -468,13 +468,13 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                                 <div className="flex gap-2">
                                                     <form action={async () => {
                                                         'use server';
-                                                        await supabase.from('captain_requests').update({ status: 'approved' }).eq('id', req.id);
+                                                        await approveCaptainRequest(req.id, id, req.player_id);
                                                     }} className="flex-1">
                                                         <button className="btn w-full text-xs py-1" style={{ backgroundColor: '#22c55e', color: 'white' }}>Approve</button>
                                                     </form>
                                                     <form action={async () => {
                                                         'use server';
-                                                        await supabase.from('captain_requests').update({ status: 'rejected' }).eq('id', req.id);
+                                                        await rejectCaptainRequest(req.id, id);
                                                     }} className="flex-1">
                                                         <button className="btn w-full text-xs py-1" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid #ef4444' }}>Reject</button>
                                                     </form>

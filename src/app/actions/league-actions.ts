@@ -1095,3 +1095,61 @@ export async function startSession(leagueId: string) {
     revalidatePath(`/dashboard/operator/leagues/${leagueId}`);
     return { success: true };
 }
+
+export async function approveCaptainRequest(requestId: string, leagueId: string, playerId: string) {
+    const { isAuthorized } = await checkOperator(leagueId);
+    if (!isAuthorized) return { error: "Unauthorized" };
+
+    const supabase = createAdminClient();
+
+    // Update status
+    const { error: reqError } = await supabase
+        .from("captain_requests")
+        .update({ status: 'approved' })
+        .eq("id", requestId);
+
+    if (reqError) return { error: "Failed to approve request." };
+
+    // Get the player's profile to name the team
+    const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", playerId).single();
+    const teamName = profile?.full_name ? `${profile.full_name}'s Team` : "New Team";
+
+    // Auto-create team
+    const { data: newTeam, error: teamError } = await supabase
+        .from("teams")
+        .insert({
+            league_id: leagueId,
+            name: teamName,
+            captain_id: playerId
+        })
+        .select("id")
+        .single();
+
+    if (!teamError && newTeam) {
+        // Also auto-add them as a team member
+        await supabase.from("team_members").insert({
+            team_id: newTeam.id,
+            player_id: playerId
+        });
+    }
+
+    revalidatePath(`/dashboard/operator/leagues/${leagueId}`);
+    return { success: true };
+}
+
+export async function rejectCaptainRequest(requestId: string, leagueId: string) {
+    const { isAuthorized } = await checkOperator(leagueId);
+    if (!isAuthorized) return { error: "Unauthorized" };
+
+    const supabase = createAdminClient();
+
+    const { error } = await supabase
+        .from("captain_requests")
+        .update({ status: 'rejected' })
+        .eq("id", requestId);
+
+    if (error) return { error: "Failed to reject request." };
+
+    revalidatePath(`/dashboard/operator/leagues/${leagueId}`);
+    return { success: true };
+}
