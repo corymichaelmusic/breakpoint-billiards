@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { createAdminClient } from "@/utils/supabase/admin";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
@@ -73,14 +74,40 @@ export default async function AddPlayersPage({ params }: { params: Promise<{ id:
     // 4. Fetch Players already in this Session (Active) with Payment Status
     const { data: sessionPlayers } = await supabase
         .from("league_players")
-        .select("player_id, payment_status")
-        .eq("league_id", sessionId);
+        .select("player_id, payment_status, status, profiles!inner(full_name, email, is_active)")
+        .eq("league_id", sessionId)
+        .eq("profiles.is_active", true);
 
     const sessionPlayerMap = new Map();
     sessionPlayers?.forEach(p => {
         sessionPlayerMap.set(p.player_id, {
-            payment_status: p.payment_status
+            payment_status: p.payment_status,
+            status: p.status
         });
+    });
+
+    // Build a merged player pool: org members + anyone already in the session
+    const playerPoolMap = new Map<string, { id: string; name: string; email: string }>();
+
+    orgPlayers?.forEach(p => {
+        const profile = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
+        playerPoolMap.set(p.player_id, {
+            id: p.player_id,
+            name: profile?.full_name || "Unknown",
+            email: profile?.email || "",
+        });
+    });
+
+    // Also add anyone already in the session who isn't in the org (e.g. dummy players added directly)
+    sessionPlayers?.forEach(p => {
+        if (!playerPoolMap.has(p.player_id)) {
+            const profile = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
+            playerPoolMap.set(p.player_id, {
+                id: p.player_id,
+                name: profile?.full_name || "Unknown",
+                email: profile?.email || "",
+            });
+        }
     });
 
     // 5. Fetch Pending Requests for this Session
@@ -92,17 +119,16 @@ export default async function AddPlayersPage({ params }: { params: Promise<{ id:
         .eq("profiles.is_active", true);
 
     // Transform for the client component
-    const players = orgPlayers?.map(p => {
-        const profile = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
-        const sessionData = sessionPlayerMap.get(p.player_id);
+    const players = Array.from(playerPoolMap.values()).map(p => {
+        const sessionData = sessionPlayerMap.get(p.id);
         return {
-            id: p.player_id,
-            name: profile?.full_name || "Unknown",
-            email: profile?.email || "",
-            isSelected: sessionPlayerMap.has(p.player_id),
+            id: p.id,
+            name: p.name,
+            email: p.email,
+            isSelected: sessionPlayerMap.has(p.id),
             paymentStatus: sessionData?.payment_status || 'unpaid'
         };
-    }) || [];
+    });
 
     // Filter players if session is active (only show selected)
     const displayedPlayers = session.status !== 'setup'
