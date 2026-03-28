@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import { createClient } from "@supabase/supabase-js";
-import { FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useSession } from "../../lib/SessionContext";
+import { getBreakpointLevel } from "../../utils/rating";
 
 export default function ManageTeamScreen() {
     const { getToken, userId } = useAuth();
@@ -291,7 +292,7 @@ export default function ManageTeamScreen() {
                                                                 )}
                                                                 <View className="flex-1">
                                                                     <Text className="text-white font-bold" numberOfLines={1}>{player.full_name || 'Unknown'}</Text>
-                                                                    <Text className="text-gray-400 text-xs">Rating: {player.breakpoint_rating}</Text>
+                                                                    <Text className="text-gray-400 text-xs">BP: {getBreakpointLevel(player.breakpoint_rating)}</Text>
                                                                 </View>
                                                             </View>
                                                             
@@ -334,7 +335,7 @@ export default function ManageTeamScreen() {
                                         {item.player_id === team.captain_id && <FontAwesome5 name="crown" size={12} color="#D4AF37" />}
                                      </View>
                                      <Text className="text-gray-400 text-xs mb-0.5">Member ID: {item.profiles?.player_number || 'N/A'}</Text>
-                                     <Text className="text-gray-500 text-xs font-mono">BBR: <Text className="text-primary">{item.profiles?.breakpoint_rating || 500}</Text></Text>
+                                     <Text className="text-gray-500 text-xs font-mono">BP: <Text className="text-primary">{getBreakpointLevel(item.profiles?.breakpoint_rating)}</Text></Text>
                                  </View>
                              </View>
 

@@ -9,6 +9,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { createClient } from '@supabase/supabase-js';
 import { useSession } from '../../lib/SessionContext';
+import { getBreakpointLevel } from '../../utils/rating';
 
 // ─── Captain Request Modal ──────────────────────────────────────────────────
 function CaptainModal({ visible, onClose, sessionId, userId, getToken, onSuccess }: any) {
@@ -237,7 +238,7 @@ export default function TeamsScreen() {
                                                     <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>{profile?.full_name || 'Unknown'}</Text>
                                                     {isCaptain && <Text style={{ color: '#D4AF37', fontSize: 11 }}>Captain</Text>}
                                                 </View>
-                                                <Text style={{ color: '#888', fontSize: 13 }}>BP {profile?.breakpoint_rating ?? '–'}</Text>
+                                                <Text style={{ color: '#888', fontSize: 13 }}>BP {getBreakpointLevel(profile?.breakpoint_rating)}</Text>
                                             </View>
                                         );
                                     })
