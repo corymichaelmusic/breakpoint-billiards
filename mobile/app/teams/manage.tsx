@@ -23,6 +23,11 @@ export default function ManageTeamScreen() {
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [addLoading, setAddLoading] = useState(false);
 
+    // Edit Team Name State
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [newName, setNewName] = useState("");
+    const [renameLoading, setRenameLoading] = useState(false);
+
     const fetchTeamData = useCallback(async () => {
         if (!currentSession?.id || !userId) return;
         // Don't set loading to true here to avoid UI flashing if re-fetched
@@ -199,6 +204,37 @@ export default function ManageTeamScreen() {
         );
     };
 
+    const handleRenameTeam = async () => {
+        if (!newName.trim() || newName.trim() === team.name) {
+            setIsEditingName(false);
+            return;
+        }
+
+        setRenameLoading(true);
+        try {
+            const token = await getToken({ template: 'supabase' });
+            const supabase = createClient(
+                process.env.EXPO_PUBLIC_SUPABASE_URL!,
+                process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+                { global: { headers: { Authorization: `Bearer ${token}` } } }
+            );
+
+            const { error } = await supabase
+                .from('teams')
+                .update({ name: newName.trim() })
+                .eq('id', team.id);
+
+            if (error) throw error;
+            setIsEditingName(false);
+            fetchTeamData();
+        } catch (e) {
+            console.error(e);
+            Alert.alert("Error", "Failed to rename team.");
+        } finally {
+            setRenameLoading(false);
+        }
+    };
+
     if (loading) {
         return (
             <SafeAreaView className="flex-1 bg-background justify-center items-center">
@@ -229,13 +265,46 @@ export default function ManageTeamScreen() {
                          <FontAwesome5 name="chevron-left" size={20} color="#D4AF37" />
                      </TouchableOpacity>
                      <View className="items-center flex-1">
-                        <Text className="text-white text-lg font-bold uppercase tracking-widest">{team.name}</Text>
+                        {isEditingName ? (
+                            <View className="flex-row items-center">
+                                <TextInput
+                                    className="text-white text-lg font-bold uppercase tracking-widest border-b border-primary min-w-[150px] text-center"
+                                    value={newName}
+                                    onChangeText={setNewName}
+                                    autoFocus
+                                    onBlur={() => setIsEditingName(false)}
+                                    onSubmitEditing={handleRenameTeam}
+                                />
+                                {renameLoading ? (
+                                    <ActivityIndicator size="small" color="#D4AF37" className="ml-2" />
+                                ) : (
+                                    <TouchableOpacity onPress={handleRenameTeam} className="ml-2">
+                                        <FontAwesome5 name="check" size={16} color="#D4AF37" />
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        ) : (
+                            <TouchableOpacity 
+                                className="flex-row items-center" 
+                                onPress={() => {
+                                    setNewName(team.name);
+                                    setIsEditingName(true);
+                                }}
+                            >
+                                <Text className="text-white text-lg font-bold uppercase tracking-widest mr-2">{team.name}</Text>
+                                <FontAwesome5 name="edit" size={12} color="#D4AF37" style={{ opacity: 0.5 }} />
+                            </TouchableOpacity>
+                        )}
                         <View className="flex-row items-center mt-1">
-                            <Text className={`text-xs font-bold uppercase ${team.status === 'approved' ? 'text-green-400' : 'text-yellow-500'}`}>
-                                {team.status}
-                            </Text>
-                            <Text className="text-gray-500 text-xs mx-2">•</Text>
-                            <Text className="text-gray-400 text-xs font-mono">ID: {team.tid}</Text>
+                            {team.status && (
+                                <>
+                                    <Text className={`text-xs font-bold uppercase ${team.status === 'approved' ? 'text-green-400' : 'text-yellow-500'}`}>
+                                        {team.status}
+                                    </Text>
+                                    <Text className="text-gray-500 text-xs mx-2">•</Text>
+                                </>
+                            )}
+                            <Text className="text-gray-400 text-xs font-mono">ID: {team.tid || '---'}</Text>
                         </View>
                      </View>
                      <View className="w-10" />
@@ -259,7 +328,6 @@ export default function ManageTeamScreen() {
                                         <>
                                             <View className="flex-row items-center gap-2">
                                                 <View className="flex-1 bg-black/40 border border-border rounded-lg px-3 py-2 flex-row items-center">
-                                                    <FontAwesome5 name="hashtag" size={14} color="#6B7280" className="mr-2" />
                                                     <TextInput 
                                                         className="flex-1 text-white"
                                                         placeholder="Search player name..."

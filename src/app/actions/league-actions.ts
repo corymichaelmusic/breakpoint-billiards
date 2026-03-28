@@ -1114,13 +1114,19 @@ export async function approveCaptainRequest(requestId: string, leagueId: string,
     const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", playerId).single();
     const teamName = profile?.full_name ? `${profile.full_name}'s Team` : "New Team";
 
+    // Generate a random 4-digit TID (e.g. T-1042)
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
+    const tid = `T-${randomNum}`;
+
     // Auto-create team
     const { data: newTeam, error: teamError } = await supabase
         .from("teams")
         .insert({
             league_id: leagueId,
             name: teamName,
-            captain_id: playerId
+            captain_id: playerId,
+            tid: tid,
+            status: 'approved'
         })
         .select("id")
         .single();
@@ -1134,6 +1140,23 @@ export async function approveCaptainRequest(requestId: string, leagueId: string,
     }
 
     revalidatePath(`/dashboard/operator/leagues/${leagueId}`);
+    return { success: true };
+}
+
+export async function renameTeam(teamId: string, newName: string) {
+    const supabase = createAdminClient();
+    const { auth } = await import("@clerk/nextjs/server");
+    const { userId } = await auth();
+
+    if (!userId) return { error: "Unauthorized" };
+
+    // Verify ownership
+    const { data: team } = await supabase.from("teams").select("captain_id").eq("id", teamId).single();
+    if (!team || team.captain_id !== userId) return { error: "Unauthorized. Only the captain can rename the team." };
+
+    const { error } = await supabase.from("teams").update({ name: newName }).eq("id", teamId);
+    if (error) return { error: "Failed to update team name." };
+
     return { success: true };
 }
 
