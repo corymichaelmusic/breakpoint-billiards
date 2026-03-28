@@ -23,8 +23,8 @@ export default function ManageTeamScreen() {
     const [addLoading, setAddLoading] = useState(false);
 
     const fetchTeamData = useCallback(async () => {
-        if (!currentSession || !userId) return;
-        setLoading(true);
+        if (!currentSession?.id || !userId) return;
+        // Don't set loading to true here to avoid UI flashing if re-fetched
         try {
             const token = await getToken({ template: 'supabase' });
             const supabase = createClient(
@@ -64,7 +64,7 @@ export default function ManageTeamScreen() {
         } finally {
             setLoading(false);
         }
-    }, [currentSession?.id, userId, getToken]);
+    }, [currentSession?.id, userId]); // Removed getToken as it can trigger infinite renders in Clerk
 
     useEffect(() => {
         fetchTeamData();
