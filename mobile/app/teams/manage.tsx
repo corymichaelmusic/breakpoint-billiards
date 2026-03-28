@@ -64,7 +64,7 @@ export default function ManageTeamScreen() {
         } finally {
             setLoading(false);
         }
-    }, [currentSession, userId, getToken]);
+    }, [currentSession?.id, userId, getToken]);
 
     useEffect(() => {
         fetchTeamData();
