@@ -210,6 +210,9 @@ export default function ManageTeamScreen() {
             return;
         }
 
+        console.log("[DEBUG] Renaming Team:", team.id, "to:", newName.trim());
+        console.log("[DEBUG] Current User ID:", userId);
+
         setRenameLoading(true);
         try {
             const token = await getToken({ template: 'supabase' });
@@ -224,7 +227,10 @@ export default function ManageTeamScreen() {
                 .update({ name: newName.trim() })
                 .eq('id', team.id);
 
-            if (error) throw error;
+            if (error) {
+                console.error("[DEBUG] Rename error detail:", error);
+                throw error;
+            }
             setIsEditingName(false);
             fetchTeamData();
         } catch (e) {
