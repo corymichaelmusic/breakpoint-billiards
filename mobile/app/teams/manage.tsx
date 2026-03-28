@@ -18,9 +18,8 @@ export default function ManageTeamScreen() {
     const [members, setMembers] = useState<any[]>([]);
     
     // Add Player State
-    const [memberIdInput, setMemberIdInput] = useState("");
-    const [searchLoading, setSearchLoading] = useState(false);
     const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [availablePlayers, setAvailablePlayers] = useState<any[]>([]);
     const [addLoading, setAddLoading] = useState(false);
 
     // Edit Team Name State
@@ -57,12 +56,32 @@ export default function ManageTeamScreen() {
                 // Fetch Members
                 const { data: membersData, error: memError } = await supabase
                     .from('team_members')
-                    .select('*, profiles(full_name, nickname, breakpoint_rating, avatar_url, player_number)')
+                    .select('*, profiles(id, full_name, nickname, breakpoint_rating, avatar_url, player_number)')
                     .eq('team_id', teamData.id)
                     .order('joined_at', { ascending: true });
 
                 if (!memError && membersData) {
                     setMembers(membersData);
+                    
+                    // Fetch Available Players (Enrolled but not on ANY team)
+                    const { data: takenMembers } = await supabase
+                        .from('team_members')
+                        .select('player_id, teams!inner(league_id)')
+                        .eq('teams.league_id', currentSession.id);
+                    
+                    const takenIds = takenMembers?.map(m => m.player_id) || [];
+                    
+                    const { data: available } = await supabase
+                        .from('league_players')
+                        .select('player_id, profiles!inner(id, full_name, nickname, breakpoint_rating, avatar_url, player_number)')
+                        .eq('league_id', currentSession.id);
+
+                    if (available) {
+                        const filtered = available
+                            .filter(ap => !takenIds.includes(ap.player_id))
+                            .map(ap => ap.profiles);
+                        setAvailablePlayers(filtered as any[]);
+                    }
                 }
             }
         } catch (e) {
@@ -76,60 +95,7 @@ export default function ManageTeamScreen() {
         fetchTeamData();
     }, [fetchTeamData]);
 
-    const handleSearchPlayer = async () => {
-        const queryText = memberIdInput.trim();
-        if (queryText.length < 2) return;
-        
-        setSearchLoading(true);
-        setSearchResults([]);
-        try {
-            const token = await getToken({ template: 'supabase' });
-            const supabase = createClient(
-                process.env.EXPO_PUBLIC_SUPABASE_URL!,
-                process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
-                { global: { headers: { Authorization: `Bearer ${token}` } } }
-            );
 
-            if (!currentSession?.id) return;
-
-            // 1. Get all players already on a team in this session
-            const { data: takenMembers } = await supabase
-                .from('team_members')
-                .select('player_id, teams!inner(league_id)')
-                .eq('teams.league_id', currentSession.id);
-            
-            const takenIds = takenMembers?.map(m => m.player_id) || [];
-
-            // 2. Get players enrolled in this session who match the name AND are not in takenIds
-            let query = supabase
-                .from('league_players')
-                .select('player_id, profiles!inner(id, full_name, nickname, breakpoint_rating, avatar_url, player_number)')
-                .eq('league_id', currentSession.id);
-
-            // Filter out players already on a team in this session
-            if (takenIds.length > 0) {
-                query = query.not('player_id', 'in', `(${takenIds.map(id => `"${id}"`).join(',')})`);
-            }
-
-            const { data: enrolledPlayers, error } = await query
-                .or(`full_name.ilike.%${queryText}%,nickname.ilike.%${queryText}%`, { foreignTable: 'profiles' })
-                .limit(20);
-
-            if (error) throw error;
-
-            const results = enrolledPlayers?.map(ep => ep.profiles) || [];
-            setSearchResults(results as any[]);
-            
-            if (results.length === 0) {
-                Alert.alert("No results", "No available players found in this session matching that name.");
-            }
-        } catch (e) {
-            console.error(e);
-            Alert.alert("Error", "Failed to search for player.");
-        } finally {
-            setSearchLoading(false);
-        }
-    };
 
     const handleAddPlayer = async (player: any) => {
         if (!player || !team) return;
@@ -158,9 +124,7 @@ export default function ManageTeamScreen() {
             if (error) throw error;
 
             Alert.alert("Success", `${player.full_name || 'Player'} added to team!`);
-            setMemberIdInput("");
-            setSearchResults([]);
-            fetchTeamData(); // Refresh Roster
+            fetchTeamData(); // Refresh Roster & Available Players
 
         } catch (e) {
             console.error(e);
@@ -329,65 +293,46 @@ export default function ManageTeamScreen() {
                      ListHeaderComponent={
                          <>
                              {/* Add Player Section (Only for Captains) */}
+                             {/* Available Players Section */}
                              {isCaptain && (
                                 <View className="mb-6 bg-surface/50 border border-border rounded-xl p-4">
                                     <View className="flex-row items-center justify-between mb-3 border-b border-border/50 pb-2">
-                                        <Text className="text-white font-bold uppercase tracking-wider">Add Player</Text>
-                                        <Text className="text-gray-400 text-xs">{members.length}/6 Members</Text>
+                                        <Text className="text-white font-bold uppercase tracking-wider text-xs">Available Players</Text>
+                                        <Text className="text-gray-400 text-[10px] uppercase">{members.length}/6 Members</Text>
                                     </View>
                                     
                                     {members.length < 6 ? (
-                                        <>
-                                            <View className="flex-row items-center gap-2">
-                                                <View className="flex-1 bg-black/40 border border-border rounded-lg px-3 py-2 flex-row items-center">
-                                                    <TextInput 
-                                                        className="flex-1 text-white"
-                                                        placeholder="Search player name..."
-                                                        placeholderTextColor="#6B7280"
-                                                        value={memberIdInput}
-                                                        onChangeText={setMemberIdInput}
-                                                        onSubmitEditing={handleSearchPlayer}
-                                                    />
-                                                </View>
-                                                <TouchableOpacity 
-                                                    onPress={handleSearchPlayer}
-                                                    disabled={searchLoading}
-                                                    className="bg-primary/20 border border-primary/50 w-12 h-12 rounded-lg items-center justify-center"
-                                                >
-                                                    {searchLoading ? <ActivityIndicator color="#D4AF37" size="small" /> : <FontAwesome5 name="search" size={16} color="#D4AF37" />}
-                                                </TouchableOpacity>
-                                            </View>
-
-                                            {searchResults.length > 0 && (
-                                                <View className="mt-4 gap-2">
-                                                    {searchResults.map((player) => (
-                                                        <View key={player.id} className="bg-black/30 p-3 rounded-lg border border-primary/30 flex-row items-center justify-between">
-                                                            <View className="flex-row items-center flex-1">
-                                                                {player.avatar_url ? (
-                                                                    <Image source={{ uri: player.avatar_url }} className="w-10 h-10 rounded-full mr-3 border border-border" />
-                                                                ) : (
-                                                                    <View className="w-10 h-10 bg-surface rounded-full items-center justify-center mr-3 border border-border">
-                                                                        <FontAwesome5 name="user" size={14} color="#9CA3AF" />
-                                                                    </View>
-                                                                )}
-                                                                <View className="flex-1">
-                                                                    <Text className="text-white font-bold" numberOfLines={1}>{player.full_name || 'Unknown'}</Text>
-                                                                    <Text className="text-gray-400 text-xs">BP: {getBreakpointLevel(player.breakpoint_rating)}</Text>
-                                                                </View>
+                                        availablePlayers.length > 0 ? (
+                                            <FlatList
+                                                horizontal
+                                                showsHorizontalScrollIndicator={false}
+                                                data={availablePlayers}
+                                                keyExtractor={p => p.id}
+                                                renderItem={({ item: player }) => (
+                                                    <TouchableOpacity 
+                                                        onPress={() => handleAddPlayer(player)}
+                                                        disabled={addLoading}
+                                                        className="bg-black/30 p-3 rounded-xl border border-primary/20 items-center w-28 mr-3"
+                                                    >
+                                                        {player.avatar_url ? (
+                                                            <Image source={{ uri: player.avatar_url }} className="w-10 h-10 rounded-full mb-2 border border-primary/30" />
+                                                        ) : (
+                                                            <View className="w-10 h-10 bg-surface rounded-full items-center justify-center mb-2 border border-border">
+                                                                <FontAwesome5 name="user" size={14} color="#9CA3AF" />
                                                             </View>
-                                                            
-                                                            <TouchableOpacity 
-                                                                onPress={() => handleAddPlayer(player)}
-                                                                disabled={addLoading}
-                                                                className="bg-primary px-4 py-2 rounded-lg flex-row items-center ml-2"
-                                                            >
-                                                                {addLoading ? <ActivityIndicator color="#000" size="small" /> : <Text className="text-black font-bold uppercase text-xs tracking-wider">Add</Text>}
-                                                            </TouchableOpacity>
+                                                        )}
+                                                        <Text className="text-white font-bold text-xs text-center mb-1" numberOfLines={1}>{player.full_name?.split(' ')[0] || 'Player'}</Text>
+                                                        <View className="bg-primary/20 px-2 py-0.5 rounded">
+                                                            <Text className="text-primary font-bold text-[10px]">{getBreakpointLevel(player.breakpoint_rating)}</Text>
                                                         </View>
-                                                    ))}
-                                                </View>
-                                            )}
-                                        </>
+                                                    </TouchableOpacity>
+                                                )}
+                                            />
+                                        ) : (
+                                            <View className="py-2 items-center">
+                                                <Text className="text-gray-500 text-xs italic">No more available players in this session.</Text>
+                                            </View>
+                                        )
                                     ) : (
                                         <View className="py-2 items-center">
                                             <Text className="text-yellow-500 font-bold text-sm">Roster is full (6 max)</Text>
