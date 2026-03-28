@@ -91,10 +91,23 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
     if (!isLeagueOrg && league.is_team_league) {
         const { data: capReqs } = await supabase
             .from('captain_requests')
-            .select('*, profiles:player_id(full_name, email)')
+            .select('id, league_id, player_id, status, created_at')
             .eq('league_id', id)
             .eq('status', 'pending');
-        captainRequests = capReqs || [];
+        
+        if (capReqs && capReqs.length > 0) {
+            // Look up profile names via profiles table using clerk_id / id match
+            const playerIds = capReqs.map((r: any) => r.player_id);
+            const { data: profiles } = await supabase
+                .from('profiles')
+                .select('id, full_name, email')
+                .in('id', playerIds);
+            const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+            captainRequests = capReqs.map((r: any) => ({
+                ...r,
+                profile: profileMap.get(r.player_id) || null
+            }));
+        }
     }
 
     // Fetch Leaderboard Data (if it's a session)
@@ -447,7 +460,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                 </h3>
                                 <div className="grid gap-2">
                                     {captainRequests.map((req: any) => {
-                                        const profile = Array.isArray(req.profiles) ? req.profiles[0] : req.profiles;
+                                        const profile = req.profile;
                                         return (
                                             <div key={req.id} className="bg-surface/50 p-4 rounded border border-border">
                                                 <div className="font-bold text-white mb-1">{profile?.full_name || 'Unknown'}</div>
