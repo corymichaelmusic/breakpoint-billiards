@@ -101,13 +101,19 @@ export default function ManageTeamScreen() {
             const takenIds = takenMembers?.map(m => m.player_id) || [];
 
             // 2. Get players enrolled in this session who match the name AND are not in takenIds
-            const { data: enrolledPlayers, error } = await supabase
+            let query = supabase
                 .from('league_players')
                 .select('player_id, profiles!inner(id, full_name, nickname, breakpoint_rating, avatar_url, player_number)')
-                .eq('league_id', currentSession.id)
-                .not('player_id', 'in', `(${takenIds.join(',')})`)
+                .eq('league_id', currentSession.id);
+
+            // Filter out players already on a team in this session
+            if (takenIds.length > 0) {
+                query = query.not('player_id', 'in', `(${takenIds.map(id => `"${id}"`).join(',')})`);
+            }
+
+            const { data: enrolledPlayers, error } = await query
                 .or(`full_name.ilike.%${queryText}%,nickname.ilike.%${queryText}%`, { foreignTable: 'profiles' })
-                .limit(10);
+                .limit(20);
 
             if (error) throw error;
 
