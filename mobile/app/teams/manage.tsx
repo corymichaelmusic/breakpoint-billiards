@@ -70,8 +70,6 @@ export default function ManageTeamScreen() {
                         .eq('teams.league_id', currentSession.id);
                     
                     const takenIds = takenMembers?.map(m => m.player_id) || [];
-                    console.log("[DEBUG] Session ID:", currentSession.id);
-                    console.log("[DEBUG] Taken IDs Count:", takenIds.length);
                     
                     const { data: available } = await supabase
                         .from('league_players')
@@ -79,14 +77,10 @@ export default function ManageTeamScreen() {
                         .eq('league_id', currentSession.id);
 
                     if (available) {
-                        console.log("[DEBUG] Total Enrolled in Session:", available.length);
                         const filtered = available
                             .filter(ap => !takenIds.includes(ap.player_id))
                             .map(ap => ap.profiles);
-                        console.log("[DEBUG] Filtered Available Count:", filtered.length);
                         setAvailablePlayers(filtered as any[]);
-                    } else {
-                        console.log("[DEBUG] No available players data returned from league_players");
                     }
                 }
             }
@@ -186,9 +180,6 @@ export default function ManageTeamScreen() {
             return;
         }
 
-        console.log("[DEBUG] Renaming Team:", team.id, "to:", newName.trim());
-        console.log("[DEBUG] Current User ID:", userId);
-
         setRenameLoading(true);
         try {
             const token = await getToken({ template: 'supabase' });
@@ -204,7 +195,6 @@ export default function ManageTeamScreen() {
                 .eq('id', team.id);
 
             if (error) {
-                console.error("[DEBUG] Rename error detail:", error);
                 throw error;
             }
             setIsEditingName(false);
