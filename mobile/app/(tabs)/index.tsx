@@ -730,9 +730,6 @@ export default function HomeScreen() {
           </View>
         ) : (
           <>
-            <View style={{ marginHorizontal: -16 }}>
-                <TeamStatusBanner sessionId={activeSession.id} />
-            </View>
             {activeSession.payment_status === 'unpaid' && (
               <View className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-6 flex-row items-center justify-between">
                 <View className="flex-1 mr-4">

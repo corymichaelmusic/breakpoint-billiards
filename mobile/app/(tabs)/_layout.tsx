@@ -2,9 +2,31 @@ import { Tabs } from "expo-router";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { View, Platform } from "react-native";
 import { useSession } from "../../lib/SessionContext";
+import { useEffect, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
+import { useAuth } from "@clerk/clerk-expo";
 
 export default function TabLayout() {
-    const { unreadCount, markAsRead } = useSession();
+    const { unreadCount, markAsRead, currentSession } = useSession();
+    const { getToken } = useAuth();
+    const [isTeamSession, setIsTeamSession] = useState(false);
+
+    useEffect(() => {
+        if (!currentSession?.id) { setIsTeamSession(false); return; }
+        const check = async () => {
+            try {
+                const token = await getToken({ template: 'supabase' });
+                const supabase = createClient(
+                    process.env.EXPO_PUBLIC_SUPABASE_URL!,
+                    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+                    { global: { headers: { Authorization: `Bearer ${token}` } } }
+                );
+                const { data } = await supabase.from('leagues').select('is_team_league').eq('id', currentSession.id).single();
+                setIsTeamSession(!!data?.is_team_league);
+            } catch { setIsTeamSession(false); }
+        };
+        check();
+    }, [currentSession?.id]);
     return (
         <Tabs
             screenOptions={{
@@ -54,6 +76,26 @@ export default function TabLayout() {
                 options={{
                     title: "Matches",
                     tabBarIcon: ({ color }) => <FontAwesome5 name="list" size={20} color={color} />,
+                }}
+            />
+            <Tabs.Screen
+                name="teams"
+                options={{
+                    title: "Teams",
+                    tabBarIcon: ({ color }) => (
+                        <FontAwesome5
+                            name="users"
+                            size={20}
+                            color={isTeamSession ? color : '#333'}
+                        />
+                    ),
+                    tabBarActiveTintColor: isTeamSession ? '#D4AF37' : '#333',
+                    tabBarInactiveTintColor: '#333',
+                }}
+                listeners={{
+                    tabPress: (e) => {
+                        if (!isTeamSession) e.preventDefault();
+                    }
                 }}
             />
             <Tabs.Screen

@@ -86,6 +86,17 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
     const isSetup = league.status === 'setup';
     const isCompleted = league.status === 'completed';
 
+    // Fetch captain requests (team sessions only)
+    let captainRequests: any[] = [];
+    if (!isLeagueOrg && league.is_team_league) {
+        const { data: capReqs } = await supabase
+            .from('captain_requests')
+            .select('*, profiles:player_id(full_name, email)')
+            .eq('league_id', id)
+            .eq('status', 'pending');
+        captainRequests = capReqs || [];
+    }
+
     // Fetch Leaderboard Data (if it's a session)
     let leaderboard: any[] = [];
     let leaderboardLimit = 25;
@@ -424,6 +435,40 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                             </div>
                                         </div>
                                     ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {!isLeagueOrg && captainRequests.length > 0 && (
+                            <div className="card-glass p-6 border-primary/30">
+                                <h3 className="text-lg font-bold mb-4" style={{ color: '#D4AF37' }}>
+                                    Captain Requests
+                                    <span className="ml-2 bg-[#D4AF37] text-black text-xs px-2 py-0.5 rounded-full">{captainRequests.length}</span>
+                                </h3>
+                                <div className="grid gap-2">
+                                    {captainRequests.map((req: any) => {
+                                        const profile = Array.isArray(req.profiles) ? req.profiles[0] : req.profiles;
+                                        return (
+                                            <div key={req.id} className="bg-surface/50 p-4 rounded border border-border">
+                                                <div className="font-bold text-white mb-1">{profile?.full_name || 'Unknown'}</div>
+                                                <div className="text-xs text-gray-500 mb-3">{profile?.email}</div>
+                                                <div className="flex gap-2">
+                                                    <form action={async () => {
+                                                        'use server';
+                                                        await supabase.from('captain_requests').update({ status: 'approved' }).eq('id', req.id);
+                                                    }} className="flex-1">
+                                                        <button className="btn w-full text-xs py-1" style={{ backgroundColor: '#22c55e', color: 'white' }}>Approve</button>
+                                                    </form>
+                                                    <form action={async () => {
+                                                        'use server';
+                                                        await supabase.from('captain_requests').update({ status: 'rejected' }).eq('id', req.id);
+                                                    }} className="flex-1">
+                                                        <button className="btn w-full text-xs py-1" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid #ef4444' }}>Reject</button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}
