@@ -19,7 +19,7 @@ export default function ManageTeamScreen() {
     // Add Player State
     const [memberIdInput, setMemberIdInput] = useState("");
     const [searchLoading, setSearchLoading] = useState(false);
-    const [searchResults, setSearchResults] = useState<any | null>(null);
+    const [searchResults, setSearchResults] = useState<any[]>([]);
     const [addLoading, setAddLoading] = useState(false);
 
     const fetchTeamData = useCallback(async () => {
@@ -71,10 +71,11 @@ export default function ManageTeamScreen() {
     }, [fetchTeamData]);
 
     const handleSearchPlayer = async () => {
-        if (!memberIdInput.trim()) return;
+        const queryText = memberIdInput.trim();
+        if (queryText.length < 2) return;
         
         setSearchLoading(true);
-        setSearchResults(null);
+        setSearchResults([]);
         try {
             const token = await getToken({ template: 'supabase' });
             const supabase = createClient(
@@ -83,30 +84,32 @@ export default function ManageTeamScreen() {
                 { global: { headers: { Authorization: `Bearer ${token}` } } }
             );
 
-            // Important: player_number is an integer in profiles table, so we need to cast input if necessary
-            // or perform a text search depending on column type. Assuming integer/numeric.
-            const searchNum = parseInt(memberIdInput.trim(), 10);
-            if (isNaN(searchNum)) {
-                Alert.alert("Error", "Member ID must be a number.");
-                setSearchLoading(false);
-                return;
-            }
+            if (!currentSession?.id) return;
 
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('id, full_name, nickname, breakpoint_rating, avatar_url, player_number')
-                .eq('player_number', searchNum)
-                .single();
+            // 1. Get all players already on a team in this session
+            const { data: takenMembers } = await supabase
+                .from('team_members')
+                .select('player_id, teams!inner(league_id)')
+                .eq('teams.league_id', currentSession.id);
+            
+            const takenIds = takenMembers?.map(m => m.player_id) || [];
 
-            if (error || !data) {
-                Alert.alert("Not Found", "No player found with this Member ID.");
-            } else {
-                // Check if already on team
-                if (members.some(m => m.player_id === data.id)) {
-                    Alert.alert("Error", "Player is already on your team.");
-                } else {
-                    setSearchResults(data);
-                }
+            // 2. Get players enrolled in this session who match the name AND are not in takenIds
+            const { data: enrolledPlayers, error } = await supabase
+                .from('league_players')
+                .select('player_id, profiles!inner(id, full_name, nickname, breakpoint_rating, avatar_url, player_number)')
+                .eq('league_id', currentSession.id)
+                .not('player_id', 'in', `(${takenIds.join(',')})`)
+                .or(`full_name.ilike.%${queryText}%,nickname.ilike.%${queryText}%`, { foreignTable: 'profiles' })
+                .limit(10);
+
+            if (error) throw error;
+
+            const results = enrolledPlayers?.map(ep => ep.profiles) || [];
+            setSearchResults(results as any[]);
+            
+            if (results.length === 0) {
+                Alert.alert("No results", "No available players found in this session matching that name.");
             }
         } catch (e) {
             console.error(e);
@@ -116,8 +119,8 @@ export default function ManageTeamScreen() {
         }
     };
 
-    const handleAddPlayer = async () => {
-        if (!searchResults || !team) return;
+    const handleAddPlayer = async (player: any) => {
+        if (!player || !team) return;
 
         if (members.length >= 6) {
             Alert.alert("Roster Full", "Your team already has the maximum of 6 players.");
@@ -137,14 +140,14 @@ export default function ManageTeamScreen() {
                 .from('team_members')
                 .insert({
                     team_id: team.id,
-                    player_id: searchResults.id
+                    player_id: player.id
                 });
 
             if (error) throw error;
 
-            Alert.alert("Success", `${searchResults.full_name || 'Player'} added to team!`);
+            Alert.alert("Success", `${player.full_name || 'Player'} added to team!`);
             setMemberIdInput("");
-            setSearchResults(null);
+            setSearchResults([]);
             fetchTeamData(); // Refresh Roster
 
         } catch (e) {
@@ -258,9 +261,8 @@ export default function ManageTeamScreen() {
                                                     <FontAwesome5 name="hashtag" size={14} color="#6B7280" className="mr-2" />
                                                     <TextInput 
                                                         className="flex-1 text-white"
-                                                        placeholder="Enter Member ID"
+                                                        placeholder="Search player name..."
                                                         placeholderTextColor="#6B7280"
-                                                        keyboardType="numeric"
                                                         value={memberIdInput}
                                                         onChangeText={setMemberIdInput}
                                                         onSubmitEditing={handleSearchPlayer}
@@ -275,29 +277,33 @@ export default function ManageTeamScreen() {
                                                 </TouchableOpacity>
                                             </View>
 
-                                            {searchResults && (
-                                                <View className="mt-4 bg-black/30 p-3 rounded-lg border border-primary/30 flex-row items-center justify-between">
-                                                    <View className="flex-row items-center flex-1">
-                                                        {searchResults.avatar_url ? (
-                                                            <Image source={{ uri: searchResults.avatar_url }} className="w-10 h-10 rounded-full mr-3 border border-border" />
-                                                        ) : (
-                                                            <View className="w-10 h-10 bg-surface rounded-full items-center justify-center mr-3 border border-border">
-                                                                <FontAwesome5 name="user" size={14} color="#9CA3AF" />
+                                            {searchResults.length > 0 && (
+                                                <View className="mt-4 gap-2">
+                                                    {searchResults.map((player) => (
+                                                        <View key={player.id} className="bg-black/30 p-3 rounded-lg border border-primary/30 flex-row items-center justify-between">
+                                                            <View className="flex-row items-center flex-1">
+                                                                {player.avatar_url ? (
+                                                                    <Image source={{ uri: player.avatar_url }} className="w-10 h-10 rounded-full mr-3 border border-border" />
+                                                                ) : (
+                                                                    <View className="w-10 h-10 bg-surface rounded-full items-center justify-center mr-3 border border-border">
+                                                                        <FontAwesome5 name="user" size={14} color="#9CA3AF" />
+                                                                    </View>
+                                                                )}
+                                                                <View className="flex-1">
+                                                                    <Text className="text-white font-bold" numberOfLines={1}>{player.full_name || 'Unknown'}</Text>
+                                                                    <Text className="text-gray-400 text-xs">Rating: {player.breakpoint_rating}</Text>
+                                                                </View>
                                                             </View>
-                                                        )}
-                                                        <View className="flex-1">
-                                                            <Text className="text-white font-bold" numberOfLines={1}>{searchResults.full_name || 'Unknown'}</Text>
-                                                            <Text className="text-gray-400 text-xs">Rating: {searchResults.breakpoint_rating}</Text>
+                                                            
+                                                            <TouchableOpacity 
+                                                                onPress={() => handleAddPlayer(player)}
+                                                                disabled={addLoading}
+                                                                className="bg-primary px-4 py-2 rounded-lg flex-row items-center ml-2"
+                                                            >
+                                                                {addLoading ? <ActivityIndicator color="#000" size="small" /> : <Text className="text-black font-bold uppercase text-xs tracking-wider">Add</Text>}
+                                                            </TouchableOpacity>
                                                         </View>
-                                                    </View>
-                                                    
-                                                    <TouchableOpacity 
-                                                        onPress={handleAddPlayer}
-                                                        disabled={addLoading}
-                                                        className="bg-primary px-4 py-2 rounded-lg flex-row items-center ml-2"
-                                                    >
-                                                        {addLoading ? <ActivityIndicator color="#000" size="small" /> : <Text className="text-black font-bold uppercase text-xs tracking-wider">Add</Text>}
-                                                    </TouchableOpacity>
+                                                    ))}
                                                 </View>
                                             )}
                                         </>
