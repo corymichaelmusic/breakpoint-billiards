@@ -1,54 +1,21 @@
-
 require('dotenv').config({ path: '.env.local' });
-const { Client } = require('pg');
+const { createClient } = require('@supabase/supabase-js');
 
-async function verifySpecificMatch() {
-    if (!process.env.DATABASE_URL) {
-        console.error("Error: DATABASE_URL not found in .env.local");
-        process.exit(1);
-    }
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-    const client = new Client({
-        connectionString: process.env.DATABASE_URL,
-        ssl: { rejectUnauthorized: false }
-    });
-
-    try {
-        await client.connect();
-
-        // Find match involves players with names like Cory and Faithe
-        const query = `
-            SELECT 
-                m.id, 
-                p1.full_name as p1_name, 
-                p2.full_name as p2_name,
-                m.status_9ball,
-                m.points_9ball_p1,
-                m.points_9ball_p2,
-                m.p1_verified_9ball,
-                m.p2_verified_9ball
-            FROM public.matches m
-            JOIN public.profiles p1 ON m.player1_id = p1.id
-            JOIN public.profiles p2 ON m.player2_id = p2.id
-            WHERE (p1.full_name ILIKE '%Cory%' AND p2.full_name ILIKE '%Faithe%')
-               OR (p1.full_name ILIKE '%Faithe%' AND p2.full_name ILIKE '%Cory%')
-            ORDER BY m.created_at DESC
-            LIMIT 1;
-        `;
-
-        const res = await client.query(query);
-
-        if (res.rows.length > 0) {
-            console.log("Match found:", res.rows[0]);
-        } else {
-            console.log("No match found between Cory and Faithe.");
-        }
-
-    } catch (err) {
-        console.error("Error verifying match:", err);
-    } finally {
-        await client.end();
-    }
+async function main() {
+    const matchId = '08a1d4d0-54a4-400f-af61-2a0dd50b2160';
+    
+    // 1. Get Match Info
+    const { data: match } = await supabase.from('matches').select('winner_id_9ball, status_9ball, race_9ball_p1, race_9ball_p2, player1_id, player2_id').eq('id', matchId).single();
+    console.log("Match:", match);
+    
+    // 2. We need to back out the wrong delta and apply the right one.
+    // Currently, Carson (p2) was marked as the winner.
+    // Let's see the current rating and stats for both players in the league
+    const { data: lp1 } = await supabase.from('league_players').select('player_id, matches_won, matches_played').eq('player_id', match.player1_id).eq('league_id', '2b08d033-f2cd-47cc-b6d8-78544a5df684').single();
+    const { data: lp2 } = await supabase.from('league_players').select('player_id, matches_won, matches_played').eq('player_id', match.player2_id).eq('league_id', '2b08d033-f2cd-47cc-b6d8-78544a5df684').single();
+    console.log("Michael LP stats:", lp1);
+    console.log("Carson LP stats:", lp2);
 }
-
-verifySpecificMatch();
+main();

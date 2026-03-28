@@ -24,6 +24,8 @@ export default function LeaderboardScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [leaderboard, setLeaderboard] = useState<any[]>([]);
+    const [teamLeaderboard, setTeamLeaderboard] = useState<any[]>([]);
+    const [viewMode, setViewMode] = useState<'players' | 'teams'>('players');
     const [sessionName, setSessionName] = useState("");
     const [leagueName, setLeagueName] = useState("");
     const { currentSession } = useSession();
@@ -55,6 +57,55 @@ export default function LeaderboardScreen() {
             setSessionName(currentSession.name);
             setLeagueName(currentSession.parentLeagueName || '');
             const leagueId = currentSession.id;
+
+            // Fetch Teams Data
+            const { data: teamsData } = await supabaseAuthenticated
+                .from("teams")
+                .select("*")
+                .eq("league_id", leagueId)
+                .eq("status", "approved");
+
+            if (teamsData && teamsData.length > 0) {
+                // Fetch all team matches
+                const { data: teamMatchesData } = await supabaseAuthenticated
+                    .from("team_matches")
+                    .select("*")
+                    .eq("league_id", leagueId);
+                    
+                const tStats = teamsData.map(team => {
+                    let wins = 0;
+                    let losses = 0;
+                    teamMatchesData?.forEach(m => {
+                        if (m.team_a_id === team.id) {
+                            wins += (m.wins_a || 0);
+                            losses += (m.losses_a || 0);
+                        } else if (m.team_b_id === team.id) {
+                            wins += (m.wins_b || 0);
+                            losses += (m.losses_b || 0);
+                        }
+                    });
+                    const played = wins + losses;
+                    const winRate = played > 0 ? ((wins / played) * 100).toFixed(1) : "0.0";
+                    return {
+                        ...team,
+                        wins,
+                        losses,
+                        played,
+                        winRate: parseFloat(winRate)
+                    };
+                });
+                
+                tStats.sort((a, b) => b.winRate - a.winRate);
+                const rankedTeams = tStats.map((s, i) => ({ ...s, rank: i + 1 }));
+                setTeamLeaderboard(rankedTeams);
+                
+                // Switch to team view by default if it's the first load
+                if (leaderboard.length === 0 && rankedTeams.length > 0) {
+                    setViewMode('teams');
+                }
+            } else {
+                setTeamLeaderboard([]);
+            }
 
             // 3. Fetch Pre-Calculated Stats from league_players
             // This replaces the expensive client-side aggregation
@@ -132,6 +183,25 @@ export default function LeaderboardScreen() {
                 <Text className="text-primary font-bold tracking-widest uppercase text-sm mt-1" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>{leagueName || 'Leaderboard'} </Text>
             </View>
 
+            {teamLeaderboard.length > 0 && (
+                <View className="px-4 py-3 bg-background border-b border-border/50 bg-surface/30">
+                    <View className="flex-row bg-black/60 rounded-full p-1 border border-border/50">
+                        <TouchableOpacity
+                            onPress={() => setViewMode('teams')}
+                            className={`flex-1 py-2 rounded-full items-center ${viewMode === 'teams' ? 'bg-primary' : ''}`}
+                        >
+                            <Text className={`font-bold text-xs uppercase tracking-wider ${viewMode === 'teams' ? 'text-black' : 'text-gray-400'}`}>Teams</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={() => setViewMode('players')}
+                            className={`flex-1 py-2 rounded-full items-center ${viewMode === 'players' ? 'bg-primary' : ''}`}
+                        >
+                            <Text className={`font-bold text-xs uppercase tracking-wider ${viewMode === 'players' ? 'text-black' : 'text-gray-400'}`}>Players</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
+
             <ScrollView
                 className="flex-1"
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#D4AF37" />}
@@ -142,7 +212,7 @@ export default function LeaderboardScreen() {
                     {/* Left Header (Fixed) */}
                     <View style={{ width: LEFT_COL_WIDTH, height: HEADER_HEIGHT }} className="flex-row items-center border-r border-black/20 px-2">
                         <Text className="w-10 text-center text-black font-bold text-sm">RK</Text>
-                        <Text className="w-36 ml-2 text-black font-bold text-sm">PLAYER</Text>
+                        <Text className="w-36 ml-2 text-black font-bold text-sm">{viewMode === 'teams' ? 'TEAM' : 'PLAYER'}</Text>
                     </View>
 
                     {/* Right Header (Adaptive) */}
@@ -151,8 +221,8 @@ export default function LeaderboardScreen() {
                             <Text className="flex-1 text-center text-black font-bold text-sm">SP</Text>
                             <Text className="flex-1 text-center text-black font-bold text-sm">W%</Text>
                             <Text className="flex-1 text-center text-black font-bold text-sm">W-L</Text>
-                            <Text className="flex-1 text-center text-black font-bold text-sm">SO</Text>
-                            <Text className="flex-1 text-center text-black font-bold text-sm" style={{ includeFontPadding: false }}>BP</Text>
+                            {viewMode === 'players' && <Text className="flex-1 text-center text-black font-bold text-sm">SO</Text>}
+                            {viewMode === 'players' && <Text className="flex-1 text-center text-black font-bold text-sm" style={{ includeFontPadding: false }}>BP</Text>}
                         </View>
                     ) : (
                         <ScrollView
@@ -166,22 +236,22 @@ export default function LeaderboardScreen() {
                                 <Text className="w-12 text-center text-black font-bold text-sm">SP</Text>
                                 <Text className="w-14 text-center text-black font-bold text-sm">W%</Text>
                                 <Text className="w-16 text-center text-black font-bold text-sm">W-L</Text>
-                                <Text className="w-12 text-center text-black font-bold text-sm">SO</Text>
-                                <Text className="w-10 text-center text-black font-bold text-sm" style={{ includeFontPadding: false }}>BP</Text>
+                                {viewMode === 'players' && <Text className="w-12 text-center text-black font-bold text-sm">SO</Text>}
+                                {viewMode === 'players' && <Text className="w-10 text-center text-black font-bold text-sm" style={{ includeFontPadding: false }}>BP</Text>}
                             </View>
                         </ScrollView>
                     )}
                 </View>
 
                 {/* 1. Body Container */}
-                <View className="flex-row">
+                <View className="flex-row pb-24">
                     {/* Left Column Stack (Fixed) */}
                     <View style={{ width: LEFT_COL_WIDTH }} className="border-r border-border bg-background">
-                        {leaderboard.map((item) => (
+                        {(viewMode === 'players' ? leaderboard : teamLeaderboard).map((item) => (
                             <TouchableOpacity
                                 key={item.id}
-                                onPress={() => router.push(`/player/${item.id}`)}
-                                disabled={item.id === userId}
+                                onPress={() => viewMode === 'players' && router.push(`/player/${item.id}`)}
+                                disabled={viewMode === 'teams' || item.id === userId}
                                 style={{ height: ROW_HEIGHT }}
                                 className={`flex-row items-center px-2 border-b border-border ${item.id === userId ? 'bg-surface-hover' : ''}`}
                             >
@@ -194,19 +264,19 @@ export default function LeaderboardScreen() {
                     {/* Right Column Stack (Adaptive) */}
                     {isLargeScreen ? (
                         <View style={{ flex: 1 }}>
-                            {leaderboard.map((item) => (
+                            {(viewMode === 'players' ? leaderboard : teamLeaderboard).map((item) => (
                                 <TouchableOpacity
                                     key={item.id}
-                                    onPress={() => router.push(`/player/${item.id}`)}
-                                    disabled={item.id === userId}
+                                    onPress={() => viewMode === 'players' && router.push(`/player/${item.id}`)}
+                                    disabled={viewMode === 'teams' || item.id === userId}
                                     style={{ height: ROW_HEIGHT }}
                                     className={`flex-row items-center px-4 border-b border-border ${item.id === userId ? 'bg-surface-hover' : ''}`}
                                 >
                                     <Text className="flex-1 text-center text-gray-400 font-bold text-sm">{item.played}</Text>
                                     <Text className="flex-1 text-center text-gray-300 font-bold text-sm">{item.winRate}%</Text>
                                     <Text className="flex-1 text-center text-foreground font-bold text-sm">{item.wins}-{item.played - item.wins}</Text>
-                                    <Text className="flex-1 text-center text-primary font-bold text-sm">{item.shutouts}</Text>
-                                    <Text className="flex-1 text-center text-primary font-bold text-sm" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>{item.breakPoint} </Text>
+                                    {viewMode === 'players' && <Text className="flex-1 text-center text-primary font-bold text-sm">{item.shutouts}</Text>}
+                                    {viewMode === 'players' && <Text className="flex-1 text-center text-primary font-bold text-sm" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>{item.breakPoint} </Text>}
                                 </TouchableOpacity>
                             ))}
                         </View>
@@ -219,19 +289,19 @@ export default function LeaderboardScreen() {
                             style={{ flex: 1 }}
                         >
                             <View style={{ width: RIGHT_COL_WIDTH_FIXED }}>
-                                {leaderboard.map((item) => (
+                                {(viewMode === 'players' ? leaderboard : teamLeaderboard).map((item) => (
                                     <TouchableOpacity
                                         key={item.id}
-                                        onPress={() => router.push(`/player/${item.id}`)}
-                                        disabled={item.id === userId}
+                                        onPress={() => viewMode === 'players' && router.push(`/player/${item.id}`)}
+                                        disabled={viewMode === 'teams' || item.id === userId}
                                         style={{ height: ROW_HEIGHT }}
                                         className={`flex-row items-center px-2 border-b border-border ${item.id === userId ? 'bg-surface-hover' : ''}`}
                                     >
                                         <Text className="w-12 text-center text-gray-400 font-bold text-sm">{item.played}</Text>
                                         <Text className="w-14 text-center text-gray-300 font-bold text-sm">{item.winRate}%</Text>
                                         <Text className="w-16 text-center text-foreground font-bold text-sm">{item.wins}-{item.played - item.wins}</Text>
-                                        <Text className="w-12 text-center text-primary font-bold text-sm">{item.shutouts}</Text>
-                                        <Text className="w-10 text-center text-primary font-bold text-sm" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>{item.breakPoint} </Text>
+                                        {viewMode === 'players' && <Text className="w-12 text-center text-primary font-bold text-sm">{item.shutouts}</Text>}
+                                        {viewMode === 'players' && <Text className="w-10 text-center text-primary font-bold text-sm" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>{item.breakPoint} </Text>}
                                     </TouchableOpacity>
                                 ))}
                             </View>

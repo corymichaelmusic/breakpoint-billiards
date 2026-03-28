@@ -44,12 +44,13 @@ interface NextMatchCardProps {
     races?: { p1_8: number; p2_8: number; p1_9: number; p2_9: number; };
     scheduledTime?: string;
     tableName?: string;
+    viewerName?: string;
 }
 
 export default function NextMatchCard({
     opponentName, opponentRating, date, isLocked, matchId, leagueName, sessionName, weekNumber, status,
     player1Id, player2Id, paymentStatusP1, paymentStatusP2, label, scores, specialStats, verificationStatus,
-    p1SubmittedAt, p2SubmittedAt, races, scheduledTime, tableName
+    p1SubmittedAt, p2SubmittedAt, races, scheduledTime, tableName, viewerName
 }: NextMatchCardProps) {
     const [isRequesting, setIsRequesting] = useState(false);
     const { getToken, userId } = useAuth();
@@ -58,12 +59,13 @@ export default function NextMatchCard({
 
     const [hasPendingRequest, setHasPendingRequest] = useState(false);
 
-    const myName = user?.firstName || 'Me';
+    const myName = viewerName ? viewerName.split(' ')[0] : (user?.firstName || 'Me');
     const oppName = opponentName.split(' ')[0];
 
     // Verification Logic: Differentiate "Waiting" vs "Needs Action"
     const isPlayer1 = userId === player1Id;
     const haveISubmitted = isPlayer1 ? !!p1SubmittedAt : !!p2SubmittedAt;
+    const effectiveIsPlayer1 = scores?.isPlayer1 ?? isPlayer1;
 
     // ... (rest of useEffects) ... 
 
@@ -284,14 +286,14 @@ export default function NextMatchCard({
                         <View className="bg-surface-hover/50 border border-white/10 rounded px-2 py-1 flex-row items-center">
                             <Text className="text-gray-400 text-[10px] font-bold mr-1">8 BALL:</Text>
                             <Text className="text-white text-[10px] font-bold">
-                                {userId === player1Id ? races.p1_8 : races.p2_8}/{userId === player1Id ? races.p2_8 : races.p1_8}
+                                {effectiveIsPlayer1 ? races.p1_8 : races.p2_8}/{effectiveIsPlayer1 ? races.p2_8 : races.p1_8}
                             </Text>
                         </View>
                         {/* 9-Ball Box */}
                         <View className="bg-surface-hover/50 border border-white/10 rounded px-2 py-1 flex-row items-center">
                             <Text className="text-gray-400 text-[10px] font-bold mr-1">9 BALL:</Text>
                             <Text className="text-white text-[10px] font-bold">
-                                {userId === player1Id ? races.p1_9 : races.p2_9}/{userId === player1Id ? races.p2_9 : races.p1_9}
+                                {effectiveIsPlayer1 ? races.p1_9 : races.p2_9}/{effectiveIsPlayer1 ? races.p2_9 : races.p1_9}
                             </Text>
                         </View>
                     </View>

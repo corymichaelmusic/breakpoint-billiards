@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { createAdminClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
 import { auth } from "@clerk/nextjs/server";
@@ -47,11 +48,19 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
     const allLeagueIds = [id, ...sessionIds];
 
     // Fetch players from Organization AND all sessions
-    const { data: players } = await adminClient
+    let playersQuery = adminClient
         .from("league_players")
         .select("*, profiles!inner(*), leagues(name)")
         .eq("profiles.is_active", true)
         .order("joined_at", { ascending: false });
+
+    if (league.type === 'session') {
+        playersQuery = playersQuery.eq("league_id", id);
+    } else {
+        playersQuery = playersQuery.in("league_id", allLeagueIds);
+    }
+    
+    const { data: players } = await playersQuery;
 
     // Deduplicate players
     const uniquePlayers = new Map<string, any>();

@@ -6,6 +6,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "../../lib/supabase";
 import { createClient } from "@supabase/supabase-js";
 import NextMatchCard from "../../components/NextMatchCard";
+import TeamMatchCard from "../../components/TeamMatchCard";
 import { fetchMatchRaces } from "../../utils/rating";
 import { useSession } from "../../lib/SessionContext";
 import { isMatchLocked } from "../../utils/match";
@@ -15,6 +16,8 @@ export default function MatchesScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [matches, setMatches] = useState<any[]>([]);
+    const [teamMatches, setTeamMatches] = useState<any[]>([]);
+    const [userTeamId, setUserTeamId] = useState<string | null>(null);
     const [races, setRaces] = useState<Record<string, any>>({});
     const [activeSession, setActiveSession] = useState<any>(null);
     const lastFetchTime = useRef<number>(0);
@@ -68,9 +71,39 @@ export default function MatchesScreen() {
             games (winner_id, is_break_and_run, is_9_on_snap, game_type)
           `)
                 .eq("league_id", currentSession.id)
+                .eq('is_team_match_set', false)
                 .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
                 .order("week_number", { ascending: true }) // Order by Week
                 .order("scheduled_date", { ascending: true });
+
+            // 3. Fetch User's Team and Team Matches
+            const { data: myTeamData } = await supabaseAuthenticated
+                .from('team_members')
+                .select('teams(id)')
+                .eq('player_id', userId)
+                .single();
+            
+            const tData: any = myTeamData?.teams;
+            const uTeamId = tData?.id || null;
+            setUserTeamId(uTeamId);
+
+            if (uTeamId) {
+                const { data: tmData } = await supabaseAuthenticated
+                    .from('team_matches')
+                    .select('*, team_a:team_a_id(*), team_b:team_b_id(*)')
+                    .eq('league_id', currentSession.id)
+                    .or(`team_a_id.eq.${uTeamId},team_b_id.eq.${uTeamId}`)
+                    .order('week_number', { ascending: true })
+                    .order('created_at', { ascending: true });
+                
+                if (tmData) {
+                    setTeamMatches(tmData);
+                } else {
+                    setTeamMatches([]);
+                }
+            } else {
+                setTeamMatches([]);
+            }
 
             if (fetchedMatches) {
                 setMatches(fetchedMatches);
@@ -125,9 +158,20 @@ export default function MatchesScreen() {
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#D4AF37" />}
                 contentContainerStyle={{ paddingBottom: 100 }}
             >
-                {matches.length > 0 ? (
-                    matches.map((match) => {
-                        const isBothSetsFinalized = match.status_8ball === 'finalized' && match.status_9ball === 'finalized';
+                {teamMatches.length > 0 && (
+                    <View className="mb-6">
+                        <Text className="text-gray-400 font-bold text-xs uppercase tracking-widest mb-3 pl-2">Team Matches</Text>
+                        {teamMatches.map(tm => (
+                            <TeamMatchCard key={tm.id} match={tm} userTeamId={userTeamId!} />
+                        ))}
+                    </View>
+                )}
+
+                {matches.length > 0 && (
+                    <View>
+                        {teamMatches.length > 0 && <Text className="text-gray-400 font-bold text-xs uppercase tracking-widest mb-3 pl-2">Individual Matches</Text>}
+                        {matches.map((match) => {
+                            const isBothSetsFinalized = match.status_8ball === 'finalized' && match.status_9ball === 'finalized';
                         const totalPoints = (match.points_8ball_p1 || 0) + (match.points_8ball_p2 || 0) + (match.points_9ball_p1 || 0) + (match.points_9ball_p2 || 0);
                         const isStarted = totalPoints > 0;
 
@@ -224,8 +268,11 @@ export default function MatchesScreen() {
                                 tableName={match.table_name}
                             />
                         );
-                    })
-                ) : (
+                    })}
+                    </View>
+                )}
+
+                {matches.length === 0 && teamMatches.length === 0 && (
                     <Text className="text-gray-500 text-center italic mt-10">No matches found for this session.</Text>
                 )}
             </ScrollView>

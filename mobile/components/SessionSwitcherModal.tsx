@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Modal, TouchableOpacity, ScrollView, Pressable } from 'react-native';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useSession, Session } from '../lib/SessionContext';
 
 interface SessionSwitcherModalProps {
@@ -11,6 +12,7 @@ interface SessionSwitcherModalProps {
 export default function SessionSwitcherModal({ visible, onClose }: SessionSwitcherModalProps) {
     const { sessions, currentSession, setCurrentSession, setPrimarySession } = useSession();
     const [settingPrimary, setSettingPrimary] = useState<string | null>(null);
+    const router = useRouter();
 
     const handleSelectSession = (session: Session) => {
         setCurrentSession(session);
@@ -157,6 +159,19 @@ export default function SessionSwitcherModal({ visible, onClose }: SessionSwitch
                                 );
                             })
                         )}
+                        
+                        {/* Join Another Session Button */}
+                        <TouchableOpacity
+                            onPress={() => {
+                                onClose();
+                                router.push('/onboarding/select-league');
+                            }}
+                            className="mt-4 p-4 rounded-xl border border-dashed border-gray-500 bg-surface/30 flex-row items-center justify-center"
+                            activeOpacity={0.7}
+                        >
+                            <Ionicons name="add-circle-outline" size={24} color="#D4AF37" />
+                            <Text className="ml-2 font-bold text-[#D4AF37] text-lg">Join Another Session</Text>
+                        </TouchableOpacity>
                     </ScrollView>
                 </Pressable>
             </Pressable>

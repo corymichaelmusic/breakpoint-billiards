@@ -124,6 +124,23 @@ export default function MatchScreen() {
                 .in('player_id', [matchDataRaw.player1_id, matchDataRaw.player2_id]);
 
             const matchData = { ...matchDataRaw };
+            
+            // Fetch Team Match Set Data if applicable
+            if (matchData.is_team_match_set) {
+                const { data: teamSetData } = await supabaseAuthenticated
+                    .from('team_match_sets')
+                    .select('*, team_match:team_match_id(*)')
+                    .eq('match_id', id)
+                    .maybeSingle();
+                
+                if (teamSetData) {
+                    matchData.team_match_set = teamSetData;
+                    // Force the UI into scoring mode for the specific game type
+                    setActiveGameType(teamSetData.game_type as '8ball' | '9ball');
+                    setViewMode('scoring');
+                }
+            }
+
             const lp1 = lps?.find((lp: any) => lp.player_id === matchData.player1_id);
             const lp2 = lps?.find((lp: any) => lp.player_id === matchData.player2_id);
 
@@ -357,7 +374,7 @@ export default function MatchScreen() {
         const winnerName = winnerId === p1Id ? p1Name : p2Name;
         const gameTypeLabel = activeGameType === '8ball' ? '8-Ball' : '9-Ball';
         const otherSetLabel = activeGameType === '8ball' ? '9-Ball' : '8-Ball';
-        const isOtherSetComplete = activeGameType === '8ball' ? setCompleted9ball : setCompleted8ball;
+        const isOtherSetComplete = match.is_team_match_set ? true : (activeGameType === '8ball' ? setCompleted9ball : setCompleted8ball);
 
         // Show Set Completion Alert
         Alert.alert(
@@ -385,7 +402,7 @@ export default function MatchScreen() {
                     }
                 },
                 {
-                    text: "Match Hub",
+                    text: match.is_team_match_set ? "Match Details" : "Match Hub",
                     style: "destructive",
                     onPress: () => {
                         // Mark this set as complete
@@ -406,7 +423,7 @@ export default function MatchScreen() {
             ] : [
                 { text: "Cancel", style: "cancel" },
                 {
-                    text: "Match Hub",
+                    text: match.is_team_match_set ? "Match Details" : "Match Hub",
                     style: "destructive",
                     onPress: () => {
                         // Mark this set as complete
@@ -507,15 +524,23 @@ export default function MatchScreen() {
             }
 
             if (result.status === 'verified') {
-                Alert.alert("Match Verified! 🎉", result.message || "Both players agree!");
+                Alert.alert("Set Verified! 🎉", result.message || "Both players agree!");
                 setVerificationStatus('verified');
                 setShowSubmissionModal(false);
-                router.replace('/(tabs)');
+                if (match.is_team_match_set && match.team_match_set) {
+                    router.replace(`/team-match/${match.team_match_set.team_match_id}`);
+                } else {
+                    router.replace('/(tabs)');
+                }
             } else if (result.status === 'waiting_for_opponent') {
                 Alert.alert("Scores Submitted", result.message);
                 setVerificationStatus('pending_verification');
                 setShowSubmissionModal(false);
-                router.replace('/(tabs)');
+                if (match.is_team_match_set && match.team_match_set) {
+                    router.replace(`/team-match/${match.team_match_set.team_match_id}`);
+                } else {
+                    router.replace('/(tabs)');
+                }
             } else if (result.status === 'disputed') {
                 Alert.alert(
                     "Score Mismatch",
@@ -607,11 +632,21 @@ export default function MatchScreen() {
             )}
 
             {
-                viewMode === 'scoring' && (
+                viewMode === 'scoring' && !match.is_team_match_set && (
                     <View className="px-4 py-1 border-b border-border/10">
                         <TouchableOpacity onPress={() => setViewMode('selection')} className="flex-row items-center">
                             <Ionicons name="arrow-back" size={24} color="#888" />
                             <Text className="text-foreground ml-2 font-bold" numberOfLines={1} adjustsFontSizeToFit>Back to Hub</Text>
+                        </TouchableOpacity>
+                    </View>
+                )
+            }
+            {
+                viewMode === 'scoring' && match.is_team_match_set && (
+                    <View className="px-4 py-2 border-b border-border/10">
+                        <TouchableOpacity onPress={() => router.replace(`/team-match/${match.team_match_set?.team_match_id}`)} className="flex-row items-center">
+                            <Ionicons name="arrow-back" size={24} color="#888" />
+                            <Text className="text-foreground ml-2 font-bold" numberOfLines={1} adjustsFontSizeToFit>Back to Team Match</Text>
                         </TouchableOpacity>
                     </View>
                 )
@@ -837,84 +872,88 @@ export default function MatchScreen() {
                             </View>
 
                             {/* 8-Ball Summary */}
-                            <View className="bg-black/40 border border-yellow-600/30 rounded-xl p-4 mb-4">
-                                <Text className="text-yellow-400 font-bold text-lg mb-3">8-Ball Set</Text>
-                                <View className="flex-row justify-between items-center mb-3">
-                                    <View className="items-center flex-1">
-                                        <Text className="text-white font-bold">{match?.player1?.nickname || match?.player1?.full_name?.split(' ')[0]}</Text>
-                                        <Text className="text-yellow-400 text-3xl font-black">
-                                            {games.filter(g => g.game_type === '8ball' && g.winner_id === match?.player1?.id).length}
-                                        </Text>
+                            {(!match?.is_team_match_set || match?.team_match_set?.game_type === '8ball') && (
+                                <View className="bg-black/40 border border-yellow-600/30 rounded-xl p-4 mb-4">
+                                    <Text className="text-yellow-400 font-bold text-lg mb-3">8-Ball Set</Text>
+                                    <View className="flex-row justify-between items-center mb-3">
+                                        <View className="items-center flex-1">
+                                            <Text className="text-white font-bold">{match?.player1?.nickname || match?.player1?.full_name?.split(' ')[0]}</Text>
+                                            <Text className="text-yellow-400 text-3xl font-black">
+                                                {games.filter(g => g.game_type === '8ball' && g.winner_id === match?.player1?.id).length}
+                                            </Text>
+                                        </View>
+                                        <Text className="text-gray-500 font-bold px-4">vs</Text>
+                                        <View className="items-center flex-1">
+                                            <Text className="text-white font-bold">{match?.player2?.nickname || match?.player2?.full_name?.split(' ')[0]}</Text>
+                                            <Text className="text-yellow-400 text-3xl font-black">
+                                                {games.filter(g => g.game_type === '8ball' && g.winner_id === match?.player2?.id).length}
+                                            </Text>
+                                        </View>
                                     </View>
-                                    <Text className="text-gray-500 font-bold px-4">vs</Text>
-                                    <View className="items-center flex-1">
-                                        <Text className="text-white font-bold">{match?.player2?.nickname || match?.player2?.full_name?.split(' ')[0]}</Text>
-                                        <Text className="text-yellow-400 text-3xl font-black">
-                                            {games.filter(g => g.game_type === '8ball' && g.winner_id === match?.player2?.id).length}
-                                        </Text>
+                                    {/* 8-Ball Bonus Stats */}
+                                    <View className="flex-row justify-around border-t border-gray-700 pt-3">
+                                        <View className="items-center">
+                                            <Text className="text-gray-500 text-[10px] uppercase">Break Runs</Text>
+                                            <Text className="text-white font-bold">
+                                                {games.filter(g => g.game_type === '8ball' && g.winner_id === match?.player1?.id && g.is_break_and_run).length} - {games.filter(g => g.game_type === '8ball' && g.winner_id === match?.player2?.id && g.is_break_and_run).length}
+                                            </Text>
+                                        </View>
+                                        <View className="items-center">
+                                            <Text className="text-gray-500 text-[10px] uppercase">Rack Runs</Text>
+                                            <Text className="text-white font-bold">
+                                                {games.filter(g => g.game_type === '8ball' && g.winner_id === match?.player1?.id && g.is_rack_and_run).length} - {games.filter(g => g.game_type === '8ball' && g.winner_id === match?.player2?.id && g.is_rack_and_run).length}
+                                            </Text>
+                                        </View>
                                     </View>
+                                    {(setCompleted8ball || match?.status_8ball === 'finalized') && (
+                                        <View className="bg-green-900/30 rounded-full px-3 py-1 mt-3 self-center">
+                                            <Text className="text-green-400 text-xs font-bold uppercase">✓ Complete</Text>
+                                        </View>
+                                    )}
                                 </View>
-                                {/* 8-Ball Bonus Stats */}
-                                <View className="flex-row justify-around border-t border-gray-700 pt-3">
-                                    <View className="items-center">
-                                        <Text className="text-gray-500 text-[10px] uppercase">Break Runs</Text>
-                                        <Text className="text-white font-bold">
-                                            {games.filter(g => g.game_type === '8ball' && g.winner_id === match?.player1?.id && g.is_break_and_run).length} - {games.filter(g => g.game_type === '8ball' && g.winner_id === match?.player2?.id && g.is_break_and_run).length}
-                                        </Text>
-                                    </View>
-                                    <View className="items-center">
-                                        <Text className="text-gray-500 text-[10px] uppercase">Rack Runs</Text>
-                                        <Text className="text-white font-bold">
-                                            {games.filter(g => g.game_type === '8ball' && g.winner_id === match?.player1?.id && g.is_rack_and_run).length} - {games.filter(g => g.game_type === '8ball' && g.winner_id === match?.player2?.id && g.is_rack_and_run).length}
-                                        </Text>
-                                    </View>
-                                </View>
-                                {(setCompleted8ball || match?.status_8ball === 'finalized') && (
-                                    <View className="bg-green-900/30 rounded-full px-3 py-1 mt-3 self-center">
-                                        <Text className="text-green-400 text-xs font-bold uppercase">✓ Complete</Text>
-                                    </View>
-                                )}
-                            </View>
+                            )}
 
                             {/* 9-Ball Summary */}
-                            <View className="bg-black/40 border border-yellow-600/30 rounded-xl p-4 mb-6">
-                                <Text className="text-yellow-400 font-bold text-lg mb-3">9-Ball Set</Text>
-                                <View className="flex-row justify-between items-center mb-3">
-                                    <View className="items-center flex-1">
-                                        <Text className="text-white font-bold">{match?.player1?.nickname || match?.player1?.full_name?.split(' ')[0]}</Text>
-                                        <Text className="text-yellow-400 text-3xl font-black">
-                                            {games.filter(g => g.game_type === '9ball' && g.winner_id === match?.player1?.id).length}
-                                        </Text>
+                            {(!match?.is_team_match_set || match?.team_match_set?.game_type === '9ball') && (
+                                <View className="bg-black/40 border border-yellow-600/30 rounded-xl p-4 mb-6">
+                                    <Text className="text-yellow-400 font-bold text-lg mb-3">9-Ball Set</Text>
+                                    <View className="flex-row justify-between items-center mb-3">
+                                        <View className="items-center flex-1">
+                                            <Text className="text-white font-bold">{match?.player1?.nickname || match?.player1?.full_name?.split(' ')[0]}</Text>
+                                            <Text className="text-yellow-400 text-3xl font-black">
+                                                {games.filter(g => g.game_type === '9ball' && g.winner_id === match?.player1?.id).length}
+                                            </Text>
+                                        </View>
+                                        <Text className="text-gray-500 font-bold px-4">vs</Text>
+                                        <View className="items-center flex-1">
+                                            <Text className="text-white font-bold">{match?.player2?.nickname || match?.player2?.full_name?.split(' ')[0]}</Text>
+                                            <Text className="text-yellow-400 text-3xl font-black">
+                                                {games.filter(g => g.game_type === '9ball' && g.winner_id === match?.player2?.id).length}
+                                            </Text>
+                                        </View>
                                     </View>
-                                    <Text className="text-gray-500 font-bold px-4">vs</Text>
-                                    <View className="items-center flex-1">
-                                        <Text className="text-white font-bold">{match?.player2?.nickname || match?.player2?.full_name?.split(' ')[0]}</Text>
-                                        <Text className="text-yellow-400 text-3xl font-black">
-                                            {games.filter(g => g.game_type === '9ball' && g.winner_id === match?.player2?.id).length}
-                                        </Text>
+                                    {/* 9-Ball Bonus Stats */}
+                                    <View className="flex-row justify-around border-t border-gray-700 pt-3">
+                                        <View className="items-center">
+                                            <Text className="text-gray-500 text-[10px] uppercase">Break Runs</Text>
+                                            <Text className="text-white font-bold">
+                                                {games.filter(g => g.game_type === '9ball' && g.winner_id === match?.player1?.id && g.is_break_and_run).length} - {games.filter(g => g.game_type === '9ball' && g.winner_id === match?.player2?.id && g.is_break_and_run).length}
+                                            </Text>
+                                        </View>
+                                        <View className="items-center">
+                                            <Text className="text-gray-500 text-[10px] uppercase">9 on Snap</Text>
+                                            <Text className="text-white font-bold">
+                                                {games.filter(g => g.game_type === '9ball' && g.winner_id === match?.player1?.id && g.is_9_on_snap).length} - {games.filter(g => g.game_type === '9ball' && g.winner_id === match?.player2?.id && g.is_9_on_snap).length}
+                                            </Text>
+                                        </View>
                                     </View>
+                                    {(setCompleted9ball || match?.status_9ball === 'finalized') && (
+                                        <View className="bg-green-900/30 rounded-full px-3 py-1 mt-3 self-center">
+                                            <Text className="text-green-400 text-xs font-bold uppercase">✓ Complete</Text>
+                                        </View>
+                                    )}
                                 </View>
-                                {/* 9-Ball Bonus Stats */}
-                                <View className="flex-row justify-around border-t border-gray-700 pt-3">
-                                    <View className="items-center">
-                                        <Text className="text-gray-500 text-[10px] uppercase">Break Runs</Text>
-                                        <Text className="text-white font-bold">
-                                            {games.filter(g => g.game_type === '9ball' && g.winner_id === match?.player1?.id && g.is_break_and_run).length} - {games.filter(g => g.game_type === '9ball' && g.winner_id === match?.player2?.id && g.is_break_and_run).length}
-                                        </Text>
-                                    </View>
-                                    <View className="items-center">
-                                        <Text className="text-gray-500 text-[10px] uppercase">9 on Snap</Text>
-                                        <Text className="text-white font-bold">
-                                            {games.filter(g => g.game_type === '9ball' && g.winner_id === match?.player1?.id && g.is_9_on_snap).length} - {games.filter(g => g.game_type === '9ball' && g.winner_id === match?.player2?.id && g.is_9_on_snap).length}
-                                        </Text>
-                                    </View>
-                                </View>
-                                {(setCompleted9ball || match?.status_9ball === 'finalized') && (
-                                    <View className="bg-green-900/30 rounded-full px-3 py-1 mt-3 self-center">
-                                        <Text className="text-green-400 text-xs font-bold uppercase">✓ Complete</Text>
-                                    </View>
-                                )}
-                            </View>
+                            )}
 
                             {/* Verification Info */}
                             <View className="bg-blue-900/30 border border-blue-500/30 rounded-xl p-4 mb-6">

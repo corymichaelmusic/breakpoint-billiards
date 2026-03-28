@@ -1,9 +1,9 @@
 import { View, Text, TouchableOpacity, ActivityIndicator, Dimensions, TextInput, Alert, Image, ActionSheetIOS, Platform, DeviceEventEmitter, ScrollView, Modal, KeyboardAvoidingView, Switch } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth, useUser } from "@clerk/clerk-expo";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 import QRCode from 'react-native-qrcode-svg';
 import * as ImagePicker from 'expo-image-picker';
@@ -69,51 +69,53 @@ export default function ProfileScreen() {
     const [notifyMatchDay, setNotifyMatchDay] = useState(true);
     const [notifyLeague, setNotifyLeague] = useState(true);
 
-    useEffect(() => {
-        const fetchProfile = async () => {
-            try {
-                if (!userId) return;
-                const token = await getToken({ template: 'supabase' });
-                const authHeader = token ? { Authorization: `Bearer ${token}` } : undefined;
+    useFocusEffect(
+        useCallback(() => {
+            const fetchProfile = async () => {
+                try {
+                    if (!userId) return;
+                    const token = await getToken({ template: 'supabase' });
+                    const authHeader = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-                const supabase = createClient(
-                    process.env.EXPO_PUBLIC_SUPABASE_URL!,
-                    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
-                    { global: { headers: authHeader } }
-                );
+                    const supabase = createClient(
+                        process.env.EXPO_PUBLIC_SUPABASE_URL!,
+                        process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+                        { global: { headers: authHeader } }
+                    );
 
-                const { data, error } = await supabase
-                    .from('profiles')
-                    .select('full_name, player_number, fargo_rating, breakpoint_rating, nickname, avatar_url, notify_mentions, notify_match_day, notify_league')
-                    .eq('id', userId)
-                    .single();
+                    const { data, error } = await supabase
+                        .from('profiles')
+                        .select('full_name, player_number, fargo_rating, breakpoint_rating, nickname, avatar_url, notify_mentions, notify_match_day, notify_league, bylaws_agreed, bis_rules_agreed')
+                        .eq('id', userId)
+                        .single();
 
-                if (data) {
-                    // Fetch confidence
-                    const { data: leagueStats } = await supabase
-                        .from('league_players')
-                        .select('breakpoint_racks_played')
-                        .eq('player_id', userId);
-                    const confidence = leagueStats
-                        ? leagueStats.reduce((sum: number, item: any) => sum + (item.breakpoint_racks_played || 0), 0)
-                        : 0;
+                    if (data) {
+                        // Fetch confidence
+                        const { data: leagueStats } = await supabase
+                            .from('league_players')
+                            .select('breakpoint_racks_played')
+                            .eq('player_id', userId);
+                        const confidence = leagueStats
+                            ? leagueStats.reduce((sum: number, item: any) => sum + (item.breakpoint_racks_played || 0), 0)
+                            : 0;
 
-                    setProfile({ ...data, confidence });
-                    setTempFargo(data.fargo_rating ? String(data.fargo_rating) : "500");
-                    setTempNickname(data.nickname || "");
-                    setNotifyMentions(data.notify_mentions !== false);
-                    setNotifyMatchDay(data.notify_match_day !== false);
-                    setNotifyLeague(data.notify_league !== false);
+                        setProfile({ ...data, confidence });
+                        setTempFargo(data.fargo_rating ? String(data.fargo_rating) : "500");
+                        setTempNickname(data.nickname || "");
+                        setNotifyMentions(data.notify_mentions !== false);
+                        setNotifyMatchDay(data.notify_match_day !== false);
+                        setNotifyLeague(data.notify_league !== false);
+                    }
+                } catch (e) {
+                    console.error(e);
+                } finally {
+                    setLoading(false);
                 }
-            } catch (e) {
-                console.error(e);
-            } finally {
-                setLoading(false);
-            }
-        };
+            };
 
-        fetchProfile();
-    }, [userId]);
+            fetchProfile();
+        }, [userId, getToken])
+    );
 
     const handleAvatarPress = () => {
         Alert.alert(
@@ -665,6 +667,16 @@ export default function ProfileScreen() {
                                 </Text>
                             </View>
                             <Ionicons name={showSettings ? "chevron-up" : "chevron-down"} size={20} color="#666" />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity onPress={() => router.push('/bylaws')} className="py-2 px-6 flex-row items-center justify-center gap-2">
+                            <Text className="text-gray-400 font-bold uppercase tracking-widest text-sm text-center">League Bylaws</Text>
+                            {profile?.bylaws_agreed && <Ionicons name="checkmark-circle" size={16} color="#4ade80" />}
+                        </TouchableOpacity>
+
+                        <TouchableOpacity onPress={() => router.push('/rules')} className="py-2 px-6 flex-row items-center justify-center gap-2">
+                            <Text className="text-gray-400 font-bold uppercase tracking-widest text-sm text-center">International Standard Rules</Text>
+                            {profile?.bis_rules_agreed && <Ionicons name="checkmark-circle" size={16} color="#4ade80" />}
                         </TouchableOpacity>
 
                         {/* EXPANDABLE CONTENT */}

@@ -14,6 +14,7 @@ import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useSession } from "../../lib/SessionContext";
 import { isMatchLocked } from "../../utils/match";
 import MatchReminderBanner from "../../components/MatchReminderBanner";
+import TeamStatusBanner from "../../components/TeamStatusBanner";
 import { registerForPushNotificationsAsync, scheduleMatchReminder } from "../../utils/notifications";
 
 export default function HomeScreen() {
@@ -63,11 +64,13 @@ export default function HomeScreen() {
             { global: { headers: { Authorization: `Bearer ${clerkToken}` } } }
           );
 
-          const { error, count } = await supabaseAuth
+          const { error, data } = await supabaseAuth
             .from('profiles')
             .update({ push_token: token })
             .eq('id', userId)
-            .select('*', { count: 'exact' });
+            .select('*');
+            
+          const count = data ? data.length : 0;
 
           if (error) {
             console.error("Error saving push token:", error);
@@ -727,6 +730,9 @@ export default function HomeScreen() {
           </View>
         ) : (
           <>
+            <View style={{ marginHorizontal: -16 }}>
+                <TeamStatusBanner sessionId={activeSession.id} />
+            </View>
             {activeSession.payment_status === 'unpaid' && (
               <View className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-6 flex-row items-center justify-between">
                 <View className="flex-1 mr-4">

@@ -179,6 +179,19 @@ BEGIN
             0
         );
         
+        -- Determine Overall Winner
+        DECLARE
+            v_winner_id text := NULL;
+        BEGIN
+            IF (v_my_8ball_p1 + v_my_9ball_p1) > (v_my_8ball_p2 + v_my_9ball_p2) THEN
+                v_winner_id := v_player1_id;
+            ELSIF (v_my_8ball_p2 + v_my_9ball_p2) > (v_my_8ball_p1 + v_my_9ball_p1) THEN
+                v_winner_id := v_player2_id;
+            END IF;
+
+            UPDATE matches SET winner_id = v_winner_id WHERE id = p_match_id;
+        END;
+        
         RETURN jsonb_build_object(
             'success', true, 
             'status', 'verified',

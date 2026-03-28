@@ -32,7 +32,6 @@ export default function ChatScreen() {
     const scrollDebounceTimer = useRef<NodeJS.Timeout | null>(null);
     const tabBarTimeout = useRef<NodeJS.Timeout | null>(null);
     const pendingFocus = useRef(false);
-    const [keyboardHeight, setKeyboardHeight] = useState(0);
 
     // Use refs for stable access in intervals/callbacks without triggering re-renders
     const currentSessionRef = useRef(currentSession);
@@ -174,79 +173,20 @@ export default function ChatScreen() {
         };
     }, []); // Empty dependency array = stable effect, only runs once on mount
 
-    // Auto-scroll to bottom when keyboard opens and track keyboard height
+    // Auto-scroll to bottom when keyboard opens
     useEffect(() => {
         const keyboardDidShowListener = Keyboard.addListener(
             'keyboardDidShow',
             () => {
-                if (Platform.OS === 'android') {
-                    // Slight delay to allow layout to settle after resize
-                    setTimeout(() => {
-                        flatListRef.current?.scrollToEnd({ animated: true });
-                    }, 200);
-                } else {
+                const delay = Platform.OS === 'android' ? 400 : 100;
+                setTimeout(() => {
                     flatListRef.current?.scrollToEnd({ animated: true });
-                }
+                }, delay);
             }
-        );
-
-        const onShow = (e: any) => {
-            setKeyboardHeight(e.endCoordinates.height);
-            if (Platform.OS === 'android') {
-                // Hide tabs immediately
-                navigation.setOptions({ tabBarStyle: { display: 'none' } });
-
-                // Clear any pending restore timer
-                if (tabBarTimeout.current) {
-                    clearTimeout(tabBarTimeout.current);
-                    tabBarTimeout.current = null;
-                }
-            }
-        };
-        const onHide = () => {
-            setKeyboardHeight(0);
-            if (Platform.OS === 'android') {
-                if (tabBarTimeout.current) clearTimeout(tabBarTimeout.current);
-
-                // Delay showing tabs to ensure resize happens first
-                tabBarTimeout.current = setTimeout(() => {
-                    navigation.setOptions({
-                        tabBarStyle: {
-                            backgroundColor: "#121212",
-                            borderTopWidth: 0,
-                            borderTopColor: "#121212",
-                            elevation: 0,
-                            shadowOpacity: 0,
-                            shadowOffset: { width: 0, height: 0 },
-                            shadowRadius: 0,
-                            shadowColor: "transparent",
-                            overflow: 'hidden',
-                            height: 90,
-                            paddingBottom: 30,
-                            paddingTop: 8,
-                        }
-                    });
-                    tabBarTimeout.current = null;
-                }, 300);
-            }
-        };
-
-        const showSubscription = Keyboard.addListener(
-            Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-            onShow
-        );
-        const hideSubscription = Keyboard.addListener(
-            Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-            onHide
         );
 
         return () => {
             keyboardDidShowListener.remove();
-            showSubscription.remove();
-            hideSubscription.remove();
-            if (tabBarTimeout.current) {
-                clearTimeout(tabBarTimeout.current);
-            }
         };
     }, []);
 
@@ -593,133 +533,138 @@ export default function ChatScreen() {
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: '#000' }} edges={['left', 'right']}>
-            <View style={{ padding: 16, paddingBottom: 16, backgroundColor: '#000', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', alignItems: 'center' }}>
-                <Text style={{ color: '#999', fontWeight: 'bold', fontSize: 10, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 4 }}>
-                    Session Forum
-                </Text>
-                <Text style={{ color: '#fff', fontSize: 20, fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'center' }} numberOfLines={1}>
-                    {currentSession?.name || 'Chat'}
-                </Text>
-            </View>
-
-            {loading ? (
-                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                    <ActivityIndicator size="large" color="#D4AF37" />
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 110}
+            >
+                <View style={{ padding: 16, paddingBottom: 16, backgroundColor: '#000', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', alignItems: 'center' }}>
+                    <Text style={{ color: '#999', fontWeight: 'bold', fontSize: 10, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 4 }}>
+                        Session Forum
+                    </Text>
+                    <Text style={{ color: '#fff', fontSize: 20, fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'center' }} numberOfLines={1}>
+                        {currentSession?.name || 'Chat'}
+                    </Text>
                 </View>
-            ) : (
-                <View style={{ flex: 1, paddingBottom: Platform.OS === 'ios' ? Math.max(0, keyboardHeight - 80) : 0 }}>
-                    <FlatList
-                        ref={flatListRef}
-                        style={{ flex: 1 }}
-                        data={messages}
-                        keyExtractor={(item) => item.id}
-                        renderItem={renderMessage}
-                        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 20 }}
-                        initialNumToRender={messages.length}
-                        maxToRenderPerBatch={messages.length}
 
-                        onContentSizeChange={() => {
-                            // If there's a pending initial scroll, debounce until content size stabilizes
-                            if (pendingInitialScroll.current && !initialScrollComplete.current) {
-                                // Clear any previous timer
-                                if (scrollDebounceTimer.current) {
-                                    clearTimeout(scrollDebounceTimer.current);
-                                }
-                                // Wait for content size to stop changing before scrolling
-                                const delay = Platform.OS === 'android' ? 300 : 150;
-                                scrollDebounceTimer.current = setTimeout(() => {
-                                    executeInitialScroll();
-                                    scrollDebounceTimer.current = null;
-                                }, delay);
-                                return;
-                            }
-                            // Only auto-scroll if initial scroll is done and user is near the bottom
-                            if (initialScrollComplete.current && isNearBottom.current) {
-                                flatListRef.current?.scrollToEnd({ animated: false });
-                            }
-                        }}
-                        onScroll={(e) => {
-                            const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-                            const distanceFromBottom = contentSize.height - contentOffset.y - layoutMeasurement.height;
-                            isNearBottom.current = distanceFromBottom < 150;
-                        }}
-                        scrollEventThrottle={200}
-                        onScrollToIndexFailed={(info) => {
-                            flatListRef.current?.scrollToOffset({
-                                offset: info.averageItemLength * info.index,
-                                animated: true
-                            });
-                        }}
-
-                        keyboardDismissMode="on-drag"
-                        keyboardShouldPersistTaps="handled"
-                        ListEmptyComponent={
-                            <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 80, opacity: 0.5 }}>
-                                <FontAwesome5 name="comments" size={48} color="#666" />
-                                <Text style={{ color: '#666', marginTop: 16, textAlign: 'center' }}>
-                                    No messages yet.{'\n'}Start the conversation!
-                                </Text>
-                            </View>
-                        }
-                    />
-
-                    <View style={{ padding: 16, backgroundColor: '#000', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <TouchableOpacity
-                            onPress={() => setShowTagging(true)}
-                            style={{
-                                width: 40,
-                                height: 40,
-                                borderRadius: 20,
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                backgroundColor: '#1e1e1e',
-                                borderWidth: 1,
-                                borderColor: '#333'
-                            }}
-                        >
-                            <FontAwesome5 name="user-plus" size={14} color="#D4AF37" />
-                        </TouchableOpacity>
-                        <TextInput
-                            ref={inputRef}
-                            value={inputText}
-                            onChangeText={setInputText}
-                            placeholder="Type a message..."
-                            placeholderTextColor="#666"
-                            style={{
-                                flex: 1,
-                                backgroundColor: '#1e1e1e',
-                                borderColor: '#333',
-                                borderWidth: 1,
-                                borderRadius: 24,
-                                paddingHorizontal: 16,
-                                paddingVertical: 12,
-                                color: '#fff',
-                                maxHeight: 100
-                            }}
-                            multiline
-                        />
-                        <TouchableOpacity
-                            onPress={handleSend}
-                            disabled={!inputText.trim() || sending}
-                            style={{
-                                width: 48,
-                                height: 48,
-                                borderRadius: 24,
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                backgroundColor: inputText.trim() ? '#D4AF37' : '#333'
-                            }}
-                        >
-                            {sending ? (
-                                <ActivityIndicator color="black" size="small" />
-                            ) : (
-                                <Ionicons name="send" size={20} color={inputText.trim() ? "black" : "#aaa"} />
-                            )}
-                        </TouchableOpacity>
+                {loading ? (
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                        <ActivityIndicator size="large" color="#D4AF37" />
                     </View>
-                </View>
-            )
-            }
+                ) : (
+                    <View style={{ flex: 1 }}>
+                        <FlatList
+                            ref={flatListRef}
+                            style={{ flex: 1 }}
+                            data={messages}
+                            keyExtractor={(item) => item.id}
+                            renderItem={renderMessage}
+                            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 60 }}
+                            initialNumToRender={messages.length}
+                            maxToRenderPerBatch={messages.length}
+
+                            onContentSizeChange={() => {
+                                // If there's a pending initial scroll, debounce until content size stabilizes
+                                if (pendingInitialScroll.current && !initialScrollComplete.current) {
+                                    // Clear any previous timer
+                                    if (scrollDebounceTimer.current) {
+                                        clearTimeout(scrollDebounceTimer.current);
+                                    }
+                                    // Wait for content size to stop changing before scrolling
+                                    const delay = Platform.OS === 'android' ? 300 : 150;
+                                    scrollDebounceTimer.current = setTimeout(() => {
+                                        executeInitialScroll();
+                                        scrollDebounceTimer.current = null;
+                                    }, delay);
+                                    return;
+                                }
+                                // Only auto-scroll if initial scroll is done and user is near the bottom
+                                if (initialScrollComplete.current && isNearBottom.current) {
+                                    flatListRef.current?.scrollToEnd({ animated: false });
+                                }
+                            }}
+                            onScroll={(e) => {
+                                const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+                                const distanceFromBottom = contentSize.height - contentOffset.y - layoutMeasurement.height;
+                                isNearBottom.current = distanceFromBottom < 150;
+                            }}
+                            scrollEventThrottle={200}
+                            onScrollToIndexFailed={(info) => {
+                                flatListRef.current?.scrollToOffset({
+                                    offset: info.averageItemLength * info.index,
+                                    animated: true
+                                });
+                            }}
+
+                            keyboardDismissMode="on-drag"
+                            keyboardShouldPersistTaps="handled"
+                            ListEmptyComponent={
+                                <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 80, opacity: 0.5 }}>
+                                    <FontAwesome5 name="comments" size={48} color="#666" />
+                                    <Text style={{ color: '#666', marginTop: 16, textAlign: 'center' }}>
+                                        No messages yet.{'\n'}Start the conversation!
+                                    </Text>
+                                </View>
+                            }
+                        />
+
+                        <View style={{ padding: 16, backgroundColor: '#000', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <TouchableOpacity
+                                onPress={() => setShowTagging(true)}
+                                style={{
+                                    width: 40,
+                                    height: 40,
+                                    borderRadius: 20,
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    backgroundColor: '#1e1e1e',
+                                    borderWidth: 1,
+                                    borderColor: '#333'
+                                }}
+                            >
+                                <FontAwesome5 name="user-plus" size={14} color="#D4AF37" />
+                            </TouchableOpacity>
+                            <TextInput
+                                ref={inputRef}
+                                value={inputText}
+                                onChangeText={setInputText}
+                                placeholder="Type a message..."
+                                placeholderTextColor="#666"
+                                style={{
+                                    flex: 1,
+                                    backgroundColor: '#1e1e1e',
+                                    borderColor: '#333',
+                                    borderWidth: 1,
+                                    borderRadius: 24,
+                                    paddingHorizontal: 16,
+                                    paddingVertical: 12,
+                                    color: '#fff',
+                                    maxHeight: 100
+                                }}
+                                multiline
+                            />
+                            <TouchableOpacity
+                                onPress={handleSend}
+                                disabled={!inputText.trim() || sending}
+                                style={{
+                                    width: 48,
+                                    height: 48,
+                                    borderRadius: 24,
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    backgroundColor: inputText.trim() ? '#D4AF37' : '#333'
+                                }}
+                            >
+                                {sending ? (
+                                    <ActivityIndicator color="black" size="small" />
+                                ) : (
+                                    <Ionicons name="send" size={20} color={inputText.trim() ? "black" : "#aaa"} />
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
+            </KeyboardAvoidingView>
 
             {/* Player Tag Picker Modal */}
             <Modal

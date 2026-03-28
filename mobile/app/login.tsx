@@ -165,7 +165,7 @@ export default function Login() {
         Keyboard.dismiss();
         await new Promise(r => setTimeout(r, 200));
 
-        const activePromise = setActive({ session: sessionId })
+        const activePromise = (setActive ? setActive({ session: sessionId }) : Promise.reject("setActive not ready"))
             .then(() => 'success')
             .catch((err) => {
                 console.log("[Login] setActive failed locally (ignoring):", err);
@@ -212,7 +212,9 @@ export default function Login() {
                 console.log("[Login] Status is COMPLETE.");
                 console.log("Detaching execution chain...");
                 setTimeout(() => {
-                    activateAndNavigate(completeSignIn.createdSessionId);
+                    if (completeSignIn.createdSessionId) {
+                        activateAndNavigate(completeSignIn.createdSessionId);
+                    }
                 }, 500);
             } else {
                 console.warn("[Login] Status is NOT COMPLETE:", completeSignIn.status);

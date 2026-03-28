@@ -35,6 +35,12 @@ DECLARE
     v_player2_id text;
     v_league_id uuid;
     
+    -- Stored Match Races
+    v_match_race_8_p1 int;
+    v_match_race_8_p2 int;
+    v_match_race_9_p1 int;
+    v_match_race_9_p2 int;
+    
     -- Ratings
     v_p1_rating_bbrs numeric;
     v_p2_rating_bbrs numeric;
@@ -66,26 +72,20 @@ DECLARE
 
 BEGIN
     -- 1. Get Match Info
-    SELECT player1_id, player2_id, league_id INTO v_player1_id, v_player2_id, v_league_id
+    SELECT player1_id, player2_id, league_id, race_8ball_p1, race_8ball_p2, race_9ball_p1, race_9ball_p2
+    INTO v_player1_id, v_player2_id, v_league_id, v_match_race_8_p1, v_match_race_8_p2, v_match_race_9_p1, v_match_race_9_p2
     FROM matches
     WHERE id = p_match_id;
 
-    -- 2. Get Player Ratings (BBRS) and Racks Played
-    SELECT breakpoint_rating, breakpoint_racks_played 
-    INTO v_p1_rating_bbrs, v_p1_racks_played
-    FROM league_players 
-    WHERE league_id = v_league_id AND player_id = v_player1_id;
-    
-    SELECT breakpoint_rating, breakpoint_racks_played 
-    INTO v_p2_rating_bbrs, v_p2_racks_played
-    FROM league_players 
-    WHERE league_id = v_league_id AND player_id = v_player2_id;
-    
-    -- Get Fargo Ratings from Profiles
-    SELECT fargo_rating INTO v_p1_rating_fargo FROM profiles WHERE id = v_player1_id;
-    SELECT fargo_rating INTO v_p2_rating_fargo FROM profiles WHERE id = v_player2_id;
+    -- 2. Get Player Ratings from Profiles (Global Source of Truth)
+    SELECT breakpoint_rating, fargo_rating INTO v_p1_rating_bbrs, v_p1_rating_fargo FROM profiles WHERE id = v_player1_id;
+    SELECT breakpoint_rating, fargo_rating INTO v_p2_rating_bbrs, v_p2_rating_fargo FROM profiles WHERE id = v_player2_id;
 
-    -- Determine Effective Rating (BBRS Priority)
+    -- Get Racks Played from league_players (Still league-specific stats)
+    SELECT breakpoint_racks_played INTO v_p1_racks_played FROM league_players WHERE league_id = v_league_id AND player_id = v_player1_id;
+    SELECT breakpoint_racks_played INTO v_p2_racks_played FROM league_players WHERE league_id = v_league_id AND player_id = v_player2_id;
+
+    -- Determine Effective Rating (Global BBRS Priority)
     v_p1_effective_rating := COALESCE(v_p1_rating_bbrs, v_p1_rating_fargo, 500);
     v_p2_effective_rating := COALESCE(v_p2_rating_bbrs, v_p2_rating_fargo, 500);
 
@@ -97,10 +97,19 @@ BEGIN
 
 
     -- 3. SERVER-SIDE WINNER DETERMINATION
-    -- Get Race Targets
-    v_race_targets := get_race_target(v_p1_effective_rating, v_p2_effective_rating, p_game_type);
-    v_race_p1 := (v_race_targets->>'p1')::int;
-    v_race_p2 := (v_race_targets->>'p2')::int;
+    -- Use stored races if available, otherwise fallback to recalculation
+    IF p_game_type = '8ball' AND v_match_race_8_p1 IS NOT NULL AND v_match_race_8_p2 IS NOT NULL THEN
+        v_race_p1 := v_match_race_8_p1;
+        v_race_p2 := v_match_race_8_p2;
+    ELSIF p_game_type = '9ball' AND v_match_race_9_p1 IS NOT NULL AND v_match_race_9_p2 IS NOT NULL THEN
+        v_race_p1 := v_match_race_9_p1;
+        v_race_p2 := v_match_race_9_p2;
+    ELSE
+        -- Get Race Targets Fallback (Using Global Effect Rating)
+        v_race_targets := get_race_target(v_p1_effective_rating, v_p2_effective_rating, p_game_type);
+        v_race_p1 := (v_race_targets->>'p1')::int;
+        v_race_p2 := (v_race_targets->>'p2')::int;
+    END IF;
     
     -- Logic: Who hit their race target?
     IF p_p1_racks_won >= v_race_p1 THEN
@@ -121,20 +130,24 @@ BEGIN
     v_points_p2 := p_p2_racks_won;
 
 
-    -- 4. Calculate BBRS Deltas (Using BBRS ratings)
+    -- 4. Calculate BBRS Deltas (Using Global BBRS ratings)
     -- Pass p_did_win based on v_final_winner_id to handle handicap scenarios correctly
     v_p1_delta := calculate_bbrs_delta(
         v_p1_rating_bbrs, v_p2_rating_bbrs,
         p_p1_racks_won, p_p1_racks_lost,
         v_p1_racks_played, TRUE,
-        (v_final_winner_id = v_player1_id) -- p_did_win: true if player1 won
+        (v_final_winner_id = v_player1_id), -- p_did_win
+        v_race_p1,             -- p_player_race_to
+        v_race_p2              -- p_opponent_race_to
     );
     
     v_p2_delta := calculate_bbrs_delta(
         v_p2_rating_bbrs, v_p1_rating_bbrs,
         p_p2_racks_won, p_p2_racks_lost,
         v_p2_racks_played, TRUE,
-        (v_final_winner_id = v_player2_id) -- p_did_win: true if player2 won
+        (v_final_winner_id = v_player2_id), -- p_did_win
+        v_race_p2,             -- p_player_race_to
+        v_race_p1              -- p_opponent_race_to
     );
 
     -- 5. Update Match Status (Using Adjusted POINTS, but Real SCORE)

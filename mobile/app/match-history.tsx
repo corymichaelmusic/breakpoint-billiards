@@ -146,6 +146,7 @@ export default function MatchHistoryScreen() {
                                     key={match.id}
                                     matchId={match.id}
                                     opponentName={opponentName}
+                                    viewerName={playerId ? playerName : undefined}
                                     date={match.scheduled_date ? new Date(match.scheduled_date).toLocaleDateString() : 'TBD'}
                                     weekNumber={match.week_number}
                                     status="finalized" // Force finalized to show stats

@@ -4,7 +4,7 @@
     "slug": "breakpoint-billiards",
     "scheme": "breakpoint-billiards",
     "backgroundColor": "#121212",
-    "version": "1.0.8",
+    "version": "1.1.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.breakpoint.billiards",
-      "buildNumber": "124",
+      "buildNumber": "129",
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -43,7 +43,7 @@
         "softwareKeyboardLayoutMode": "adjustResize",
         "enforceContrast": false
       },
-      "versionCode": 124
+      "versionCode": 130
     },
     "web": {
       "favicon": "./assets/favicon.png"
