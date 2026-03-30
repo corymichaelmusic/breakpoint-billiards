@@ -1176,3 +1176,35 @@ export async function rejectCaptainRequest(requestId: string, leagueId: string) 
     revalidatePath(`/dashboard/operator/leagues/${leagueId}`);
     return { success: true };
 }
+
+export async function approveTeamRoster(teamId: string, leagueId: string) {
+    const { isAuthorized } = await checkOperator(leagueId);
+    if (!isAuthorized) return { error: "Unauthorized" };
+
+    const supabase = createAdminClient();
+    const { error } = await supabase
+        .from("teams")
+        .update({ status: 'approved' })
+        .eq("id", teamId);
+
+    if (error) return { error: "Failed to approve roster." };
+
+    revalidatePath(`/dashboard/operator/leagues/${leagueId}`);
+    return { success: true };
+}
+
+export async function rejectTeamRoster(teamId: string, leagueId: string) {
+    const { isAuthorized } = await checkOperator(leagueId);
+    if (!isAuthorized) return { error: "Unauthorized" };
+
+    const supabase = createAdminClient();
+    const { error } = await supabase
+        .from("teams")
+        .update({ status: null })
+        .eq("id", teamId);
+
+    if (error) return { error: "Failed to reject roster." };
+
+    revalidatePath(`/dashboard/operator/leagues/${leagueId}`);
+    return { success: true };
+}

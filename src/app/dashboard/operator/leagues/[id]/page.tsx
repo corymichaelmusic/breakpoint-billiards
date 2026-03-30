@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
 import PaymentStatusManager from "@/components/PaymentStatusManager";
-import { generateSchedule, startSeason, approveCaptainRequest, rejectCaptainRequest } from "@/app/actions/league-actions";
+import { generateSchedule, startSeason, approveCaptainRequest, rejectCaptainRequest, approveTeamRoster, rejectTeamRoster } from "@/app/actions/league-actions";
 import SessionLeaderboard from "@/components/SessionLeaderboard";
 import RescheduleInbox from "@/components/RescheduleInbox";
 import MatchDateManager from "@/components/MatchDateManager";
@@ -107,6 +107,29 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                 ...r,
                 profile: profileMap.get(r.player_id) || null
             }));
+        }
+    }
+
+    // Fetch submitted team rosters
+    let rosterSubmissions: any[] = [];
+    if (!isLeagueOrg && league.is_team_league) {
+        const { data: submittedTeams } = await supabase
+            .from('teams')
+            .select('id, name, tid, captain_id, status')
+            .eq('league_id', id)
+            .eq('status', 'submitted');
+        
+        if (submittedTeams && submittedTeams.length > 0) {
+            for (const team of submittedTeams) {
+                const { data: members } = await supabase
+                    .from('team_members')
+                    .select('id, profiles(full_name, breakpoint_rating)')
+                    .eq('team_id', team.id);
+                rosterSubmissions.push({
+                    ...team,
+                    members: members || []
+                });
+            }
         }
     }
 
@@ -482,6 +505,52 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                             </div>
                                         );
                                     })}
+                                </div>
+                            </div>
+                        )}
+
+                        {!isLeagueOrg && rosterSubmissions.length > 0 && (
+                            <div className="card-glass p-6 border-primary/30">
+                                <h3 className="text-lg font-bold mb-4" style={{ color: '#D4AF37' }}>
+                                    Roster Submissions
+                                    <span className="ml-2 bg-[#D4AF37] text-black text-xs px-2 py-0.5 rounded-full">{rosterSubmissions.length}</span>
+                                </h3>
+                                <div className="grid gap-4">
+                                    {rosterSubmissions.map((submission: any) => (
+                                        <div key={submission.id} className="bg-surface/50 p-4 rounded border border-border">
+                                            <div className="flex justify-between items-start mb-3">
+                                                <div>
+                                                    <div className="font-bold text-[#D4AF37] text-lg">{submission.name}</div>
+                                                    <div className="text-xs text-gray-500 font-mono">TID: {submission.tid}</div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="space-y-1 mb-4 border-t border-white/5 pt-3">
+                                                <div className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Team Roster</div>
+                                                {submission.members.map((m: any) => (
+                                                    <div key={m.id} className="flex justify-between text-xs text-white bg-black/20 px-2 py-1.5 rounded">
+                                                        <span>{m.profiles?.full_name}</span>
+                                                        <span className="text-[#D4AF37] font-bold">{m.profiles?.breakpoint_rating}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            <div className="flex gap-2">
+                                                <form action={async () => {
+                                                    'use server';
+                                                    await approveTeamRoster(submission.id, id);
+                                                }} className="flex-1">
+                                                    <button className="btn w-full text-xs py-2 font-bold" style={{ backgroundColor: '#22c55e', color: 'black' }}>Approve Roster</button>
+                                                </form>
+                                                <form action={async () => {
+                                                    'use server';
+                                                    await rejectTeamRoster(submission.id, id);
+                                                }} className="flex-1">
+                                                    <button className="btn w-full text-xs py-2 font-bold" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid #ef4444' }}>Reject</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         )}
