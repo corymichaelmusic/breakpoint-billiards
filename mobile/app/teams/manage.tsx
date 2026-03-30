@@ -26,6 +26,9 @@ export default function ManageTeamScreen() {
     const [isEditingName, setIsEditingName] = useState(false);
     const [newName, setNewName] = useState("");
     const [renameLoading, setRenameLoading] = useState(false);
+    
+    // Submit Team State
+    const [submitLoading, setSubmitLoading] = useState(false);
 
     const fetchTeamData = useCallback(async () => {
         if (!currentSession?.id || !userId) return;
@@ -105,33 +108,45 @@ export default function ManageTeamScreen() {
             return;
         }
 
-        setAddLoading(true);
-        try {
-            const token = await getToken({ template: 'supabase' });
-            const supabase = createClient(
-                process.env.EXPO_PUBLIC_SUPABASE_URL!,
-                process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
-                { global: { headers: { Authorization: `Bearer ${token}` } } }
-            );
+        Alert.alert(
+            "Add Player",
+            `Are you sure you want to add ${player.full_name || 'this player'} to your team?`,
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Add Player",
+                    onPress: async () => {
+                        setAddLoading(true);
+                        try {
+                            const token = await getToken({ template: 'supabase' });
+                            const supabase = createClient(
+                                process.env.EXPO_PUBLIC_SUPABASE_URL!,
+                                process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+                                { global: { headers: { Authorization: `Bearer ${token}` } } }
+                            );
 
-            const { error } = await supabase
-                .from('team_members')
-                .insert({
-                    team_id: team.id,
-                    player_id: player.id
-                });
+                            const { error } = await supabase
+                                .from('team_members')
+                                .insert({
+                                    team_id: team.id,
+                                    player_id: player.id
+                                });
 
-            if (error) throw error;
+                            if (error) throw error;
 
-            Alert.alert("Success", `${player.full_name || 'Player'} added to team!`);
-            fetchTeamData(); // Refresh Roster & Available Players
+                            Alert.alert("Success", `${player.full_name || 'Player'} added to team!`);
+                            fetchTeamData(); // Refresh Roster & Available Players
 
-        } catch (e) {
-            console.error(e);
-            Alert.alert("Error", "Failed to add player to team.");
-        } finally {
-            setAddLoading(false);
-        }
+                        } catch (e) {
+                            console.error(e);
+                            Alert.alert("Error", "Failed to add player to team.");
+                        } finally {
+                            setAddLoading(false);
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     const handleRemovePlayer = (member: any) => {
@@ -205,6 +220,47 @@ export default function ManageTeamScreen() {
         } finally {
             setRenameLoading(false);
         }
+    };
+
+    const handleSubmitTeam = async () => {
+        if (!team || members.length < 6) return;
+        
+        Alert.alert(
+            "Submit Roster",
+            "Are you ready to submit this roster for operator approval? You won't be able to play until it's approved.",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Submit",
+                    onPress: async () => {
+                        setSubmitLoading(true);
+                        try {
+                            const token = await getToken({ template: 'supabase' });
+                            const supabase = createClient(
+                                process.env.EXPO_PUBLIC_SUPABASE_URL!,
+                                process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+                                { global: { headers: { Authorization: `Bearer ${token}` } } }
+                            );
+
+                            const { error } = await supabase
+                                .from('teams')
+                                .update({ status: 'submitted' })
+                                .eq('id', team.id);
+
+                            if (error) throw error;
+                            
+                            Alert.alert("Success", "Team roster submitted for approval!");
+                            fetchTeamData();
+                        } catch (e) {
+                            console.error(e);
+                            Alert.alert("Error", "Failed to submit team.");
+                        } finally {
+                            setSubmitLoading(false);
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     if (loading) {
@@ -368,9 +424,36 @@ export default function ManageTeamScreen() {
                                      <FontAwesome5 name="user-minus" size={14} color="#EF4444" />
                                  </TouchableOpacity>
                              )}
-                         </View>
-                     )}
-                 />
+                             </View>
+                         )}
+                         ListFooterComponent={
+                             isCaptain && members.length === 6 && team.status !== 'submitted' && team.status !== 'approved' ? (
+                                 <View className="mt-4 mb-10 px-2">
+                                     <TouchableOpacity 
+                                         onPress={handleSubmitTeam}
+                                         disabled={submitLoading}
+                                         className="bg-primary py-4 rounded-xl items-center shadow-lg shadow-primary/30"
+                                     >
+                                         {submitLoading ? (
+                                             <ActivityIndicator color="black" />
+                                         ) : (
+                                             <Text className="text-black font-black uppercase tracking-widest text-base">Submit Roster for Approval</Text>
+                                         )}
+                                     </TouchableOpacity>
+                                     <Text className="text-gray-500 text-center text-[10px] uppercase mt-3 tracking-tighter">Required for league participation</Text>
+                                 </View>
+                             ) : isCaptain && (team.status === 'submitted' || team.status === 'approved') ? (
+                                 <View className="mt-4 mb-10 items-center">
+                                     <View className={`px-2 py-1.5 rounded-full border ${team.status === 'approved' ? 'bg-green-500/10 border-green-500/30' : 'bg-yellow-500/10 border-yellow-500/30'}`}>
+                                         <Text className={`text-[10px] font-bold uppercase tracking-widest ${team.status === 'approved' ? 'text-green-400' : 'text-yellow-500'}`}>
+                                             Team {team.status}
+                                         </Text>
+                                     </View>
+                                     <Text className="text-gray-500 text-[8px] mt-2 uppercase tracking-tight">Awaiting further instructions</Text>
+                                 </View>
+                             ) : <View className="h-20" />
+                         }
+                     />
              </KeyboardAvoidingView>
         </SafeAreaView>
     );
