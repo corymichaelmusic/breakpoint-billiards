@@ -5,7 +5,7 @@ security definer
 set search_path = public
 as $$
 declare
-    v_user_id text := auth.uid()::text;
+    v_user_id text := auth.jwt() ->> 'sub';
 begin
     if v_user_id is null then
         raise exception 'Unauthorized';
