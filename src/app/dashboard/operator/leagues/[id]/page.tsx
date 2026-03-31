@@ -61,6 +61,13 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
         .order("week_number", { ascending: true })
         .order("created_at", { ascending: true }) : { data: [] };
 
+    const { count: teamMatchCount } = !isLeagueOrg && league.is_team_league
+        ? await supabase
+            .from("team_matches")
+            .select("*", { count: 'exact', head: true })
+            .eq("league_id", id)
+        : { count: 0 };
+
     // Fetch pending players
     const sessionIds = sessions.map(s => s.id);
     const allLeagueIds = [id, ...sessionIds];
@@ -82,7 +89,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
 
     const hasUnpaidPlayers = (unpaidPlayerCount || 0) > 0;
     const hasPending = pendingRequests && pendingRequests.length > 0;
-    const hasMatches = matches && matches.length > 0;
+    const hasMatches = (matches && matches.length > 0) || (league.is_team_league && (teamMatchCount || 0) > 0);
     const isSetup = league.status === 'setup';
     const isCompleted = league.status === 'completed';
 

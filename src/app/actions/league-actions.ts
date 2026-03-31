@@ -265,7 +265,11 @@ export async function generateSchedule(
     }
 
     // 0. Check Fee Status and Start Date
-    const { data: league, error: fetchError } = await supabase.from("leagues").select("creation_fee_status, start_date, time_slots, table_names").eq("id", leagueId).single();
+    const { data: league, error: fetchError } = await supabase
+        .from("leagues")
+        .select("creation_fee_status, start_date, time_slots, table_names, is_team_league")
+        .eq("id", leagueId)
+        .single();
 
     if (fetchError) {
         console.error("[generateSchedule] League Fetch Error:", fetchError);
@@ -287,8 +291,9 @@ export async function generateSchedule(
     }
 
     // 1. Check if matches already exist
+    const scheduleTable = league.is_team_league ? "team_matches" : "matches";
     const { count } = await supabase
-        .from("matches")
+        .from(scheduleTable)
         .select("*", { count: 'exact', head: true })
         .eq("league_id", leagueId);
 
@@ -296,31 +301,46 @@ export async function generateSchedule(
         return { error: "Schedule already exists." };
     }
 
-    // 2. Fetch players in the league
-    const { data: leaguePlayers, error: playersError } = await supabase
-        .from("league_players")
-        .select("player_id, payment_status, profiles!inner(is_active)")
-        .eq("league_id", leagueId)
-        .eq("profiles.is_active", true);
+    const scheduleEntries: string[] = [];
+    let scheduleRecords: any[] = [];
 
-    if (playersError || !leaguePlayers || leaguePlayers.length < 2) {
-        console.error("Not enough players to generate schedule");
-        return { error: "NOT_ENOUGH_PLAYERS" };
+    if (league.is_team_league) {
+        const { data: teams, error: teamsError } = await supabase
+            .from("teams")
+            .select("id")
+            .eq("league_id", leagueId)
+            .eq("status", "approved");
+
+        if (teamsError || !teams || teams.length < 2) {
+            console.error("Not enough approved teams to generate team schedule");
+            return { error: "NOT_ENOUGH_PLAYERS" };
+        }
+
+        scheduleEntries.push(...teams.map((team) => team.id));
+    } else {
+        const { data: leaguePlayers, error: playersError } = await supabase
+            .from("league_players")
+            .select("player_id, payment_status, profiles!inner(is_active)")
+            .eq("league_id", leagueId)
+            .eq("profiles.is_active", true);
+
+        if (playersError || !leaguePlayers || leaguePlayers.length < 2) {
+            console.error("Not enough players to generate schedule");
+            return { error: "NOT_ENOUGH_PLAYERS" };
+        }
+
+        scheduleEntries.push(...leaguePlayers.map(lp => lp.player_id));
     }
 
-    const playerIds = leaguePlayers.map(lp => lp.player_id);
+    // Randomize order for initial pairings
+    scheduleEntries.sort(() => Math.random() - 0.5);
 
-    // Randomize player order for random initial matchups
-    playerIds.sort(() => Math.random() - 0.5);
-
-    // 2. Generate Round Robin Schedule
-    if (playerIds.length % 2 !== 0) {
-        playerIds.push("bye");
+    if (scheduleEntries.length % 2 !== 0) {
+        scheduleEntries.push("bye");
     }
 
-    const n = playerIds.length;
+    const n = scheduleEntries.length;
     const rounds = n - 1;
-    const matches = [];
     const totalMatchWeeks = Math.max(1, Math.floor(requestedWeekCount || 16));
 
     // Parse start date explicitly
@@ -363,7 +383,7 @@ export async function generateSchedule(
         const roundIndex = (currentWeekOfPlay - 1) % rounds;
 
         // Indices for this round
-        let currentPlayers = [...playerIds];
+        let currentPlayers = [...scheduleEntries];
 
         // Rotate players array for the current round
         for (let r = 0; r < roundIndex; r++) {
@@ -401,16 +421,26 @@ export async function generateSchedule(
                 const assignedTime = timeSlots[timeIndex];
                 const assignedTable = tableNames[tableIndex];
 
-                matches.push({
-                    league_id: leagueId,
-                    player1_id: p1,
-                    player2_id: p2,
-                    week_number: currentWeekOfPlay, // This stays 1..16
-                    status: 'scheduled',
-                    scheduled_date: candidateDate.toISOString(), // This reflects the actual skipped date
-                    scheduled_time: assignedTime,
-                    table_name: assignedTable
-                });
+                if (league.is_team_league) {
+                    scheduleRecords.push({
+                        league_id: leagueId,
+                        team_a_id: p1,
+                        team_b_id: p2,
+                        week_number: currentWeekOfPlay,
+                        status: 'scheduled'
+                    });
+                } else {
+                    scheduleRecords.push({
+                        league_id: leagueId,
+                        player1_id: p1,
+                        player2_id: p2,
+                        week_number: currentWeekOfPlay,
+                        status: 'scheduled',
+                        scheduled_date: candidateDate.toISOString(),
+                        scheduled_time: assignedTime,
+                        table_name: assignedTable
+                    });
+                }
 
                 matchIndexInWeek++;
             }
@@ -422,8 +452,8 @@ export async function generateSchedule(
 
     // 3. Bulk Insert Matches
     const { error: insertError } = await supabase
-        .from("matches")
-        .insert(matches);
+        .from(scheduleTable)
+        .insert(scheduleRecords);
 
     if (insertError) {
         console.error("Error inserting matches:", insertError);
@@ -830,23 +860,58 @@ export async function resetSchedule(leagueId: string) {
     // 1. Verify league status
     const { data: league } = await supabase
         .from("leagues")
-        .select("status")
+        .select("status, is_team_league")
         .eq("id", leagueId)
         .single();
 
     if (!league) return { error: "League not found" };
     if (league.status !== 'setup') return { error: "Can only reset schedule in setup mode." };
 
-    // 2. Delete matches (and games via cascade or manual)
-    // First delete games
     const { data: matches } = await supabase
         .from("matches")
         .select("id")
         .eq("league_id", leagueId);
 
-    const matchIds = matches?.map(m => m.id) || [];
+    const directMatchIds = matches?.map(m => m.id) || [];
+    let teamMatchIds: string[] = [];
+    let teamSetMatchIds: string[] = [];
+
+    if (league.is_team_league) {
+        const { data: teamMatches, error: teamMatchesError } = await supabase
+            .from("team_matches")
+            .select("id")
+            .eq("league_id", leagueId);
+
+        if (teamMatchesError) {
+            console.error("Error fetching team matches:", teamMatchesError);
+            return { error: "Failed to inspect team schedule." };
+        }
+
+        teamMatchIds = (teamMatches || []).map((teamMatch) => teamMatch.id);
+
+        if (teamMatchIds.length > 0) {
+        const { data: teamMatchSets, error: teamSetFetchError } = await supabase
+            .from("team_match_sets")
+            .select("id, match_id")
+            .in("team_match_id", teamMatchIds);
+
+        if (teamSetFetchError) {
+            console.error("Error fetching team match sets:", teamSetFetchError);
+            return { error: "Failed to inspect team schedule." };
+        }
+
+        teamSetMatchIds = (teamMatchSets || []).map((set) => set.match_id).filter(Boolean);
+        }
+    }
+
+    const matchIds = [...new Set([...directMatchIds, ...teamSetMatchIds])];
 
     if (matchIds.length > 0) {
+        await supabase
+            .from("reschedule_requests")
+            .delete()
+            .in("match_id", matchIds);
+
         const { error: gamesError } = await supabase
             .from("games")
             .delete()
@@ -858,7 +923,20 @@ export async function resetSchedule(leagueId: string) {
         }
     }
 
-    // Now delete matches
+    if (league.is_team_league) {
+        if (teamMatchIds.length > 0) {
+        const { error: deleteTeamSetsError } = await supabase
+            .from("team_match_sets")
+            .delete()
+            .in("team_match_id", teamMatchIds);
+
+        if (deleteTeamSetsError) {
+            console.error("Error deleting team match sets:", deleteTeamSetsError);
+            return { error: "Failed to delete team match sets." };
+        }
+        }
+    }
+
     const { error: deleteError } = await supabase
         .from("matches")
         .delete()
@@ -867,6 +945,18 @@ export async function resetSchedule(leagueId: string) {
     if (deleteError) {
         console.error("Error deleting matches:", deleteError);
         return { error: "Failed to delete matches." };
+    }
+
+    if (league.is_team_league) {
+        const { error: deleteTeamMatchesError } = await supabase
+            .from("team_matches")
+            .delete()
+            .eq("league_id", leagueId);
+
+        if (deleteTeamMatchesError) {
+            console.error("Error deleting team matches:", deleteTeamMatchesError);
+            return { error: "Failed to delete team matches." };
+        }
     }
 
     revalidatePath(`/dashboard/operator/leagues/${leagueId}`);
@@ -1045,7 +1135,11 @@ export async function startSession(leagueId: string) {
     if (!userId) return { error: "Unauthorized" };
 
     // 1. Verify operator
-    const { data: league } = await supabase.from("leagues").select("operator_id, parent_league_id, status").eq("id", leagueId).single();
+    const { data: league } = await supabase
+        .from("leagues")
+        .select("operator_id, parent_league_id, status, is_team_league")
+        .eq("id", leagueId)
+        .single();
     if (!league) return { error: "League not found" };
 
     let operatorId = league.operator_id;
@@ -1076,8 +1170,9 @@ export async function startSession(leagueId: string) {
     }
 
     // 3. Check if schedule exists
+    const scheduleTable = league.is_team_league ? "team_matches" : "matches";
     const { count } = await supabase
-        .from("matches")
+        .from(scheduleTable)
         .select("*", { count: 'exact', head: true })
         .eq("league_id", leagueId);
 
