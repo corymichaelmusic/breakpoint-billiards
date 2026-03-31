@@ -9,13 +9,22 @@ import { isMatchDateLocked } from '@/utils/match-utils';
 
 interface MatchesListViewProps {
     matches: any[];
+    teamMatches?: any[];
     leagueId: string;
     leagueStatus: string;
     timezone: string;
+    isTeamLeague?: boolean;
 }
 
-export default function MatchesListView({ matches, leagueId, leagueStatus, timezone }: MatchesListViewProps) {
-    const hasMatches = matches && matches.length > 0;
+export default function MatchesListView({
+    matches,
+    teamMatches = [],
+    leagueId,
+    leagueStatus,
+    timezone,
+    isTeamLeague = false
+}: MatchesListViewProps) {
+    const hasMatches = isTeamLeague ? teamMatches.length > 0 : matches && matches.length > 0;
 
     if (!hasMatches) {
         return (
@@ -54,14 +63,38 @@ export default function MatchesListView({ matches, leagueId, leagueStatus, timez
                     <thead>
                         <tr className="border-b border-border text-gray-500 text-xs uppercase">
                             <th className="p-2">Wk</th>
-                            <th className="p-2">Date</th>
+                            {!isTeamLeague && <th className="p-2">Date</th>}
                             <th className="p-2">Matchup</th>
                             <th className="p-2">Status</th>
-                            <th className="p-2">Scores</th>
+                            <th className="p-2">{isTeamLeague ? 'Team Score' : 'Scores'}</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                        {matches.map((match, index) => {
+                        {isTeamLeague ? teamMatches.map((match) => {
+                            return (
+                                <tr key={match.id} className="hover:bg-white/5 transition-colors">
+                                    <td className="p-2 font-mono text-gray-400">{match.week_number}</td>
+                                    <td className="p-2">
+                                        <div className="flex flex-col gap-1 text-sm">
+                                            <span className="!text-white font-medium" style={{ color: '#ffffff' }}>{match.team_a?.name || 'Team A'}</span>
+                                            <span className="!text-white font-medium" style={{ color: '#ffffff' }}>{match.team_b?.name || 'Team B'}</span>
+                                        </div>
+                                    </td>
+                                    <td className="p-2">
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase font-bold
+                                            ${match.status === 'completed' ? 'bg-[#22c55e]/20 text-[#4ade80]' :
+                                                match.status === 'in_progress' ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'bg-surface text-gray-300'}`}>
+                                            {match.status}
+                                        </span>
+                                    </td>
+                                    <td className="p-2">
+                                        <span className="text-[10px] font-mono bg-black/40 px-1.5 py-0.5 rounded text-gray-300 whitespace-nowrap">
+                                            <span className="text-white">{match.wins_a ?? 0}-{match.wins_b ?? 0}</span>
+                                        </span>
+                                    </td>
+                                </tr>
+                            );
+                        }) : matches.map((match, index) => {
                             const hasPoints = (match.points_8ball_p1 || 0) > 0 || (match.points_8ball_p2 || 0) > 0 || (match.points_9ball_p1 || 0) > 0 || (match.points_9ball_p2 || 0) > 0;
                             const is8BallDone = match.status_8ball === 'finalized';
                             const is9BallDone = match.status_9ball === 'finalized';

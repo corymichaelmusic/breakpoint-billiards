@@ -61,6 +61,19 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
         .order("week_number", { ascending: true })
         .order("created_at", { ascending: true }) : { data: [] };
 
+    const { data: teamMatches } = !isLeagueOrg && league.is_team_league
+        ? await supabase
+            .from("team_matches")
+            .select(`
+                *,
+                team_a:team_a_id(name),
+                team_b:team_b_id(name)
+            `)
+            .eq("league_id", id)
+            .order("week_number", { ascending: true })
+            .order("created_at", { ascending: true })
+        : { data: [] };
+
     const { count: teamMatchCount } = !isLeagueOrg && league.is_team_league
         ? await supabase
             .from("team_matches")
@@ -528,9 +541,11 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
 
                         <MatchesListView
                             matches={matches || []}
+                            teamMatches={teamMatches || []}
                             leagueId={id}
                             leagueStatus={league.status}
                             timezone={league.timezone}
+                            isTeamLeague={league.is_team_league}
                         />
 
                     </div>
