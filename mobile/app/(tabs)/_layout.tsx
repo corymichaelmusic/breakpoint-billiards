@@ -2,31 +2,60 @@ import { Tabs } from "expo-router";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { Platform } from "react-native";
 import { useSession } from "../../lib/SessionContext";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { useAuth } from "@clerk/clerk-expo";
 
 export default function TabLayout() {
     const { unreadCount, markAsRead, currentSession } = useSession();
-    const { getToken } = useAuth();
+    const { getToken, userId } = useAuth();
     const [isTeamSession, setIsTeamSession] = useState(false);
+    const [isTeamCaptain, setIsTeamCaptain] = useState(false);
+    const getTokenRef = useRef(getToken);
 
     useEffect(() => {
-        if (!currentSession?.id) { setIsTeamSession(false); return; }
+        getTokenRef.current = getToken;
+    }, [getToken]);
+
+    useEffect(() => {
+        if (!currentSession?.id || !userId) {
+            setIsTeamSession(false);
+            setIsTeamCaptain(false);
+            return;
+        }
+
         const check = async () => {
             try {
-                const token = await getToken({ template: 'supabase' });
+                const token = await getTokenRef.current({ template: 'supabase' });
                 const supabase = createClient(
                     process.env.EXPO_PUBLIC_SUPABASE_URL!,
                     process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
                     { global: { headers: { Authorization: `Bearer ${token}` } } }
                 );
                 const { data } = await supabase.from('leagues').select('is_team_league').eq('id', currentSession.id).single();
-                setIsTeamSession(!!data?.is_team_league);
-            } catch { setIsTeamSession(false); }
+                const teamSession = !!data?.is_team_league;
+                setIsTeamSession(teamSession);
+
+                if (!teamSession) {
+                    setIsTeamCaptain(false);
+                    return;
+                }
+
+                const { data: captainTeam } = await supabase
+                    .from('teams')
+                    .select('id')
+                    .eq('league_id', currentSession.id)
+                    .eq('captain_id', userId)
+                    .maybeSingle();
+
+                setIsTeamCaptain(!!captainTeam);
+            } catch {
+                setIsTeamSession(false);
+                setIsTeamCaptain(false);
+            }
         };
         check();
-    }, [currentSession?.id]);
+    }, [currentSession?.id, userId]);
 
     return (
         <Tabs
@@ -103,8 +132,16 @@ export default function TabLayout() {
                 name="chat"
                 options={{
                     title: "Chat",
-                    tabBarIcon: ({ color }) => <FontAwesome5 name="comments" size={20} color={color} />,
-                    tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+                    tabBarIcon: ({ color }) => (
+                        <FontAwesome5
+                            name="comments"
+                            size={20}
+                            color={isTeamSession && !isTeamCaptain ? '#333' : color}
+                        />
+                    ),
+                    tabBarActiveTintColor: isTeamSession && !isTeamCaptain ? '#333' : '#D4AF37',
+                    tabBarInactiveTintColor: isTeamSession && !isTeamCaptain ? '#333' : '#666',
+                    tabBarBadge: isTeamSession && !isTeamCaptain ? undefined : (unreadCount > 0 ? unreadCount : undefined),
                     tabBarBadgeStyle: {
                         backgroundColor: '#D4AF37',
                         color: '#000',
@@ -113,7 +150,13 @@ export default function TabLayout() {
                     }
                 }}
                 listeners={{
-                    tabPress: () => { markAsRead(); },
+                    tabPress: (e) => {
+                        if (isTeamSession && !isTeamCaptain) {
+                            e.preventDefault();
+                            return;
+                        }
+                        markAsRead();
+                    },
                 }}
             />
             <Tabs.Screen

@@ -21,6 +21,9 @@ export default function ChatScreen() {
     const [inputText, setInputText] = useState("");
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
+    const [accessLoading, setAccessLoading] = useState(true);
+    const [isTeamSession, setIsTeamSession] = useState(false);
+    const [isTeamCaptain, setIsTeamCaptain] = useState(false);
     const [hasInitialScrolled, setHasInitialScrolled] = useState(false);
     const [showTagging, setShowTagging] = useState(false);
     const flatListRef = useRef<FlatList>(null);
@@ -34,25 +37,83 @@ export default function ChatScreen() {
     const pendingFocus = useRef(false);
 
     // Use refs for stable access in intervals/callbacks without triggering re-renders
+    const getTokenRef = useRef(getToken);
     const currentSessionRef = useRef(currentSession);
     const userIdRef = useRef(userId);
+
+    useEffect(() => {
+        getTokenRef.current = getToken;
+    }, [getToken]);
 
     useEffect(() => {
         currentSessionRef.current = currentSession;
         userIdRef.current = userId;
     }, [currentSession, userId]);
 
+    useEffect(() => {
+        const checkAccess = async () => {
+            if (!currentSession?.id || !userId) {
+                setIsTeamSession(false);
+                setIsTeamCaptain(false);
+                setAccessLoading(false);
+                return;
+            }
+
+            setAccessLoading(true);
+
+            try {
+                const token = await getTokenRef.current({ template: 'supabase' });
+                const authedSupabase = createClient(
+                    process.env.EXPO_PUBLIC_SUPABASE_URL!,
+                    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+                    { global: { headers: token ? { Authorization: `Bearer ${token}` } : undefined } }
+                );
+
+                const { data: leagueData } = await authedSupabase
+                    .from('leagues')
+                    .select('is_team_league')
+                    .eq('id', currentSession.id)
+                    .single();
+
+                const teamSession = !!leagueData?.is_team_league;
+                setIsTeamSession(teamSession);
+
+                if (!teamSession) {
+                    setIsTeamCaptain(false);
+                    return;
+                }
+
+                const { data: captainTeam } = await authedSupabase
+                    .from('teams')
+                    .select('id')
+                    .eq('league_id', currentSession.id)
+                    .eq('captain_id', userId)
+                    .maybeSingle();
+
+                setIsTeamCaptain(!!captainTeam);
+            } catch (e) {
+                console.error("Error checking chat access:", e);
+                setIsTeamSession(false);
+                setIsTeamCaptain(false);
+            } finally {
+                setAccessLoading(false);
+            }
+        };
+
+        checkAccess();
+    }, [currentSession?.id, userId]);
+
     const fetchMessages = useCallback(async () => {
         const sessionId = currentSessionRef.current?.id;
         const uid = userIdRef.current;
 
-        if (!sessionId || !uid) {
+        if (!sessionId || !uid || accessLoading || (isTeamSession && !isTeamCaptain)) {
             setLoading(false);
             return;
         }
 
         try {
-            const token = await getToken({ template: 'supabase' });
+            const token = await getTokenRef.current({ template: 'supabase' });
             const supabase = createClient(
                 process.env.EXPO_PUBLIC_SUPABASE_URL!,
                 process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
@@ -84,17 +145,49 @@ export default function ChatScreen() {
         } finally {
             setLoading(false);
         }
-    }, [getToken]);
+    }, [getToken, accessLoading, isTeamSession, isTeamCaptain]);
 
     const fetchPlayers = useCallback(async () => {
-        if (!currentSession?.id) return;
+        if (!currentSession?.id || accessLoading || (isTeamSession && !isTeamCaptain)) return;
         try {
-            const token = await getToken({ template: 'supabase' });
+            const token = await getTokenRef.current({ template: 'supabase' });
             const supabase = createClient(
                 process.env.EXPO_PUBLIC_SUPABASE_URL!,
                 process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
                 { global: { headers: token ? { Authorization: `Bearer ${token}` } : undefined } }
             );
+
+            if (isTeamSession) {
+                const { data, error } = await supabase
+                    .from('teams')
+                    .select(`
+                        id,
+                        name,
+                        captain_id,
+                        profiles:captain_id(id, full_name, avatar_url, nickname)
+                    `)
+                    .eq('league_id', currentSession.id);
+
+                if (error) throw error;
+
+                if (data) {
+                    const mapped = data
+                        .map((team: any) => {
+                            const captain = Array.isArray(team.profiles) ? team.profiles[0] : team.profiles;
+                            return captain ? {
+                                ...captain,
+                                team_name: team.name,
+                                team_id: team.id,
+                            } : null;
+                        })
+                        .filter(Boolean)
+                        .filter((captain: any) => captain.id !== userId);
+
+                    setPlayers(mapped);
+                }
+
+                return;
+            }
 
             const { data, error } = await supabase
                 .from('league_players')
@@ -116,7 +209,7 @@ export default function ChatScreen() {
         } catch (e) {
             console.error("Error fetching players for tagging:", e);
         }
-    }, [getToken, currentSession?.id, userId]);
+    }, [getToken, currentSession?.id, userId, accessLoading, isTeamSession, isTeamCaptain]);
 
     useEffect(() => {
         fetchPlayers();
@@ -303,6 +396,7 @@ export default function ChatScreen() {
     };
 
     const handleSend = async () => {
+        if (isTeamSession && !isTeamCaptain) return;
         if (!inputText.trim() || !currentSession?.id || !userId) return;
 
         const content = inputText.trim();
@@ -332,7 +426,7 @@ export default function ChatScreen() {
         setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
 
         try {
-            const token = await getToken({ template: 'supabase' });
+            const token = await getTokenRef.current({ template: 'supabase' });
             const supabase = createClient(
                 process.env.EXPO_PUBLIC_SUPABASE_URL!,
                 process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
@@ -547,9 +641,19 @@ export default function ChatScreen() {
                     </Text>
                 </View>
 
-                {loading ? (
+                {loading || accessLoading ? (
                     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                         <ActivityIndicator size="large" color="#D4AF37" />
+                    </View>
+                ) : isTeamSession && !isTeamCaptain ? (
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
+                        <FontAwesome5 name="crown" size={40} color="#D4AF37" />
+                        <Text style={{ color: '#fff', fontSize: 20, fontWeight: 'bold', marginTop: 18, textAlign: 'center' }}>
+                            Captains Only
+                        </Text>
+                        <Text style={{ color: '#888', fontSize: 14, marginTop: 10, textAlign: 'center', lineHeight: 20 }}>
+                            Team session chat is only available to team captains.
+                        </Text>
                     </View>
                 ) : (
                     <View style={{ flex: 1 }}>
@@ -691,11 +795,11 @@ export default function ChatScreen() {
                                 <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#444' }} />
                             </View>
                             <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold', textAlign: 'center', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 }}>
-                                Tag a Player
+                                {isTeamSession ? 'Tag a Team Captain' : 'Tag a Player'}
                             </Text>
                             {players.length === 0 ? (
                                 <Text style={{ color: '#666', textAlign: 'center', paddingVertical: 20 }}>
-                                    No other players in this session.
+                                    {isTeamSession ? 'No other team captains in this session.' : 'No other players in this session.'}
                                 </Text>
                             ) : (
                                 <ScrollView style={{ paddingHorizontal: 16 }}>
@@ -719,9 +823,16 @@ export default function ChatScreen() {
                                                     <FontAwesome5 name="user" size={14} color="#ccc" />
                                                 </View>
                                             )}
-                                            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
-                                                {player.nickname || player.full_name || 'Unknown'}
-                                            </Text>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
+                                                    {isTeamSession ? (player.team_name || 'Unknown Team') : (player.nickname || player.full_name || 'Unknown')}
+                                                </Text>
+                                                {isTeamSession && (
+                                                    <Text style={{ color: '#888', fontSize: 12, marginTop: 2 }}>
+                                                        {player.nickname || player.full_name || 'Unknown'}
+                                                    </Text>
+                                                )}
+                                            </View>
                                         </TouchableOpacity>
                                     ))}
                                 </ScrollView>
@@ -733,4 +844,3 @@ export default function ChatScreen() {
         </SafeAreaView >
     );
 }
-

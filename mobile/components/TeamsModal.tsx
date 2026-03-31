@@ -25,6 +25,21 @@ export default function TeamsModal({ visible, onClose }: Props) {
     const [captainRequest, setCaptainRequest] = useState<any>(null);
     const [submitting, setSubmitting] = useState(false);
 
+    const getStatusText = (status?: string | null) => {
+        switch (status) {
+            case 'pending':
+                return 'Pending operator approval';
+            case 'submitted':
+                return 'Roster submitted for approval';
+            case 'approved':
+                return 'Roster approved and locked';
+            case 'edit_requested':
+                return 'Edit request pending approval';
+            default:
+                return 'Roster is still editable';
+        }
+    };
+
     const fetchTeamStatus = useCallback(async () => {
         if (!userId || !currentSession?.id) { setLoading(false); return; }
         setLoading(true);
@@ -123,6 +138,11 @@ export default function TeamsModal({ visible, onClose }: Props) {
                         <View style={{ paddingTop: 20 }}>
                             <Text style={{ color: '#888', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 4 }}>Your Team</Text>
                             <Text style={{ color: '#fff', fontSize: 22, fontWeight: 'bold', marginBottom: 20 }}>{team.name}</Text>
+                            <View style={{ alignSelf: 'flex-start', backgroundColor: '#1f1f1f', borderRadius: 999, borderWidth: 1, borderColor: '#333', paddingHorizontal: 12, paddingVertical: 6, marginBottom: 16 }}>
+                                <Text style={{ color: '#D4AF37', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1 }}>
+                                    {getStatusText(team.status)}
+                                </Text>
+                            </View>
 
                             <TouchableOpacity
                                 onPress={() => goTo('/teams/manage')}
@@ -137,13 +157,13 @@ export default function TeamsModal({ visible, onClose }: Props) {
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                onPress={() => goTo('/teams/create')}
+                                onPress={() => goTo('/teams/manage')}
                                 style={{ backgroundColor: '#1f1f1f', borderRadius: 12, padding: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#333' }}
                                 activeOpacity={0.8}
                             >
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                                     <FontAwesome5 name="edit" size={16} color="#D4AF37" />
-                                    <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Edit Team</Text>
+                                    <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>View Team Details</Text>
                                 </View>
                                 <FontAwesome5 name="chevron-right" size={14} color="#555" />
                             </TouchableOpacity>

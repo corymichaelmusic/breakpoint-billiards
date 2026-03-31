@@ -11,6 +11,37 @@ import { fetchMatchRaces } from "../../utils/rating";
 import { useSession } from "../../lib/SessionContext";
 import { isMatchLocked } from "../../utils/match";
 
+type MatchGame = {
+    winner_id?: string | null;
+    is_break_and_run?: boolean | null;
+    is_9_on_snap?: boolean | null;
+    game_type?: string | null;
+    game_number?: number | null;
+    scored_by?: string | null;
+};
+
+const getDisplayGames = (games: MatchGame[] | null | undefined, userId: string) => {
+    if (!games?.length) return [];
+
+    const myGames = games.filter((game) => game.scored_by === userId);
+    if (myGames.length > 0) return myGames;
+
+    const seen = new Set<string>();
+    return games.filter((game) => {
+        const key = [
+            game.game_type ?? "",
+            game.game_number ?? "",
+            game.winner_id ?? "",
+            game.is_break_and_run ? "1" : "0",
+            game.is_9_on_snap ? "1" : "0",
+        ].join(":");
+
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+};
+
 export default function MatchesScreen() {
     const { userId, getToken } = useAuth();
     const [loading, setLoading] = useState(true);
@@ -19,20 +50,26 @@ export default function MatchesScreen() {
     const [teamMatches, setTeamMatches] = useState<any[]>([]);
     const [userTeamId, setUserTeamId] = useState<string | null>(null);
     const [races, setRaces] = useState<Record<string, any>>({});
-    const [activeSession, setActiveSession] = useState<any>(null);
     const lastFetchTime = useRef<number>(0);
+    const lastFetchedSessionId = useRef<string | null>(null);
     const CACHE_DURATION = 60000; // 60 seconds
     const { currentSession } = useSession();
 
-    useFocusEffect(
-        useCallback(() => {
-            fetchMatches();
-        }, [])
-    );
+    useEffect(() => {
+        setLoading(true);
+        setMatches([]);
+        setTeamMatches([]);
+        setUserTeamId(null);
+        setRaces({});
+        lastFetchTime.current = 0;
+        lastFetchedSessionId.current = null;
+    }, [currentSession?.id]);
 
     const fetchMatches = useCallback(async (force = false) => {
         const now = Date.now();
-        if (!force && lastFetchTime.current > 0 && (now - lastFetchTime.current) < CACHE_DURATION && matches.length > 0) {
+        const sessionChanged = currentSession?.id !== lastFetchedSessionId.current;
+
+        if (!force && !sessionChanged && lastFetchTime.current > 0 && (now - lastFetchTime.current) < CACHE_DURATION && matches.length > 0) {
             console.log(" [Matches] Using cached data");
             setLoading(false);
             return;
@@ -42,6 +79,7 @@ export default function MatchesScreen() {
             if (!userId) return;
             console.log(" [Matches] Fetching new data...");
             lastFetchTime.current = now;
+            lastFetchedSessionId.current = currentSession?.id || null;
 
             const token = await getToken({ template: 'supabase' });
             // ... (rest of logic same)
@@ -52,12 +90,13 @@ export default function MatchesScreen() {
             );
 
             if (!currentSession) {
+                setMatches([]);
+                setTeamMatches([]);
+                setUserTeamId(null);
+                setRaces({});
                 setLoading(false);
                 return;
             }
-
-            // Use session from context
-            setActiveSession(currentSession);
 
             // 2. Fetch All Matches for this session
             const { data: fetchedMatches } = await supabaseAuthenticated
@@ -68,7 +107,7 @@ export default function MatchesScreen() {
             p2_submitted_at,
             player1:player1_id(full_name, breakpoint_rating, fargo_rating),
             player2:player2_id(full_name, breakpoint_rating, fargo_rating),
-            games (winner_id, is_break_and_run, is_9_on_snap, game_type)
+            games (winner_id, is_break_and_run, is_9_on_snap, game_type, game_number, scored_by)
           `)
                 .eq("league_id", currentSession.id)
                 .eq('is_team_match_set', false)
@@ -127,7 +166,11 @@ export default function MatchesScreen() {
         }
     }, [userId, getToken, currentSession]);
 
-    // useEffect removed - replaced by useFocusEffect above
+    useFocusEffect(
+        useCallback(() => {
+            fetchMatches();
+        }, [fetchMatches])
+    );
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
@@ -147,10 +190,10 @@ export default function MatchesScreen() {
             <View className="px-4 py-4 bg-background border-b border-white/5 items-center">
                 <Text className="text-gray-400 font-bold text-xs uppercase tracking-widest mb-1" style={{ includeFontPadding: false }}>Session Schedule </Text>
                 <Text className="text-foreground text-2xl font-bold tracking-wider uppercase text-center" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
-                    {activeSession?.name || 'Schedule'}
+                    {currentSession?.name || 'Schedule'}
                 </Text>
                 <Text className="text-primary font-bold tracking-widest uppercase text-sm mt-1" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
-                    {activeSession?.parent_league?.name || 'Matches'}
+                    {currentSession?.parentLeagueName || 'Matches'}
                 </Text>
             </View>
             <ScrollView
@@ -184,7 +227,7 @@ export default function MatchesScreen() {
 
                         const matchLocked = isMatchLocked(
                             match.scheduled_date,
-                            activeSession?.timezone || 'America/Chicago',
+                            currentSession?.timezone || 'America/Chicago',
                             match.is_manually_unlocked,
                             effectiveStatus,
                             isStarted
@@ -207,8 +250,10 @@ export default function MatchesScreen() {
                         let p1_9br = 0, p2_9br = 0;
                         let p1_snap = 0, p2_snap = 0;
 
-                        if (match.games) {
-                            match.games.forEach((g: any) => {
+                        const displayGames = getDisplayGames(match.games, userId);
+
+                        if (displayGames.length > 0) {
+                            displayGames.forEach((g: MatchGame) => {
                                 if (g.is_break_and_run) {
                                     if (g.game_type === '8ball') {
                                         if (g.winner_id === match.player1_id) p1_8br++;

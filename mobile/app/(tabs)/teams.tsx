@@ -11,6 +11,26 @@ import { createClient } from '@supabase/supabase-js';
 import { useSession } from '../../lib/SessionContext';
 import { getBreakpointLevel } from '../../utils/rating';
 
+function formatPercent(wins: number, played: number) {
+    if (!played) return '0%';
+    return `${Math.round((wins / played) * 100)}%`;
+}
+
+function formatRecord(wins: number, losses: number) {
+    return `${wins}-${losses}`;
+}
+
+function sortRosterMembers(members: any[], captainId?: string) {
+    return [...members].sort((a, b) => {
+        if (a.player_id === captainId) return -1;
+        if (b.player_id === captainId) return 1;
+
+        const aRating = Array.isArray(a.profiles) ? a.profiles[0]?.breakpoint_rating ?? 0 : a.profiles?.breakpoint_rating ?? 0;
+        const bRating = Array.isArray(b.profiles) ? b.profiles[0]?.breakpoint_rating ?? 0 : b.profiles?.breakpoint_rating ?? 0;
+        return bRating - aRating;
+    });
+}
+
 // ─── Captain Request Modal ──────────────────────────────────────────────────
 function CaptainModal({ visible, onClose, sessionId, userId, getToken, onSuccess }: any) {
     const [submitting, setSubmitting] = useState(false);
@@ -104,6 +124,28 @@ export default function TeamsScreen() {
     const [allTeams, setAllTeams] = useState<any[]>([]);
     const [captainRequest, setCaptainRequest] = useState<any>(null);
     const [showCaptainModal, setShowCaptainModal] = useState(false);
+    const [expandedTeams, setExpandedTeams] = useState<string[]>([]);
+
+    const getStatusText = (status?: string | null) => {
+        switch (status) {
+            case 'pending':
+                return 'Pending operator approval';
+            case 'submitted':
+                return 'Roster submitted';
+            case 'approved':
+                return 'Roster approved';
+            case 'edit_requested':
+                return 'Edit request pending';
+            default:
+                return 'Roster editable';
+        }
+    };
+
+    const toggleTeamExpanded = (teamId: string) => {
+        setExpandedTeams(prev =>
+            prev.includes(teamId) ? prev.filter(id => id !== teamId) : [...prev, teamId]
+        );
+    };
 
     const fetchData = useCallback(async () => {
         if (!userId || !currentSession?.id) { setLoading(false); return; }
@@ -125,23 +167,135 @@ export default function TeamsScreen() {
             const { data: memberTeamData } = await supabase.from('team_members').select('teams!inner(*)').eq('player_id', userId).eq('teams.league_id', currentSession.id).maybeSingle();
             const memberTeam: any = memberTeamData?.teams;
             const myTeam = capTeam || (!Array.isArray(memberTeam) ? memberTeam : null);
-            setTeam(myTeam || null);
-
-            // Get roster for my team
-            if (myTeam) {
-                const { data: roster } = await supabase
-                    .from('team_members')
-                    .select('player_id, profiles:player_id(full_name, breakpoint_rating)')
-                    .eq('team_id', myTeam.id);
-                setMembers(roster || []);
-            }
 
             // Get all teams in the session for standings
             const { data: teams } = await supabase
                 .from('teams')
-                .select('id, name, captain_id, profiles:captain_id(full_name)')
+                .select('id, name, captain_id, status, tid, profiles:captain_id(full_name)')
                 .eq('league_id', currentSession.id);
-            setAllTeams(teams || []);
+
+            const teamIds = (teams || []).map(t => t.id);
+
+            const { data: rosterRows } = teamIds.length > 0
+                ? await supabase
+                    .from('team_members')
+                    .select('team_id, player_id, profiles:player_id(id, full_name, breakpoint_rating)')
+                    .in('team_id', teamIds)
+                : { data: [] as any[] };
+
+            const { data: teamMatchesData } = await supabase
+                .from('team_matches')
+                .select('*')
+                .eq('league_id', currentSession.id);
+
+            const { data: sessionMatches } = await supabase
+                .from('matches')
+                .select(`
+                    player1_id,
+                    player2_id,
+                    status_8ball,
+                    status_9ball,
+                    winner_id_8ball,
+                    winner_id_9ball
+                `)
+                .eq('league_id', currentSession.id);
+
+            const playerStatsMap = new Map<string, { wins8: number; played8: number; wins9: number; played9: number }>();
+
+            (sessionMatches || []).forEach((match: any) => {
+                const ids = [match.player1_id, match.player2_id];
+                ids.forEach((playerId: string) => {
+                    if (!playerStatsMap.has(playerId)) {
+                        playerStatsMap.set(playerId, { wins8: 0, played8: 0, wins9: 0, played9: 0 });
+                    }
+                });
+
+                if (match.status_8ball === 'finalized') {
+                    ids.forEach((playerId: string) => {
+                        const stats = playerStatsMap.get(playerId)!;
+                        stats.played8 += 1;
+                        if (match.winner_id_8ball === playerId) stats.wins8 += 1;
+                    });
+                }
+
+                if (match.status_9ball === 'finalized') {
+                    ids.forEach((playerId: string) => {
+                        const stats = playerStatsMap.get(playerId)!;
+                        stats.played9 += 1;
+                        if (match.winner_id_9ball === playerId) stats.wins9 += 1;
+                    });
+                }
+            });
+
+            const membersByTeam = new Map<string, any[]>();
+            (rosterRows || []).forEach((row: any) => {
+                const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+                const stats = playerStatsMap.get(row.player_id) || { wins8: 0, played8: 0, wins9: 0, played9: 0 };
+                const enrichedMember = {
+                    ...row,
+                    profiles: profile,
+                    stats: {
+                        wins8: stats.wins8,
+                        losses8: Math.max(stats.played8 - stats.wins8, 0),
+                        winRate8: formatPercent(stats.wins8, stats.played8),
+                        wins9: stats.wins9,
+                        losses9: Math.max(stats.played9 - stats.wins9, 0),
+                        winRate9: formatPercent(stats.wins9, stats.played9),
+                        winsOverall: stats.wins8 + stats.wins9,
+                        lossesOverall: Math.max((stats.played8 - stats.wins8) + (stats.played9 - stats.wins9), 0),
+                        winRateOverall: formatPercent(stats.wins8 + stats.wins9, stats.played8 + stats.played9),
+                    }
+                };
+
+                const existing = membersByTeam.get(row.team_id) || [];
+                existing.push(enrichedMember);
+                membersByTeam.set(row.team_id, existing);
+            });
+
+            const enrichedTeams = (teams || []).map((teamRow: any) => {
+                let wins = 0;
+                let losses = 0;
+
+                (teamMatchesData || []).forEach((match: any) => {
+                    if (match.team_a_id === teamRow.id) {
+                        wins += match.wins_a || 0;
+                        losses += match.losses_a || 0;
+                    } else if (match.team_b_id === teamRow.id) {
+                        wins += match.wins_b || 0;
+                        losses += match.losses_b || 0;
+                    }
+                });
+
+                const teamMembers = sortRosterMembers(membersByTeam.get(teamRow.id) || [], teamRow.captain_id);
+                const wins8 = teamMembers.reduce((sum, member) => sum + (member.stats?.wins8 || 0), 0);
+                const losses8 = teamMembers.reduce((sum, member) => sum + (member.stats?.losses8 || 0), 0);
+                const wins9 = teamMembers.reduce((sum, member) => sum + (member.stats?.wins9 || 0), 0);
+                const losses9 = teamMembers.reduce((sum, member) => sum + (member.stats?.losses9 || 0), 0);
+                const overallWins = teamMembers.reduce((sum, member) => sum + (member.stats?.winsOverall || 0), 0);
+                const overallLosses = teamMembers.reduce((sum, member) => sum + (member.stats?.lossesOverall || 0), 0);
+
+                return {
+                    ...teamRow,
+                    members: teamMembers,
+                    wins,
+                    losses,
+                    recordText: `${wins}-${losses}`,
+                    sessionStats: {
+                        overallRecord: formatRecord(overallWins, overallLosses),
+                        overallPct: formatPercent(overallWins, overallWins + overallLosses),
+                        record8: formatRecord(wins8, losses8),
+                        pct8: formatPercent(wins8, wins8 + losses8),
+                        record9: formatRecord(wins9, losses9),
+                        pct9: formatPercent(wins9, wins9 + losses9),
+                    }
+                };
+            });
+
+            setAllTeams(enrichedTeams);
+
+            const enrichedMyTeam = myTeam ? enrichedTeams.find(t => t.id === myTeam.id) || myTeam : null;
+            setTeam(enrichedMyTeam || null);
+            setMembers(enrichedMyTeam?.members || []);
 
             // Captain request status
             if (!myTeam) {
@@ -175,19 +329,74 @@ export default function TeamsScreen() {
         );
     }
 
+    const renderRosterMember = (member: any, captainId: string, index: number) => {
+        const profile = Array.isArray(member.profiles) ? member.profiles[0] : member.profiles;
+        const isCaptain = captainId === member.player_id;
+        const isCurrentUser = member.player_id === userId;
+
+        const content = (
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#2a2a2a' }}>
+                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#2a2a2a', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                    {isCaptain
+                        ? <FontAwesome5 name="crown" size={13} color="#D4AF37" />
+                        : <Text style={{ color: '#666', fontWeight: 'bold', fontSize: 12 }}>{index + 1}</Text>
+                    }
+                </View>
+                <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14, flex: 1 }}>
+                            {profile?.full_name || 'Unknown'}
+                        </Text>
+                        <Text style={{ color: '#888', fontSize: 13 }}>BP {getBreakpointLevel(profile?.breakpoint_rating)}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 8 }}>
+                        {isCaptain && <Text style={{ color: '#D4AF37', fontSize: 11 }}>Captain</Text>}
+                        <Text style={{ color: '#6B7280', fontSize: 11 }}>
+                            OVR {formatRecord(member.stats?.winsOverall || 0, member.stats?.lossesOverall || 0)} {member.stats?.winRateOverall || '0%'}
+                        </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, gap: 8 }}>
+                        <Text style={{ color: '#6B7280', fontSize: 11 }}>
+                            8B {formatRecord(member.stats?.wins8 || 0, member.stats?.losses8 || 0)} {member.stats?.winRate8 || '0%'}
+                        </Text>
+                        <Text style={{ color: '#6B7280', fontSize: 11 }}>
+                            9B {formatRecord(member.stats?.wins9 || 0, member.stats?.losses9 || 0)} {member.stats?.winRate9 || '0%'}
+                        </Text>
+                    </View>
+                </View>
+            </View>
+        );
+
+        if (isCurrentUser) {
+            return <View key={member.player_id}>{content}</View>;
+        }
+
+        return (
+            <TouchableOpacity
+                key={member.player_id}
+                onPress={() => router.push(`/player/${member.player_id}`)}
+                activeOpacity={0.8}
+            >
+                {content}
+            </TouchableOpacity>
+        );
+    };
+
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#0d0d0d' }} edges={['top', 'left', 'right']}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#0d0d0d' }} edges={['bottom', 'left', 'right']}>
             <ScrollView
-                contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100 }}
+                contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 100 }}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor="#D4AF37" />}
             >
                 {/* Header */}
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, marginTop: 0 }}>
                     <View>
                         <Text style={{ color: '#888', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 2 }}>
                             {currentSession?.parentLeagueName || 'Team League'}
                         </Text>
-                        <Text style={{ color: '#fff', fontSize: 22, fontWeight: 'bold' }}>Teams</Text>
+                        <Text style={{ color: '#fff', fontSize: 22, fontWeight: 'bold' }}>
+                            {currentSession?.name || 'Teams'}
+                        </Text>
                     </View>
                     {/* Become a Captain button — only if not on a team */}
                     {!team && (
@@ -210,7 +419,25 @@ export default function TeamsScreen() {
                         <Text style={{ color: '#888', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 10 }}>Your Team</Text>
                         <View style={{ backgroundColor: '#1a1a1a', borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: '#2a2a2a' }}>
                             <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: '#2a2a2a', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 18 }}>{team.name}</Text>
+                                <View style={{ flex: 1, marginRight: 12 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                                        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 18 }}>{team.name}</Text>
+                                        <Text style={{ color: '#888', fontSize: 13, fontWeight: '600' }}>
+                                            {team.sessionStats?.overallRecord || '0-0'} {team.sessionStats?.overallPct || '0%'}
+                                        </Text>
+                                    </View>
+                                    <Text style={{ color: '#D4AF37', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', marginTop: 4 }}>
+                                        {getStatusText(team.status)}
+                                    </Text>
+                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 6 }}>
+                                        <Text style={{ color: '#888', fontSize: 11 }}>
+                                            8B {team.sessionStats?.record8 || '0-0'} {team.sessionStats?.pct8 || '0%'}
+                                        </Text>
+                                        <Text style={{ color: '#888', fontSize: 11 }}>
+                                            9B {team.sessionStats?.record9 || '0-0'} {team.sessionStats?.pct9 || '0%'}
+                                        </Text>
+                                    </View>
+                                </View>
                                 <TouchableOpacity onPress={() => router.push('/teams/manage')} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                                     <Text style={{ color: '#D4AF37', fontSize: 13 }}>Manage</Text>
                                     <FontAwesome5 name="chevron-right" size={11} color="#D4AF37" />
@@ -223,25 +450,7 @@ export default function TeamsScreen() {
                                 {members.length === 0 ? (
                                     <Text style={{ color: '#444', fontSize: 13, textAlign: 'center', padding: 12 }}>No members yet. Manage your roster to add players.</Text>
                                 ) : (
-                                    members.map((m: any, i: number) => {
-                                        const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
-                                        const isCaptain = team.captain_id === m.player_id;
-                                        return (
-                                            <View key={m.player_id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: i < members.length - 1 ? 1 : 0, borderBottomColor: '#2a2a2a' }}>
-                                                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#2a2a2a', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                                                    {isCaptain
-                                                        ? <FontAwesome5 name="crown" size={13} color="#D4AF37" />
-                                                        : <Text style={{ color: '#666', fontWeight: 'bold', fontSize: 12 }}>{i + 1}</Text>
-                                                    }
-                                                </View>
-                                                <View style={{ flex: 1 }}>
-                                                    <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>{profile?.full_name || 'Unknown'}</Text>
-                                                    {isCaptain && <Text style={{ color: '#D4AF37', fontSize: 11 }}>Captain</Text>}
-                                                </View>
-                                                <Text style={{ color: '#888', fontSize: 13 }}>BP {getBreakpointLevel(profile?.breakpoint_rating)}</Text>
-                                            </View>
-                                        );
-                                    })
+                                    members.map((member: any, index: number) => renderRosterMember(member, team.captain_id, index))
                                 )}
                             </View>
                         </View>
@@ -254,22 +463,58 @@ export default function TeamsScreen() {
                         <Text style={{ color: '#888', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 10 }}>
                             {team ? 'All Teams' : 'Teams in Session'}
                         </Text>
-                        <View style={{ backgroundColor: '#1a1a1a', borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: '#2a2a2a' }}>
+                        <View style={{ gap: 12 }}>
                             {allTeams.map((t: any, i: number) => {
                                 const captain = Array.isArray(t.profiles) ? t.profiles[0] : t.profiles;
                                 const isMyTeam = team?.id === t.id;
+                                const isExpanded = expandedTeams.includes(t.id);
+
                                 return (
-                                    <View key={t.id} style={{ flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: i < allTeams.length - 1 ? 1 : 0, borderBottomColor: '#2a2a2a', backgroundColor: isMyTeam ? 'rgba(212,175,55,0.05)' : 'transparent' }}>
-                                        <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: isMyTeam ? 'rgba(212,175,55,0.2)' : '#2a2a2a', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                                            <Text style={{ color: isMyTeam ? '#D4AF37' : '#666', fontWeight: 'bold', fontSize: 12 }}>{i + 1}</Text>
-                                        </View>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={{ color: isMyTeam ? '#D4AF37' : '#fff', fontWeight: '600', fontSize: 14 }}>
-                                                {t.name}{isMyTeam ? ' (You)' : ''}
-                                            </Text>
-                                            <Text style={{ color: '#555', fontSize: 11 }}>Capt: {captain?.full_name || 'Unknown'}</Text>
-                                        </View>
-                                        <Text style={{ color: '#444', fontSize: 12 }}>0-0</Text>
+                                    <View key={t.id} style={{ backgroundColor: '#1a1a1a', borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: '#2a2a2a' }}>
+                                        <TouchableOpacity
+                                            onPress={() => toggleTeamExpanded(t.id)}
+                                            activeOpacity={0.85}
+                                            style={{ flexDirection: 'row', alignItems: 'center', padding: 14, backgroundColor: isMyTeam ? 'rgba(212,175,55,0.05)' : 'transparent' }}
+                                        >
+                                            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: isMyTeam ? 'rgba(212,175,55,0.2)' : '#2a2a2a', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                                                <Text style={{ color: isMyTeam ? '#D4AF37' : '#666', fontWeight: 'bold', fontSize: 12 }}>{i + 1}</Text>
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                                                    <Text style={{ color: isMyTeam ? '#D4AF37' : '#fff', fontWeight: '600', fontSize: 14 }}>
+                                                        {t.name}{isMyTeam ? ' (You)' : ''}
+                                                    </Text>
+                                                    <Text style={{ color: '#888', fontSize: 12, fontWeight: '600' }}>
+                                                        {t.sessionStats?.overallRecord || '0-0'} {t.sessionStats?.overallPct || '0%'}
+                                                    </Text>
+                                                </View>
+                                                <Text style={{ color: '#555', fontSize: 11 }}>Capt: {captain?.full_name || 'Unknown'}</Text>
+                                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+                                                    <Text style={{ color: '#777', fontSize: 10 }}>
+                                                        8B {t.sessionStats?.record8 || '0-0'} {t.sessionStats?.pct8 || '0%'}
+                                                    </Text>
+                                                    <Text style={{ color: '#777', fontSize: 10 }}>
+                                                        9B {t.sessionStats?.record9 || '0-0'} {t.sessionStats?.pct9 || '0%'}
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                            <FontAwesome5 name={isExpanded ? 'chevron-up' : 'chevron-down'} size={12} color={isMyTeam ? '#D4AF37' : '#666'} />
+                                        </TouchableOpacity>
+
+                                        {isExpanded && (
+                                            <View style={{ paddingHorizontal: 12, paddingBottom: 12, borderTopWidth: 1, borderTopColor: '#2a2a2a' }}>
+                                                <Text style={{ color: '#555', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, marginVertical: 8 }}>
+                                                    Roster ({t.members?.length || 0}/6)
+                                                </Text>
+                                                {(t.members || []).length > 0 ? (
+                                                    t.members.map((member: any, index: number) => renderRosterMember(member, t.captain_id, index))
+                                                ) : (
+                                                    <Text style={{ color: '#444', fontSize: 13, textAlign: 'center', paddingVertical: 12 }}>
+                                                        No roster submitted yet.
+                                                    </Text>
+                                                )}
+                                            </View>
+                                        )}
                                     </View>
                                 );
                             })}

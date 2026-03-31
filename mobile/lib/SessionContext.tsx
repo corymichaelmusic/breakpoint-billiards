@@ -171,14 +171,17 @@ export function SessionProvider({ children }: SessionProviderProps) {
 
             setSessions(sessionList);
 
-            // Auto-select: Primary session first, else first in list
+            // Preserve the user's current selection across refreshes when possible.
+            // Only fall back to the primary session on first load or if the selected
+            // session is no longer available.
             const primarySession = sessionList.find(s => s.isPrimary);
             const defaultSession = primarySession || sessionList[0];
+            const selectedSessionId = currentSessionIdRef.current;
+            const matchingSession = selectedSessionId
+                ? sessionList.find(session => session.id === selectedSessionId)
+                : null;
 
-            // Only set current if not already set (preserve user selection)
-            if (!currentSession) {
-                setCurrentSessionState(defaultSession);
-            }
+            setCurrentSessionState(matchingSession || defaultSession);
 
             setLoading(false);
         } catch (e) {
@@ -367,4 +370,3 @@ export function SessionProvider({ children }: SessionProviderProps) {
         </SessionContext.Provider>
     );
 }
-

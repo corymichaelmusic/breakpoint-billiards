@@ -9,6 +9,20 @@ interface GenerateScheduleFormProps {
     initialTimezone?: string;
     creationFeeStatus: string;
     parentLeagueId: string;
+    teamPaymentSummary?: {
+        teamId: string;
+        teamName: string;
+        tid: string;
+        memberCount: number;
+        paidCount: number;
+        isPaid: boolean;
+        members: {
+            playerId: string;
+            fullName: string;
+            paymentStatus: string;
+            isPaid: boolean;
+        }[];
+    }[];
 }
 
 export default function GenerateScheduleForm({
@@ -16,7 +30,8 @@ export default function GenerateScheduleForm({
     initialStartDate,
     initialTimezone,
     creationFeeStatus,
-    parentLeagueId
+    parentLeagueId,
+    teamPaymentSummary = []
 }: GenerateScheduleFormProps) {
     const [startDate, setStartDate] = useState(initialStartDate || "");
     const [timezone, setTimezone] = useState(initialTimezone || "America/Chicago");
@@ -118,6 +133,54 @@ export default function GenerateScheduleForm({
                     </select>
                 </div>
             </div>
+
+            {teamPaymentSummary.length > 0 && (
+                <div className="mb-6 border-t border-gray-800 pt-4">
+                    <div className="flex items-center justify-between mb-3 gap-4">
+                        <h3 className="text-xs font-bold" style={{ color: '#D4AF37' }}>Team Payment Status</h3>
+                        <span className="text-[10px] text-gray-500 uppercase tracking-wide">
+                            {teamPaymentSummary.filter((team) => team.isPaid).length}/{teamPaymentSummary.length} teams paid
+                        </span>
+                    </div>
+                    <div className="space-y-3">
+                        {teamPaymentSummary.map((team) => (
+                            <div key={team.teamId} className="rounded border border-border bg-black/30 p-3">
+                                <div className="flex items-center justify-between gap-3 mb-2">
+                                    <div>
+                                        <div className="text-sm font-bold text-white">{team.teamName}</div>
+                                        <div className="text-[10px] text-gray-500 uppercase tracking-wide">
+                                            {team.tid} • {team.paidCount}/{team.memberCount} paid
+                                        </div>
+                                    </div>
+                                    <span
+                                        className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-wide border ${
+                                            team.isPaid
+                                                ? 'bg-green-500/15 text-green-400 border-green-500/40'
+                                                : 'bg-yellow-500/15 text-yellow-300 border-yellow-500/40'
+                                        }`}
+                                    >
+                                        {team.isPaid ? 'Paid' : 'Unpaid'}
+                                    </span>
+                                </div>
+                                <div className="grid gap-2">
+                                    {team.members.map((member) => (
+                                        <div key={member.playerId} className="flex items-center justify-between gap-3 text-xs">
+                                            <span className="text-gray-300">{member.fullName}</span>
+                                            <span
+                                                className={`font-bold uppercase ${
+                                                    member.isPaid ? 'text-green-400' : 'text-yellow-300'
+                                                }`}
+                                            >
+                                                {member.paymentStatus}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Skip Dates Section */}
             <div className="mb-6 border-t border-gray-800 pt-4">

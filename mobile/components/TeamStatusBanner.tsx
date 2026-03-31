@@ -12,6 +12,21 @@ export default function TeamStatusBanner({ sessionId }: { sessionId: string }) {
     const [team, setTeam] = useState<any>(null);
     const [isTeamLeague, setIsTeamLeague] = useState(false);
 
+    const getStatusText = (status?: string | null) => {
+        switch (status) {
+            case 'pending':
+                return 'Team pending operator approval';
+            case 'submitted':
+                return 'Roster submitted for approval';
+            case 'approved':
+                return 'Roster approved and locked';
+            case 'edit_requested':
+                return 'Edit request pending operator approval';
+            default:
+                return 'Tap to manage your team roster';
+        }
+    };
+
     useEffect(() => {
         if (!sessionId || !userId) return;
 
@@ -94,7 +109,7 @@ export default function TeamStatusBanner({ sessionId }: { sessionId: string }) {
                     <FontAwesome5 name="users" size={20} color="#D4AF37" className="mr-3" />
                     <View className="flex-1 mr-2">
                         <Text className="text-white font-bold text-base" numberOfLines={1}>{team.name}</Text>
-                        <Text className="text-gray-400 text-xs">Tap to manage your team roster</Text>
+                        <Text className="text-gray-400 text-xs">{getStatusText(team.status)}</Text>
                     </View>
                 </View>
                 <FontAwesome5 name="chevron-right" size={14} color="#D4AF37" />
@@ -110,14 +125,14 @@ export default function TeamStatusBanner({ sessionId }: { sessionId: string }) {
         <View className="bg-surface/50 border border-border rounded-xl mt-4 mx-4 p-4 flex-row items-center justify-between">
             <View className="flex-1 mr-3">
                 <Text className="text-white font-bold text-sm mb-1">Playing in a Team League?</Text>
-                <Text className="text-gray-400 text-xs leading-4">Create your team and invite players to get started.</Text>
+                <Text className="text-gray-400 text-xs leading-4">Request captain access to create and manage a team for this session.</Text>
             </View>
             <TouchableOpacity 
                 activeOpacity={0.8}
-                onPress={() => router.push('/teams/create')}
+                onPress={() => router.push('/(tabs)/teams')}
                 className="bg-primary px-4 py-2 rounded-lg"
             >
-                <Text className="text-black font-bold uppercase text-xs" style={{ includeFontPadding: false }}>Create</Text>
+                <Text className="text-black font-bold uppercase text-xs" style={{ includeFontPadding: false }}>Open Teams</Text>
             </TouchableOpacity>
         </View>
     );

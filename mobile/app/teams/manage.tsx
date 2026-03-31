@@ -42,16 +42,37 @@ export default function ManageTeamScreen() {
             );
 
             // Fetch Team
-            const { data: teamData, error: teamError } = await supabase
+            const { data: captainTeam, error: captainError } = await supabase
                 .from('teams')
                 .select('*')
                 .eq('league_id', currentSession.id)
-                .or(`captain_id.eq.${userId}`) // Can expand if regular members can view this screen
-                .single();
+                .eq('captain_id', userId)
+                .maybeSingle();
 
-            if (teamError && teamError.code !== 'PGRST116') {
-                console.error("Error fetching team:", teamError);
+            if (captainError && captainError.code !== 'PGRST116') {
+                console.error("Error fetching captain team:", captainError);
                 return;
+            }
+
+            let teamData = captainTeam;
+
+            if (!teamData) {
+                const { data: memberTeamData, error: memberTeamError } = await supabase
+                    .from('team_members')
+                    .select('teams!inner(*)')
+                    .eq('player_id', userId)
+                    .eq('teams.league_id', currentSession.id)
+                    .maybeSingle();
+
+                if (memberTeamError && memberTeamError.code !== 'PGRST116') {
+                    console.error("Error fetching member team:", memberTeamError);
+                    return;
+                }
+
+                const memberTeam = memberTeamData?.teams;
+                if (memberTeam && !Array.isArray(memberTeam)) {
+                    teamData = memberTeam;
+                }
             }
 
             if (teamData) {
@@ -263,6 +284,47 @@ export default function ManageTeamScreen() {
         );
     };
 
+    const handleRequestEdit = async () => {
+        if (!team) return;
+        
+        Alert.alert(
+            "Request Roster Edit",
+            "This will send a request to the operator to allow you to edit your team roster. Your team will remain locked until they approve.",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Send Request",
+                    onPress: async () => {
+                        setSubmitLoading(true);
+                        try {
+                            const token = await getToken({ template: 'supabase' });
+                            const supabase = createClient(
+                                process.env.EXPO_PUBLIC_SUPABASE_URL!,
+                                process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+                                { global: { headers: { Authorization: `Bearer ${token}` } } }
+                            );
+
+                            const { error } = await supabase
+                                .from('teams')
+                                .update({ status: 'edit_requested' })
+                                .eq('id', team.id);
+
+                            if (error) throw error;
+                            
+                            Alert.alert("Success", "Edit request sent to operator!");
+                            fetchTeamData();
+                        } catch (e) {
+                            console.error(e);
+                            Alert.alert("Error", "Failed to send request.");
+                        } finally {
+                            setSubmitLoading(false);
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     if (loading) {
         return (
             <SafeAreaView className="flex-1 bg-background justify-center items-center">
@@ -320,7 +382,7 @@ export default function ManageTeamScreen() {
                                 }}
                             >
                                 <Text className="text-white text-lg font-bold uppercase tracking-widest mr-2">{team.name}</Text>
-                                <FontAwesome5 name="edit" size={12} color="#D4AF37" style={{ opacity: 0.5 }} />
+                                {!team.status && <FontAwesome5 name="edit" size={12} color="#D4AF37" style={{ opacity: 0.5 }} />}
                             </TouchableOpacity>
                         )}
                         <View className="flex-row items-center mt-1">
@@ -349,11 +411,16 @@ export default function ManageTeamScreen() {
                              {isCaptain && (
                                 <View className="mb-6 bg-surface/50 border border-border rounded-xl p-4">
                                     <View className="flex-row items-center justify-between mb-3 border-b border-border/50 pb-2">
-                                        <Text className="text-white font-bold uppercase tracking-wider text-xs">Available Players</Text>
+                                        <Text className="text-white font-bold uppercase tracking-wider text-xs">{team.status ? 'Current Roster' : 'Available Players'}</Text>
                                         <Text className="text-gray-400 text-[10px] uppercase">{members.length}/6 Members</Text>
                                     </View>
                                     
-                                    {members.length < 6 ? (
+                                    {team.status ? (
+                                        <View className="py-2 items-center flex-row justify-center">
+                                            <Ionicons name="lock-closed" size={14} color="#D4AF37" style={{ marginRight: 6 }} />
+                                            <Text className="text-gray-400 text-xs uppercase tracking-widest font-bold">Roster Locked</Text>
+                                        </View>
+                                    ) : members.length < 6 ? (
                                         availablePlayers.length > 0 ? (
                                             <FlatList
                                                 horizontal
@@ -416,7 +483,7 @@ export default function ManageTeamScreen() {
                                  </View>
                              </View>
 
-                             {isCaptain && item.player_id !== userId && (
+                             {isCaptain && item.player_id !== userId && !team.status && (
                                  <TouchableOpacity 
                                      onPress={() => handleRemovePlayer(item)}
                                      className="w-10 h-10 items-center justify-center bg-red-500/10 border border-red-500/20 rounded-full ml-2"
@@ -442,14 +509,28 @@ export default function ManageTeamScreen() {
                                      </TouchableOpacity>
                                      <Text className="text-gray-500 text-center text-[10px] uppercase mt-3 tracking-tighter">Required for league participation</Text>
                                  </View>
-                             ) : isCaptain && (team.status === 'submitted' || team.status === 'approved') ? (
+                             ) : isCaptain && (team.status === 'submitted' || team.status === 'approved' || team.status === 'edit_requested') ? (
                                  <View className="mt-4 mb-10 items-center">
-                                     <View className={`px-2 py-1.5 rounded-full border ${team.status === 'approved' ? 'bg-green-500/10 border-green-500/30' : 'bg-yellow-500/10 border-yellow-500/30'}`}>
-                                         <Text className={`text-[10px] font-bold uppercase tracking-widest ${team.status === 'approved' ? 'text-green-400' : 'text-yellow-500'}`}>
-                                             Team {team.status}
+                                     <View className={`px-4 py-2 rounded-full border mb-4 ${team.status === 'approved' ? 'bg-green-500/10 border-green-500/30' : 'bg-yellow-500/10 border-yellow-500/30'}`}>
+                                         <Text className={`text-xs font-bold uppercase tracking-widest ${team.status === 'approved' ? 'text-green-400' : 'text-yellow-500'}`}>
+                                             Team {team.status.replace('_', ' ')}
                                          </Text>
                                      </View>
-                                     <Text className="text-gray-500 text-[8px] mt-2 uppercase tracking-tight">Awaiting further instructions</Text>
+                                     
+                                     {team.status === 'approved' && (
+                                         <TouchableOpacity 
+                                             onPress={handleRequestEdit}
+                                             disabled={submitLoading}
+                                             className="bg-surface border border-border px-8 py-3 rounded-xl flex-row items-center"
+                                         >
+                                             <FontAwesome5 name="edit" size={12} color="#D4AF37" style={{ marginRight: 8 }} />
+                                             <Text className="text-white font-bold uppercase tracking-wider text-xs">Request Roster Edit</Text>
+                                         </TouchableOpacity>
+                                     )}
+                                     
+                                     <Text className="text-gray-500 text-[8px] mt-2 uppercase tracking-tight">
+                                         {team.status === 'edit_requested' ? 'Waiting for operator permission to edit' : 'Awaiting further instructions'}
+                                     </Text>
                                  </View>
                              ) : <View className="h-20" />
                          }

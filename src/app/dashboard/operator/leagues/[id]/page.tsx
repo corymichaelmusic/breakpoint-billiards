@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
 import PaymentStatusManager from "@/components/PaymentStatusManager";
-import { generateSchedule, startSeason, approveCaptainRequest, rejectCaptainRequest, approveTeamRoster, rejectTeamRoster } from "@/app/actions/league-actions";
+import { generateSchedule, startSeason, approveCaptainRequest, rejectCaptainRequest, approveTeamRoster, rejectTeamRoster, allowTeamRosterEdit, denyTeamRosterEdit } from "@/app/actions/league-actions";
 import SessionLeaderboard from "@/components/SessionLeaderboard";
 import RescheduleInbox from "@/components/RescheduleInbox";
 import MatchDateManager from "@/components/MatchDateManager";
@@ -110,26 +110,110 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
         }
     }
 
-    // Fetch submitted team rosters
+    // Fetch submitted team rosters & edit requests
     let rosterSubmissions: any[] = [];
+    let editRequests: any[] = [];
+    let teamPaymentSummary: {
+        teamId: string;
+        teamName: string;
+        tid: string;
+        memberCount: number;
+        paidCount: number;
+        isPaid: boolean;
+        members: {
+            playerId: string;
+            fullName: string;
+            paymentStatus: string;
+            isPaid: boolean;
+        }[];
+    }[] = [];
+    
     if (!isLeagueOrg && league.is_team_league) {
-        const { data: submittedTeams } = await supabase
+        const { data: teamsWithActions } = await supabase
             .from('teams')
             .select('id, name, tid, captain_id, status')
             .eq('league_id', id)
-            .eq('status', 'submitted');
+            .in('status', ['submitted', 'edit_requested']);
         
-        if (submittedTeams && submittedTeams.length > 0) {
-            for (const team of submittedTeams) {
+        if (teamsWithActions && teamsWithActions.length > 0) {
+            for (const team of teamsWithActions) {
                 const { data: members } = await supabase
                     .from('team_members')
                     .select('id, profiles(full_name, breakpoint_rating)')
                     .eq('team_id', team.id);
-                rosterSubmissions.push({
+                
+                const teamData = {
                     ...team,
                     members: members || []
-                });
+                };
+
+                if (team.status === 'submitted') {
+                    rosterSubmissions.push(teamData);
+                } else if (team.status === 'edit_requested') {
+                    editRequests.push(teamData);
+                }
             }
+        }
+
+        const { data: allTeams } = await supabase
+            .from('teams')
+            .select('id, name, tid, status')
+            .eq('league_id', id)
+            .order('created_at', { ascending: true });
+
+        if (allTeams && allTeams.length > 0) {
+            const teamIds = allTeams.map((team: any) => team.id);
+            const { data: allMembers } = await supabase
+                .from('team_members')
+                .select('team_id, player_id')
+                .in('team_id', teamIds);
+
+            const playerIds = [...new Set((allMembers || []).map((member: any) => member.player_id))];
+
+            const { data: profiles } = playerIds.length > 0
+                ? await supabase
+                    .from('profiles')
+                    .select('id, full_name')
+                    .in('id', playerIds)
+                : { data: [] as any[] };
+
+            const { data: leaguePlayerStatuses } = playerIds.length > 0
+                ? await supabase
+                    .from('league_players')
+                    .select('player_id, payment_status')
+                    .eq('league_id', id)
+                    .in('player_id', playerIds)
+                : { data: [] as any[] };
+
+            const profileMap = new Map((profiles || []).map((profile: any) => [profile.id, profile]));
+            const paymentMap = new Map((leaguePlayerStatuses || []).map((lp: any) => [lp.player_id, lp.payment_status || 'unpaid']));
+            const paidStatuses = new Set(['paid', 'paid_cash', 'paid_online', 'waived']);
+
+            teamPaymentSummary = allTeams.map((team: any) => {
+                const members = (allMembers || [])
+                    .filter((member: any) => member.team_id === team.id)
+                    .map((member: any) => {
+                        const paymentStatus = paymentMap.get(member.player_id) || 'unpaid';
+                        return {
+                            playerId: member.player_id,
+                            fullName: profileMap.get(member.player_id)?.full_name || 'Unknown Player',
+                            paymentStatus,
+                            isPaid: paidStatuses.has(paymentStatus),
+                        };
+                    });
+
+                const paidCount = members.filter((member) => member.isPaid).length;
+
+                return {
+                    teamId: team.id,
+                    teamName: team.name,
+                    tid: team.tid,
+                    memberCount: members.length,
+                    paidCount,
+                    isPaid: members.length > 0 && paidCount === members.length,
+                    members,
+                };
+            });
         }
     }
 
@@ -388,6 +472,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                             initialTimezone={league.timezone}
                                             creationFeeStatus={league.creation_fee_status}
                                             parentLeagueId={league.parent_league_id}
+                                            teamPaymentSummary={teamPaymentSummary}
                                         />
                                     )}
 
@@ -505,6 +590,52 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                             </div>
                                         );
                                     })}
+                                </div>
+                            </div>
+                        )}
+
+                        {!isLeagueOrg && editRequests.length > 0 && (
+                            <div className="card-glass p-6 border-primary/30">
+                                <h3 className="text-lg font-bold mb-4" style={{ color: '#D4AF37' }}>
+                                    Roster Edit Requests
+                                    <span className="ml-2 bg-[#D4AF37] text-black text-xs px-2 py-0.5 rounded-full">{editRequests.length}</span>
+                                </h3>
+                                <div className="grid gap-4">
+                                    {editRequests.map((submission: any) => (
+                                        <div key={submission.id} className="bg-surface/50 p-4 rounded border border-border">
+                                            <div className="flex justify-between items-start mb-3">
+                                                <div>
+                                                    <div className="font-bold text-[#D4AF37] text-lg">{submission.name}</div>
+                                                    <div className="text-xs text-gray-500 font-mono">TID: {submission.tid}</div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="space-y-1 mb-4 border-t border-white/5 pt-3">
+                                                <div className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Current Roster</div>
+                                                {submission.members.map((m: any) => (
+                                                    <div key={m.id} className="flex justify-between text-xs text-white bg-black/20 px-2 py-1.5 rounded">
+                                                        <span>{m.profiles?.full_name}</span>
+                                                        <span className="text-[#D4AF37] font-bold">{m.profiles?.breakpoint_rating}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            <div className="flex gap-2">
+                                                <form action={async () => {
+                                                    'use server';
+                                                    await allowTeamRosterEdit(submission.id, id);
+                                                }} className="flex-1">
+                                                    <button className="btn w-full text-xs py-2 font-bold" style={{ backgroundColor: '#22c55e', color: 'black' }}>Allow Edit</button>
+                                                </form>
+                                                <form action={async () => {
+                                                    'use server';
+                                                    await denyTeamRosterEdit(submission.id, id);
+                                                }} className="flex-1">
+                                                    <button className="btn w-full text-xs py-2 font-bold" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid #ef4444' }}>Deny</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         )}

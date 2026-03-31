@@ -13,7 +13,11 @@ import { getBreakpointLevel } from "../../utils/rating";
 const ROW_HEIGHT = 48;
 const HEADER_HEIGHT = 40;
 const LEFT_COL_WIDTH = 184; // w-10 (40) + w-36 (144)
-const RIGHT_COL_WIDTH_FIXED = 312;
+const PLAYER_COL_WIDTH_FIXED = 440;
+const TEAM_COL_WIDTH_FIXED = 440;
+
+const formatRecord = (wins: number, losses: number) => `${wins}-${losses}`;
+const formatPercent = (wins: number, total: number) => `${total > 0 ? Math.round((wins / total) * 100) : 0}%`;
 
 export default function LeaderboardScreen() {
     const { userId, getToken } = useAuth();
@@ -58,6 +62,46 @@ export default function LeaderboardScreen() {
             setLeagueName(currentSession.parentLeagueName || '');
             const leagueId = currentSession.id;
 
+            const { data: sessionMatches } = await supabaseAuthenticated
+                .from("matches")
+                .select(`
+                    player1_id,
+                    player2_id,
+                    status_8ball,
+                    status_9ball,
+                    winner_id_8ball,
+                    winner_id_9ball
+                `)
+                .eq("league_id", leagueId);
+
+            const playerStatsMap = new Map<string, { wins8: number; played8: number; wins9: number; played9: number }>();
+
+            (sessionMatches || []).forEach((match: any) => {
+                const ids = [match.player1_id, match.player2_id].filter(Boolean);
+
+                ids.forEach((playerId: string) => {
+                    if (!playerStatsMap.has(playerId)) {
+                        playerStatsMap.set(playerId, { wins8: 0, played8: 0, wins9: 0, played9: 0 });
+                    }
+                });
+
+                if (match.status_8ball === 'finalized') {
+                    ids.forEach((playerId: string) => {
+                        const stats = playerStatsMap.get(playerId)!;
+                        stats.played8 += 1;
+                        if (match.winner_id_8ball === playerId) stats.wins8 += 1;
+                    });
+                }
+
+                if (match.status_9ball === 'finalized') {
+                    ids.forEach((playerId: string) => {
+                        const stats = playerStatsMap.get(playerId)!;
+                        stats.played9 += 1;
+                        if (match.winner_id_9ball === playerId) stats.wins9 += 1;
+                    });
+                }
+            });
+
             // Fetch Teams Data
             const { data: teamsData } = await supabaseAuthenticated
                 .from("teams")
@@ -66,11 +110,27 @@ export default function LeaderboardScreen() {
                 .eq("status", "approved");
 
             if (teamsData && teamsData.length > 0) {
+                const teamIds = teamsData.map(team => team.id);
+
                 // Fetch all team matches
                 const { data: teamMatchesData } = await supabaseAuthenticated
                     .from("team_matches")
                     .select("*")
                     .eq("league_id", leagueId);
+
+                const { data: rosterRows } = teamIds.length > 0
+                    ? await supabaseAuthenticated
+                        .from("team_members")
+                        .select("team_id, player_id")
+                        .in("team_id", teamIds)
+                    : { data: [] as any[] };
+
+                const membersByTeam = new Map<string, string[]>();
+                (rosterRows || []).forEach((row: any) => {
+                    const existing = membersByTeam.get(row.team_id) || [];
+                    existing.push(row.player_id);
+                    membersByTeam.set(row.team_id, existing);
+                });
                     
                 const tStats = teamsData.map(team => {
                     let wins = 0;
@@ -86,12 +146,24 @@ export default function LeaderboardScreen() {
                     });
                     const played = wins + losses;
                     const winRate = played > 0 ? ((wins / played) * 100).toFixed(1) : "0.0";
+                    const memberIds = membersByTeam.get(team.id) || [];
+                    const wins8 = memberIds.reduce((sum, playerId) => sum + (playerStatsMap.get(playerId)?.wins8 || 0), 0);
+                    const played8 = memberIds.reduce((sum, playerId) => sum + (playerStatsMap.get(playerId)?.played8 || 0), 0);
+                    const wins9 = memberIds.reduce((sum, playerId) => sum + (playerStatsMap.get(playerId)?.wins9 || 0), 0);
+                    const played9 = memberIds.reduce((sum, playerId) => sum + (playerStatsMap.get(playerId)?.played9 || 0), 0);
+                    const losses8 = Math.max(played8 - wins8, 0);
+                    const losses9 = Math.max(played9 - wins9, 0);
+
                     return {
                         ...team,
                         wins,
                         losses,
                         played,
-                        winRate: parseFloat(winRate)
+                        winRate: parseFloat(winRate),
+                        record8: formatRecord(wins8, losses8),
+                        pct8: formatPercent(wins8, played8),
+                        record9: formatRecord(wins9, losses9),
+                        pct9: formatPercent(wins9, played9),
                     };
                 });
                 
@@ -124,6 +196,9 @@ export default function LeaderboardScreen() {
                     const shutouts = p.shutouts || 0;
                     const racksWon = p.breakpoint_racks_won || 0;
                     const racksPlayed = p.breakpoint_racks_played || 0;
+                    const typeStats = playerStatsMap.get(p.player_id) || { wins8: 0, played8: 0, wins9: 0, played9: 0 };
+                    const losses8 = Math.max(typeStats.played8 - typeStats.wins8, 0);
+                    const losses9 = Math.max(typeStats.played9 - typeStats.wins9, 0);
 
                     return {
                         id: p.player_id,
@@ -133,6 +208,10 @@ export default function LeaderboardScreen() {
                         shutouts,
                         winRate: played > 0 ? Math.round((wins / played) * 100) : 0,
                         rackWinRate: racksPlayed > 0 ? (racksWon / racksPlayed) * 100 : 0,
+                        record8: formatRecord(typeStats.wins8, losses8),
+                        pct8: formatPercent(typeStats.wins8, typeStats.played8),
+                        record9: formatRecord(typeStats.wins9, losses9),
+                        pct9: formatPercent(typeStats.wins9, typeStats.played9),
                         breakPoint: getBreakpointLevel(rating),
                         rating // raw for tiebreak
                     };
@@ -221,6 +300,8 @@ export default function LeaderboardScreen() {
                             <Text className="flex-1 text-center text-black font-bold text-sm">SP</Text>
                             <Text className="flex-1 text-center text-black font-bold text-sm">W%</Text>
                             <Text className="flex-1 text-center text-black font-bold text-sm">W-L</Text>
+                            <Text className="flex-1 text-center text-black font-bold text-sm">8B</Text>
+                            <Text className="flex-1 text-center text-black font-bold text-sm">9B</Text>
                             {viewMode === 'players' && <Text className="flex-1 text-center text-black font-bold text-sm">SO</Text>}
                             {viewMode === 'players' && <Text className="flex-1 text-center text-black font-bold text-sm" style={{ includeFontPadding: false }}>BP</Text>}
                         </View>
@@ -232,10 +313,12 @@ export default function LeaderboardScreen() {
                             showsHorizontalScrollIndicator={false}
                             style={{ flex: 1 }}
                         >
-                            <View style={{ width: RIGHT_COL_WIDTH_FIXED, height: HEADER_HEIGHT }} className="flex-row items-center px-2">
+                            <View style={{ width: viewMode === 'teams' ? TEAM_COL_WIDTH_FIXED : PLAYER_COL_WIDTH_FIXED, height: HEADER_HEIGHT }} className="flex-row items-center px-2">
                                 <Text className="w-12 text-center text-black font-bold text-sm">SP</Text>
                                 <Text className="w-14 text-center text-black font-bold text-sm">W%</Text>
                                 <Text className="w-16 text-center text-black font-bold text-sm">W-L</Text>
+                                <Text style={{ width: 70 }} className="text-center text-black font-bold text-sm">8B</Text>
+                                <Text style={{ width: 70 }} className="text-center text-black font-bold text-sm">9B</Text>
                                 {viewMode === 'players' && <Text className="w-12 text-center text-black font-bold text-sm">SO</Text>}
                                 {viewMode === 'players' && <Text className="w-10 text-center text-black font-bold text-sm" style={{ includeFontPadding: false }}>BP</Text>}
                             </View>
@@ -275,6 +358,8 @@ export default function LeaderboardScreen() {
                                     <Text className="flex-1 text-center text-gray-400 font-bold text-sm">{item.played}</Text>
                                     <Text className="flex-1 text-center text-gray-300 font-bold text-sm">{item.winRate}%</Text>
                                     <Text className="flex-1 text-center text-foreground font-bold text-sm">{item.wins}-{item.played - item.wins}</Text>
+                                    <Text className="flex-1 text-center text-foreground font-bold text-sm">{item.record8} {item.pct8}</Text>
+                                    <Text className="flex-1 text-center text-foreground font-bold text-sm">{item.record9} {item.pct9}</Text>
                                     {viewMode === 'players' && <Text className="flex-1 text-center text-primary font-bold text-sm">{item.shutouts}</Text>}
                                     {viewMode === 'players' && <Text className="flex-1 text-center text-primary font-bold text-sm" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>{item.breakPoint} </Text>}
                                 </TouchableOpacity>
@@ -288,7 +373,7 @@ export default function LeaderboardScreen() {
                             onScroll={handleHorizontalScroll}
                             style={{ flex: 1 }}
                         >
-                            <View style={{ width: RIGHT_COL_WIDTH_FIXED }}>
+                            <View style={{ width: viewMode === 'teams' ? TEAM_COL_WIDTH_FIXED : PLAYER_COL_WIDTH_FIXED }}>
                                 {(viewMode === 'players' ? leaderboard : teamLeaderboard).map((item) => (
                                     <TouchableOpacity
                                         key={item.id}
@@ -300,6 +385,8 @@ export default function LeaderboardScreen() {
                                         <Text className="w-12 text-center text-gray-400 font-bold text-sm">{item.played}</Text>
                                         <Text className="w-14 text-center text-gray-300 font-bold text-sm">{item.winRate}%</Text>
                                         <Text className="w-16 text-center text-foreground font-bold text-sm">{item.wins}-{item.played - item.wins}</Text>
+                                        <Text style={{ width: 70 }} className="text-center text-foreground font-bold text-sm">{item.record8} {item.pct8}</Text>
+                                        <Text style={{ width: 70 }} className="text-center text-foreground font-bold text-sm">{item.record9} {item.pct9}</Text>
                                         {viewMode === 'players' && <Text className="w-12 text-center text-primary font-bold text-sm">{item.shutouts}</Text>}
                                         {viewMode === 'players' && <Text className="w-10 text-center text-primary font-bold text-sm" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>{item.breakPoint} </Text>}
                                     </TouchableOpacity>

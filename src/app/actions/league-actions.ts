@@ -1208,3 +1208,35 @@ export async function rejectTeamRoster(teamId: string, leagueId: string) {
     revalidatePath(`/dashboard/operator/leagues/${leagueId}`);
     return { success: true };
 }
+
+export async function allowTeamRosterEdit(teamId: string, leagueId: string) {
+    const { isAuthorized } = await checkOperator(leagueId);
+    if (!isAuthorized) return { error: "Unauthorized" };
+
+    const supabase = createAdminClient();
+    const { error } = await supabase
+        .from("teams")
+        .update({ status: null }) // Setting back to NULL unlocks the roster
+        .eq("id", teamId);
+
+    if (error) return { error: "Failed to allow edit." };
+
+    revalidatePath(`/dashboard/operator/leagues/${leagueId}`);
+    return { success: true };
+}
+
+export async function denyTeamRosterEdit(teamId: string, leagueId: string) {
+    const { isAuthorized } = await checkOperator(leagueId);
+    if (!isAuthorized) return { error: "Unauthorized" };
+
+    const supabase = createAdminClient();
+    const { error } = await supabase
+        .from("teams")
+        .update({ status: 'approved' }) // Keep it approved/locked
+        .eq("id", teamId);
+
+    if (error) return { error: "Failed to deny edit." };
+
+    revalidatePath(`/dashboard/operator/leagues/${leagueId}`);
+    return { success: true };
+}
