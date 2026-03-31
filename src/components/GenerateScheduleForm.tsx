@@ -35,6 +35,7 @@ export default function GenerateScheduleForm({
 }: GenerateScheduleFormProps) {
     const [startDate, setStartDate] = useState(initialStartDate || "");
     const [timezone, setTimezone] = useState(initialTimezone || "America/Chicago");
+    const [weekCount, setWeekCount] = useState(16);
     const [skipDates, setSkipDates] = useState<string[]>([]);
     const [newSkipDate, setNewSkipDate] = useState("");
     const [useTimeSlots, setUseTimeSlots] = useState(false);
@@ -78,7 +79,7 @@ export default function GenerateScheduleForm({
             const tableNamesArray = useTables ? tableNames.map(s => s.trim()).filter(s => s) : [];
 
             // Pass startDate to ensure we use the client-side value even if updateLeague hasn't propagated
-            const res = await generateSchedule(leagueId, skipDates, timeSlotsArray, tableNamesArray, startDate);
+            const res = await generateSchedule(leagueId, skipDates, timeSlotsArray, tableNamesArray, startDate, weekCount);
 
             if (res?.error) {
                 if (res.error === 'NOT_ENOUGH_PLAYERS') {
@@ -131,6 +132,17 @@ export default function GenerateScheduleForm({
                         <option value="America/Denver">Mountain Time (MT)</option>
                         <option value="America/Los_Angeles">Pacific Time (PT)</option>
                     </select>
+                </div>
+                <div className="space-y-1">
+                    <label className="text-xs text-gray-400">Number of Weeks</label>
+                    <input
+                        type="number"
+                        min={1}
+                        value={weekCount}
+                        onChange={(e) => setWeekCount(Math.max(1, Number(e.target.value) || 1))}
+                        required
+                        className="input w-full text-sm bg-black/50 border-gray-700"
+                    />
                 </div>
             </div>
 

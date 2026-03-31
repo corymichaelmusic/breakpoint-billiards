@@ -235,7 +235,8 @@ export async function generateSchedule(
     skipDates: string[] = [],
     inputTimeSlots: string[] = [],
     inputTableNames: string[] = [],
-    overrideStartDate?: string
+    overrideStartDate?: string,
+    requestedWeekCount?: number
 ) {
     const { isAuthorized } = await checkOperator(leagueId);
     if (!isAuthorized) return { error: "Unauthorized" };
@@ -320,7 +321,7 @@ export async function generateSchedule(
     const n = playerIds.length;
     const rounds = n - 1;
     const matches = [];
-    const totalMatchWeeks = 16; // We want 16 weeks of PLAY
+    const totalMatchWeeks = Math.max(1, Math.floor(requestedWeekCount || 16));
 
     // Parse start date explicitly
     const [y, m, d] = effectiveStartDate.split('-').map(Number);
