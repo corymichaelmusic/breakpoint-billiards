@@ -8,6 +8,7 @@ export interface Session {
     name: string;
     status: string;
     type: string;
+    isTeamLeague?: boolean;
     isPrimary: boolean;
     parentLeagueName?: string;
     paymentStatus?: string;
@@ -122,6 +123,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
                         name,
                         type,
                         status,
+                        is_team_league,
                         location,
                         city,
                         schedule_day,
@@ -159,6 +161,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
                     name: league.name,
                     status: league.status,
                     type: league.type,
+                    isTeamLeague: league.is_team_league || false,
                     isPrimary: m.is_primary || false,
                     parentLeagueName: league.parent_league?.name,
                     paymentStatus: m.payment_status,
@@ -318,11 +321,29 @@ export function SessionProvider({ children }: SessionProviderProps) {
                 { global: { headers: token ? { Authorization: `Bearer ${token}` } : undefined } }
             );
 
-            // First, unset all primary for this user
-            await supabase
+            // First, unset every other primary row for this user.
+            const { error: clearError } = await supabase
                 .from('league_players')
                 .update({ is_primary: false })
-                .eq('player_id', userId);
+                .eq('player_id', userId)
+                .neq('league_id', sessionId);
+
+            if (clearError) {
+                console.error('[SessionContext] Error clearing previous primary:', clearError);
+                return;
+            }
+
+            // Also normalize the target row before promoting it, so retries are idempotent.
+            const { error: targetResetError } = await supabase
+                .from('league_players')
+                .update({ is_primary: false })
+                .eq('player_id', userId)
+                .eq('league_id', sessionId);
+
+            if (targetResetError) {
+                console.error('[SessionContext] Error resetting target primary row:', targetResetError);
+                return;
+            }
 
             // Then set the new primary
             const { error } = await supabase
@@ -342,11 +363,16 @@ export function SessionProvider({ children }: SessionProviderProps) {
                 isPrimary: s.id === sessionId
             })));
 
+            const selectedSession = sessions.find((session) => session.id === sessionId);
+            if (selectedSession) {
+                setCurrentSessionState(selectedSession);
+            }
+
             console.log('[SessionContext] Primary session set to:', sessionId);
         } catch (e) {
             console.error('[SessionContext] Exception setting primary:', e);
         }
-    }, [userId]); // Removed getToken
+    }, [userId, getToken, sessions]);
 
     const refreshSessions = useCallback(async () => {
         setLoading(true);

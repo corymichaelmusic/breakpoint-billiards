@@ -8,6 +8,7 @@ import { createClient } from "@supabase/supabase-js";
 import StatsCard from "../../components/StatsCard";
 
 import NextMatchCard from "../../components/NextMatchCard";
+import TeamMatchCard from "../../components/TeamMatchCard";
 import BreakpointGraph from "../../components/BreakpointGraph";
 import { calculateEloChange, getBreakpointLevel, fetchMatchRaces } from "../../utils/rating";
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
@@ -35,6 +36,7 @@ export default function HomeScreen() {
   const [stats, setStats] = useState<any>({ winRate: 0, wl: "0-0", shutouts: 0, rank: "N/A", stats8: {}, stats9: {} });
   const [ratingHistory, setRatingHistory] = useState<any[]>([]);
   const [nextMatch, setNextMatch] = useState<any>(null);
+  const [userTeamId, setUserTeamId] = useState<string | null>(null);
   const [globalNextMatch, setGlobalNextMatch] = useState<any>(null);
   const [races, setRaces] = useState<Record<string, any>>({});
   const [bountyDisplay, setBountyDisplay] = useState(false);
@@ -186,6 +188,7 @@ export default function HomeScreen() {
 
       setActiveSession({
         ...session,
+        isTeamLeague: activeMembership.leagues?.is_team_league || session.isTeamLeague || false,
         paid: activeMembership.payment_status === 'paid',
         payment_status: activeMembership.payment_status,
         parent_league: activeMembership.leagues?.parent_league
@@ -223,6 +226,18 @@ export default function HomeScreen() {
 
       const matches = matchesData || [];
       setMatches(matches);
+
+      const { data: globalMatchesData } = await supabaseAuthenticated
+        .from("matches")
+        .select(`
+          *,
+          player1:player1_id(full_name, breakpoint_rating, fargo_rating),
+          player2:player2_id(full_name, breakpoint_rating, fargo_rating),
+          games (*)
+        `)
+        .or(`player1_id.eq.${userId},player2_id.eq.${userId}`);
+
+      const globalMatches = globalMatchesData || [];
 
       // Fetch Races for all matches
       if (matches.length > 0) {
@@ -344,10 +359,10 @@ export default function HomeScreen() {
         rating: parseFloat(getBreakpointLevel(runningRating))
       });
 
-      if (matches) {
+      if (globalMatches) {
         // Sort Newest -> Oldest for walking backwards
         // Prefer submitted_at (actual finish time) > created_at > scheduled_date
-        const sortedMatches = matches
+        const sortedMatches = globalMatches
           .filter(m => m.status === 'finalized' || (m.status_8ball === 'finalized' && m.status_9ball === 'finalized'))
           .sort((a, b) => {
             const tA = new Date(a.submitted_at || a.created_at || a.scheduled_date).getTime();
@@ -355,7 +370,7 @@ export default function HomeScreen() {
             return tB - tA;
           });
 
-        console.log(`[Dashboard] Graph: Processing ${sortedMatches.length} matches for history.`);
+        console.log(`[Dashboard] Graph: Processing ${sortedMatches.length} global matches for history.`);
 
         for (const m of sortedMatches) {
           const isP1 = m.player1_id === userId;
@@ -457,14 +472,49 @@ export default function HomeScreen() {
         }
       });
 
-      // Next Match Logic
-      const nextUp = matches?.find(m => {
-        const is8Final = m.status_8ball === 'finalized';
-        const is9Final = m.status_9ball === 'finalized';
-        const isFullyFinalized = m.status === 'finalized' || (is8Final && is9Final);
-        return !isFullyFinalized;
-      });
-      setNextMatch(nextUp);
+      if (activeMembership.leagues?.is_team_league || session.isTeamLeague) {
+        const { data: captainTeam } = await supabaseAuthenticated
+          .from('teams')
+          .select('id')
+          .eq('league_id', session.id)
+          .eq('captain_id', userId)
+          .maybeSingle();
+
+        const { data: memberTeamData } = await supabaseAuthenticated
+          .from('team_members')
+          .select('teams!inner(id)')
+          .eq('player_id', userId)
+          .eq('teams.league_id', session.id)
+          .maybeSingle();
+
+        const joinedTeam: any = memberTeamData?.teams;
+        const resolvedTeamId = captainTeam?.id || (!Array.isArray(joinedTeam) ? joinedTeam?.id : null) || null;
+        setUserTeamId(resolvedTeamId);
+
+        if (resolvedTeamId) {
+          const { data: teamMatchesData } = await supabaseAuthenticated
+            .from('team_matches')
+            .select('*, team_a:team_a_id(*), team_b:team_b_id(*)')
+            .eq('league_id', session.id)
+            .or(`team_a_id.eq.${resolvedTeamId},team_b_id.eq.${resolvedTeamId}`)
+            .order('week_number', { ascending: true })
+            .order('created_at', { ascending: true });
+
+          const nextTeamMatch = (teamMatchesData || []).find((m: any) => m.status !== 'completed');
+          setNextMatch(nextTeamMatch || null);
+        } else {
+          setNextMatch(null);
+        }
+      } else {
+        setUserTeamId(null);
+        const nextUp = matches?.find(m => {
+          const is8Final = m.status_8ball === 'finalized';
+          const is9Final = m.status_9ball === 'finalized';
+          const isFullyFinalized = m.status === 'finalized' || (is8Final && is9Final);
+          return !isFullyFinalized;
+        });
+        setNextMatch(nextUp);
+      }
 
       // Fetch Global Next Match for Banner (Across ALL leagues)
       // Only fetch if we have a user
@@ -810,6 +860,10 @@ export default function HomeScreen() {
 
             {nextMatch ? (
               (() => {
+                if (activeSession?.isTeamLeague && userTeamId) {
+                  return <TeamMatchCard match={nextMatch} userTeamId={userTeamId} />;
+                }
+
                 // Logic for status calculation (Same as MatchesScreen)
                 const now = new Date();
                 const [year, month, day] = nextMatch.scheduled_date.split('-').map(Number);
