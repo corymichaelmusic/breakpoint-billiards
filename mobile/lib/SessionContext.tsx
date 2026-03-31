@@ -321,36 +321,9 @@ export function SessionProvider({ children }: SessionProviderProps) {
                 { global: { headers: token ? { Authorization: `Bearer ${token}` } : undefined } }
             );
 
-            // First, unset every other primary row for this user.
-            const { error: clearError } = await supabase
-                .from('league_players')
-                .update({ is_primary: false })
-                .eq('player_id', userId)
-                .neq('league_id', sessionId);
-
-            if (clearError) {
-                console.error('[SessionContext] Error clearing previous primary:', clearError);
-                return;
-            }
-
-            // Also normalize the target row before promoting it, so retries are idempotent.
-            const { error: targetResetError } = await supabase
-                .from('league_players')
-                .update({ is_primary: false })
-                .eq('player_id', userId)
-                .eq('league_id', sessionId);
-
-            if (targetResetError) {
-                console.error('[SessionContext] Error resetting target primary row:', targetResetError);
-                return;
-            }
-
-            // Then set the new primary
-            const { error } = await supabase
-                .from('league_players')
-                .update({ is_primary: true })
-                .eq('player_id', userId)
-                .eq('league_id', sessionId);
+            const { error } = await supabase.rpc('set_primary_session', {
+                p_league_id: sessionId
+            });
 
             if (error) {
                 console.error('[SessionContext] Error setting primary:', error);
