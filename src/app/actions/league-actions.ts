@@ -1222,7 +1222,7 @@ export async function approveCaptainRequest(requestId: string, leagueId: string,
             name: teamName,
             captain_id: playerId,
             tid: tid,
-            status: 'approved'
+            status: null
         })
         .select("id")
         .single();
