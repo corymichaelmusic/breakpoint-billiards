@@ -55,14 +55,13 @@ export async function fetchMatchRaces(matches: Array<{ id: string, p1Rating: num
         });
 
         if (error) {
-            console.error('Error fetching races:', error);
+            console.warn('Race fetch unavailable, using fallback display.', error);
             return null;
         }
 
         return data; // Returns { [matchId]: { race8: {p1, p2}, race9: {p1, p2} } }
     } catch (e) {
-        console.error('Exception fetching races:', e);
+        console.warn('Race fetch failed, using fallback display.', e);
         return null;
     }
 }
-

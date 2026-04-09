@@ -1,17 +1,111 @@
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "expo-router";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import { createClient } from "@supabase/supabase-js";
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useSession } from "../../lib/SessionContext";
+import { supabase } from "../../lib/supabase";
+import { applyRealtimeAuth } from "../../lib/realtimeAuth";
 import { getBreakpointLevel } from "../../utils/rating";
+
+function getPlayerNameLines(fullName?: string | null) {
+    const trimmedName = fullName?.trim();
+    if (!trimmedName) {
+        return { firstLine: "Player", secondLine: "" };
+    }
+
+    const parts = trimmedName.split(/\s+/).filter(Boolean);
+    if (parts.length === 1) {
+        return { firstLine: parts[0], secondLine: "" };
+    }
+
+    return {
+        firstLine: parts[0],
+        secondLine: parts.slice(1).join(" "),
+    };
+}
+
+function formatBreakpointSum(value: number) {
+    return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+function getTeamBreakpointRangeLabel(members: any[]) {
+    if (!members.length) return null;
+
+    const levels = members
+        .map((member) => parseFloat(getBreakpointLevel(member?.profiles?.breakpoint_rating)))
+        .filter((level) => Number.isFinite(level))
+        .sort((a, b) => a - b);
+
+    if (!levels.length) return null;
+
+    const groupSize = Math.min(4, levels.length);
+    const lowTotal = levels.slice(0, groupSize).reduce((sum, level) => sum + level, 0);
+    const highTotal = levels.slice(-groupSize).reduce((sum, level) => sum + level, 0);
+
+    return `BP Range ${formatBreakpointSum(lowTotal)}-${formatBreakpointSum(highTotal)}`;
+}
+
+function getTeamMemberConflictMessage(error: unknown) {
+    const parts: string[] = [];
+
+    if (error instanceof Error) {
+        parts.push(error.message);
+    }
+
+    if (error && typeof error === "object") {
+        const maybeError = error as { message?: string; details?: string; hint?: string; code?: string };
+        if (maybeError.message) parts.push(maybeError.message);
+        if (maybeError.details) parts.push(maybeError.details);
+        if (maybeError.hint) parts.push(maybeError.hint);
+        if (maybeError.code) parts.push(maybeError.code);
+    }
+
+    const combined = parts.join(" ").toLowerCase();
+    if (
+        combined.includes("already belongs to another team in this league") ||
+        combined.includes("already on a roster") ||
+        combined.includes("duplicate key") ||
+        combined.includes("23505")
+    ) {
+        return "That player is already on a roster for this league.";
+    }
+
+    return "Failed to add player to team.";
+}
+
+function isTeamMemberConflict(error: unknown) {
+    const parts: string[] = [];
+
+    if (error instanceof Error) {
+        parts.push(error.message);
+    }
+
+    if (error && typeof error === "object") {
+        const maybeError = error as { message?: string; details?: string; hint?: string; code?: string };
+        if (maybeError.message) parts.push(maybeError.message);
+        if (maybeError.details) parts.push(maybeError.details);
+        if (maybeError.hint) parts.push(maybeError.hint);
+        if (maybeError.code) parts.push(maybeError.code);
+    }
+
+    const combined = parts.join(" ").toLowerCase();
+    return (
+        combined.includes("already belongs to another team in this league") ||
+        combined.includes("already on a roster") ||
+        combined.includes("duplicate key") ||
+        combined.includes("23505") ||
+        combined.includes("p0001")
+    );
+}
 
 export default function ManageTeamScreen() {
     const { getToken, userId } = useAuth();
     const router = useRouter();
     const { currentSession } = useSession();
+    const realtimeRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const [loading, setLoading] = useState(true);
     const [team, setTeam] = useState<any>(null);
@@ -115,9 +209,72 @@ export default function ManageTeamScreen() {
         }
     }, [currentSession?.id, userId]); // Removed getToken as it can trigger infinite renders in Clerk
 
-    useEffect(() => {
+    useFocusEffect(useCallback(() => {
         fetchTeamData();
-    }, [fetchTeamData]);
+
+        const interval = setInterval(() => {
+            fetchTeamData();
+        }, 5000);
+
+        return () => clearInterval(interval);
+    }, [fetchTeamData]));
+
+    useEffect(() => {
+        if (!currentSession?.id || !userId) return;
+
+        let isActive = true;
+        let channel: ReturnType<typeof supabase.channel> | null = null;
+
+        const scheduleRefresh = () => {
+            if (realtimeRefreshTimeoutRef.current) {
+                clearTimeout(realtimeRefreshTimeoutRef.current);
+            }
+
+            realtimeRefreshTimeoutRef.current = setTimeout(() => {
+                fetchTeamData();
+            }, 250);
+        };
+
+        (async () => {
+            try {
+                const token = await getToken({ template: 'supabase' });
+                if (!isActive) return;
+
+                await applyRealtimeAuth(token);
+                if (!isActive) return;
+
+                channel = supabase
+                    .channel(`team-roster:${currentSession.id}:${userId}`)
+                    .on('postgres_changes', {
+                        event: '*',
+                        schema: 'public',
+                        table: 'team_members',
+                    }, scheduleRefresh)
+                    .on('postgres_changes', {
+                        event: '*',
+                        schema: 'public',
+                        table: 'teams',
+                        filter: `league_id=eq.${currentSession.id}`,
+                    }, scheduleRefresh)
+                    .subscribe();
+            } catch (error) {
+                console.warn('ManageTeamScreen realtime setup failed:', error);
+            }
+        })();
+
+        return () => {
+            isActive = false;
+
+            if (realtimeRefreshTimeoutRef.current) {
+                clearTimeout(realtimeRefreshTimeoutRef.current);
+                realtimeRefreshTimeoutRef.current = null;
+            }
+
+            if (channel) {
+                supabase.removeChannel(channel);
+            }
+        };
+    }, [currentSession?.id, userId, getToken, fetchTeamData]);
 
 
 
@@ -159,8 +316,11 @@ export default function ManageTeamScreen() {
                             fetchTeamData(); // Refresh Roster & Available Players
 
                         } catch (e) {
-                            console.error(e);
-                            Alert.alert("Error", "Failed to add player to team.");
+                            if (!isTeamMemberConflict(e)) {
+                                console.error(e);
+                            }
+                            await fetchTeamData();
+                            Alert.alert("Player unavailable", getTeamMemberConflictMessage(e));
                         } finally {
                             setAddLoading(false);
                         }
@@ -346,6 +506,9 @@ export default function ManageTeamScreen() {
     }
 
     const isCaptain = team.captain_id === userId;
+    const teamBreakpointRangeLabel = getTeamBreakpointRangeLabel(members);
+    const isRosterEditable = !team.status;
+    const teamStatusText = isRosterEditable ? "Roster editable" : team.status?.replace('_', ' ');
 
     return (
         <SafeAreaView className="flex-1 bg-background">
@@ -386,14 +549,10 @@ export default function ManageTeamScreen() {
                             </TouchableOpacity>
                         )}
                         <View className="flex-row items-center mt-1">
-                            {team.status && (
-                                <>
-                                    <Text className={`text-xs font-bold uppercase ${team.status === 'approved' ? 'text-green-400' : 'text-yellow-500'}`}>
-                                        {team.status}
-                                    </Text>
-                                    <Text className="text-gray-500 text-xs mx-2">•</Text>
-                                </>
-                            )}
+                            <Text className={`text-xs font-bold uppercase ${isRosterEditable ? 'text-green-400' : team.status === 'approved' ? 'text-green-400' : 'text-yellow-500'}`}>
+                                {teamStatusText}
+                            </Text>
+                            <Text className="text-gray-500 text-xs mx-2">•</Text>
                             <Text className="text-gray-400 text-xs font-mono">ID: {team.tid || '---'}</Text>
                         </View>
                      </View>
@@ -427,7 +586,10 @@ export default function ManageTeamScreen() {
                                                 showsHorizontalScrollIndicator={false}
                                                 data={availablePlayers}
                                                 keyExtractor={p => p.id}
-                                                renderItem={({ item: player }) => (
+                                                renderItem={({ item: player }) => {
+                                                    const { firstLine, secondLine } = getPlayerNameLines(player.full_name);
+
+                                                    return (
                                                     <TouchableOpacity 
                                                         onPress={() => handleAddPlayer(player)}
                                                         disabled={addLoading}
@@ -440,12 +602,22 @@ export default function ManageTeamScreen() {
                                                                 <FontAwesome5 name="user" size={14} color="#9CA3AF" />
                                                             </View>
                                                         )}
-                                                        <Text className="text-white font-bold text-xs text-center mb-1" numberOfLines={1}>{player.full_name?.split(' ')[0] || 'Player'}</Text>
+                                                        <View className="min-h-[30px] justify-center mb-1">
+                                                            <Text className="text-white font-bold text-xs text-center leading-4" numberOfLines={1}>
+                                                                {firstLine}
+                                                            </Text>
+                                                            {!!secondLine && (
+                                                                <Text className="text-white font-bold text-[11px] text-center leading-4" numberOfLines={2}>
+                                                                    {secondLine}
+                                                                </Text>
+                                                            )}
+                                                        </View>
                                                         <View className="bg-primary/20 px-2 py-0.5 rounded">
                                                             <Text className="text-primary font-bold text-[10px]">{getBreakpointLevel(player.breakpoint_rating)}</Text>
                                                         </View>
                                                     </TouchableOpacity>
-                                                )}
+                                                    );
+                                                }}
                                             />
                                         ) : (
                                             <View className="py-2 items-center">
@@ -460,7 +632,9 @@ export default function ManageTeamScreen() {
                                 </View>
                              )}
 
-                             <Text className="text-gray-400 text-xs font-bold uppercase tracking-widest pl-2 mb-3 mt-2">Team Roster</Text>
+                             <Text className="text-gray-400 text-xs font-bold uppercase tracking-widest pl-2 mb-3 mt-2">
+                                 {`Team Roster${teamBreakpointRangeLabel ? ` • ${teamBreakpointRangeLabel}` : ''}`}
+                             </Text>
                          </>
                      }
                      renderItem={({ item }) => (
@@ -494,7 +668,7 @@ export default function ManageTeamScreen() {
                              </View>
                          )}
                          ListFooterComponent={
-                             isCaptain && members.length === 6 && team.status !== 'submitted' && team.status !== 'approved' ? (
+                             isCaptain && members.length === 6 && isRosterEditable ? (
                                  <View className="mt-4 mb-10 px-2">
                                      <TouchableOpacity 
                                          onPress={handleSubmitTeam}

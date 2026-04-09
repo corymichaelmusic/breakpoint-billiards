@@ -1,7 +1,7 @@
-CREATE OR REPLACE FUNCTION get_race_target(
+CREATE OR REPLACE FUNCTION public.get_race_target(
     p_rating1 numeric,
     p_rating2 numeric,
-    p_game_type text -- '8ball' or '9ball'
+    p_game_type text
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -12,21 +12,9 @@ DECLARE
     v_r2 int := COALESCE(p_rating2, 500);
     v_idx1 int;
     v_idx2 int;
-    v_race int[];
-    v_matrix int[][][]; -- 3D array: [row][col][p1, p2]
+    v_matrix int[][][];
 BEGIN
-    -- 1. Helper Index Logic
-    -- 0: <= 344 (was 275)
-    -- 1: <= 436 (was 349)
-    -- 2: <= 499 (was 399)
-    -- 3: <= 561 (was 449)
-    -- 4: <= 624 (was 499)
-    -- 5: <= 686 (was 549)
-    -- 6: <= 749 (was 599)
-    -- 7: <= 875 (was 700)
-    -- 8: > 875 (was > 700)
-    
-    SELECT CASE 
+    SELECT CASE
         WHEN v_r1 <= 344 THEN 0
         WHEN v_r1 <= 436 THEN 1
         WHEN v_r1 <= 499 THEN 2
@@ -35,10 +23,10 @@ BEGIN
         WHEN v_r1 <= 686 THEN 5
         WHEN v_r1 <= 749 THEN 6
         WHEN v_r1 <= 875 THEN 7
-        ELSE 8 
+        ELSE 8
     END INTO v_idx1;
 
-    SELECT CASE 
+    SELECT CASE
         WHEN v_r2 <= 344 THEN 0
         WHEN v_r2 <= 436 THEN 1
         WHEN v_r2 <= 499 THEN 2
@@ -47,10 +35,10 @@ BEGIN
         WHEN v_r2 <= 686 THEN 5
         WHEN v_r2 <= 749 THEN 6
         WHEN v_r2 <= 875 THEN 7
-        ELSE 8 
+        ELSE 8
     END INTO v_idx2;
 
-    -- 2. BIS Short Race Matrices
+    -- BIS Short Race Matrices
     IF p_game_type = '9ball' THEN
         v_matrix := ARRAY[
             [[2, 2], [2, 3], [2, 3], [2, 3], [2, 4], [2, 4], [2, 4], [2, 5], [2, 6]],
@@ -77,13 +65,11 @@ BEGIN
         ];
     END IF;
 
-    -- 3. Lookup
-    -- Access 1-based index for PL/pgSQL arrays
-    -- v_matrix is 3D: [row][col][p1/p2]
-    
     RETURN jsonb_build_object(
         'p1', v_matrix[v_idx1 + 1][v_idx2 + 1][1],
         'p2', v_matrix[v_idx1 + 1][v_idx2 + 1][2]
     );
 END;
 $$;
+
+GRANT EXECUTE ON FUNCTION public.get_race_target(numeric, numeric, text) TO authenticated;

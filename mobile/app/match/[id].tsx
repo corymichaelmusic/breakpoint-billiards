@@ -67,6 +67,9 @@ export default function MatchScreen() {
         gamesRef.current = games;
     }, [games]);
 
+    const isVerifiedMatch = match?.verification_status === 'verified';
+    const isReadOnlyMatch = isVerifiedMatch || match?.status === 'completed';
+
     const fetchMatchData = useCallback(async () => {
         if (isFetching.current) {
             console.log("Skipping fetch, one is already in progress.");
@@ -288,7 +291,7 @@ export default function MatchScreen() {
     useMatchBroadcast(id as string, fetchMatchData);
 
     const handleSubmitGame = async (winnerId: string, outcome: string, opponentId: string) => {
-        if (submitting || !match) return;
+        if (submitting || !match || isReadOnlyMatch) return;
         setSubmitting(true);
 
         try {
@@ -347,6 +350,7 @@ export default function MatchScreen() {
     };
 
     const handleVerifyAndFinalize = async () => {
+        if (isReadOnlyMatch) return;
         // Calculate winner BEFORE showing alert so we can announce it
         const p1Id = match.player1.id;
         const p2Id = match.player2.id;
@@ -466,7 +470,7 @@ export default function MatchScreen() {
 
     // New: Submit both sets for verification
     const handleSubmitForVerification = async () => {
-        if (submitting) return;
+        if (submitting || isReadOnlyMatch) return;
         setSubmitting(true);
 
         try {
@@ -567,16 +571,19 @@ export default function MatchScreen() {
 
 
     const handleSelectGame = (type: '8ball' | '9ball') => {
+        if (isReadOnlyMatch) return;
         setActiveGameType(type);
         setViewMode('scoring');
     };
 
     const handleEditGame = (gameId: string) => {
+        if (isReadOnlyMatch) return;
         router.push(`/game/${gameId}`);
     };
 
     // Custom Overlay Handlers
     const handleRequestOutcome = (winnerId: string) => {
+        if (isReadOnlyMatch) return;
         setPendingWinnerId(winnerId);
         setOutcomePromptVisible(true);
     };
@@ -712,10 +719,19 @@ export default function MatchScreen() {
 
                         {/* Game Selection Cards */}
                         <View className="gap-4 px-2">
+                            {isReadOnlyMatch ? (
+                                <View className="bg-green-900/30 border border-green-500/40 rounded-xl p-4 items-center">
+                                    <Text className="text-green-400 font-bold text-sm uppercase mb-1">Match Verified</Text>
+                                    <Text className="text-gray-300 text-xs text-center">
+                                        This match has been completed and verified. Scores are locked and can no longer be edited.
+                                    </Text>
+                                </View>
+                            ) : null}
                             {/* 8-Ball Card */}
                             <TouchableOpacity
                                 onPress={() => handleSelectGame('8ball')}
-                                className="bg-black/40 border border-yellow-400/50 rounded-xl p-6 items-center justify-center h-40"
+                                disabled={isReadOnlyMatch}
+                                className={`bg-black/40 border border-yellow-400/50 rounded-xl p-6 items-center justify-center h-40 ${isReadOnlyMatch ? 'opacity-60' : 'opacity-100'}`}
                             >
                                 <Text className="text-yellow-400 font-black text-3xl italic tracking-tighter mb-2">8-BALL</Text>
                                 <Text className="text-white font-bold text-2xl mb-4 w-full text-center" numberOfLines={1} adjustsFontSizeToFit>
@@ -742,7 +758,8 @@ export default function MatchScreen() {
                             {/* 9-Ball Card */}
                             <TouchableOpacity
                                 onPress={() => handleSelectGame('9ball')}
-                                className="bg-black/40 border border-yellow-400/50 rounded-xl p-6 items-center justify-center h-40"
+                                disabled={isReadOnlyMatch}
+                                className={`bg-black/40 border border-yellow-400/50 rounded-xl p-6 items-center justify-center h-40 ${isReadOnlyMatch ? 'opacity-60' : 'opacity-100'}`}
                             >
                                 <Text className="text-yellow-400 font-black text-3xl italic tracking-tighter mb-2">9-BALL</Text>
                                 <Text className="text-white font-bold text-2xl mb-4 w-full text-center" numberOfLines={1} adjustsFontSizeToFit>
@@ -802,7 +819,7 @@ export default function MatchScreen() {
 
                             const isRaceMet = (p1Score >= raceP1) || (p2Score >= raceP2);
                             const isFinalized = (activeGameType === '8ball' ? match.status_8ball : match.status_9ball) === 'finalized';
-                            const showFinalizeUI = isRaceMet && !isFinalized;
+                            const showFinalizeUI = isRaceMet && !isFinalized && !isReadOnlyMatch;
 
                             // Helper to get display name
                             const getP1Name = () => match.player1.nickname || match.player1.full_name?.split(' ')[0] || 'Player 1';
@@ -829,7 +846,7 @@ export default function MatchScreen() {
                                             isSubmitting={submitting}
                                             onEditGame={handleEditGame}
                                             isRaceComplete={showFinalizeUI}
-                                            isFinalized={isFinalized}
+                                            isFinalized={isFinalized || isReadOnlyMatch}
                                             onFinalize={handleVerifyAndFinalize}
                                         />
                                     ) : (
@@ -843,7 +860,7 @@ export default function MatchScreen() {
                                             isSubmitting={submitting}
                                             onEditGame={handleEditGame}
                                             isRaceComplete={showFinalizeUI}
-                                            isFinalized={isFinalized}
+                                            isFinalized={isFinalized || isReadOnlyMatch}
                                             onFinalize={handleVerifyAndFinalize}
                                         />
                                     )}
@@ -856,7 +873,7 @@ export default function MatchScreen() {
 
             {/* Match Submission Modal */}
             <Modal
-                visible={showSubmissionModal}
+                visible={showSubmissionModal && !isReadOnlyMatch}
                 animationType="slide"
                 transparent={true}
                 onRequestClose={() => setShowSubmissionModal(false)}

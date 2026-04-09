@@ -6,9 +6,11 @@ import { useState } from "react";
 
 export default function CreateSessionForm({
     leagueId,
+    isTeamLeague = false,
     defaultBounties = { bounty8Run: 0, bounty9Run: 0, bounty9Snap: 0, bountyShutout: 0 }
 }: {
     leagueId: string,
+    isTeamLeague?: boolean,
     defaultBounties?: {
         bounty8Run: number,
         bounty9Run: number,
@@ -31,7 +33,7 @@ export default function CreateSessionForm({
             bounty8Run: Number(formData.get("bounty8Run") || 0),
             bounty9Run: Number(formData.get("bounty9Run") || 0),
             bounty9Snap: Number(formData.get("bounty9Snap") || 0),
-            bountyShutout: Number(formData.get("bountyShutout") || 0)
+            bountyShutout: isTeamLeague ? 0 : Number(formData.get("bountyShutout") || 0)
         };
 
         const res = await createSession(leagueId, name, startDate, bounties);
@@ -125,19 +127,23 @@ export default function CreateSessionForm({
                             className="input"
                         />
                     </div>
-                    <div>
-                        <label className="label">Shutout ($)</label>
-                        <input
-                            name="bountyShutout"
-                            type="number"
-                            defaultValue={defaultBounties.bountyShutout}
-                            min="0"
-                            className="input"
-                        />
-                    </div>
+                    {!isTeamLeague && (
+                        <div>
+                            <label className="label">Shutout ($)</label>
+                            <input
+                                name="bountyShutout"
+                                type="number"
+                                defaultValue={defaultBounties.bountyShutout}
+                                min="0"
+                                className="input"
+                            />
+                        </div>
+                    )}
                 </div>
                 <p className="text-xs text-gray-400 mt-2">
-                    Default values are loaded from the parent league organization settings.
+                    {isTeamLeague
+                        ? "All sessions include a fixed 8-Ball Rack & Run bounty of $2. Team sessions do not include shutout bounties."
+                        : "Default values are loaded from the parent league organization settings. All sessions also include a fixed 8-Ball Rack & Run bounty of $2."}
                 </p>
             </div>
 

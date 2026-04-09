@@ -30,10 +30,14 @@ interface NextMatchCardProps {
         winnerId8?: string | null;
         winnerId9?: string | null;
         isPlayer1: boolean;
+        show8Ball?: boolean;
+        show9Ball?: boolean;
     };
     specialStats?: {
         p1_8br: number;
         p2_8br: number;
+        p1_8rr?: number;
+        p2_8rr?: number;
         p1_9br: number;
         p2_9br: number;
         p1_snap: number;
@@ -66,6 +70,9 @@ export default function NextMatchCard({
     const isPlayer1 = userId === player1Id;
     const haveISubmitted = isPlayer1 ? !!p1SubmittedAt : !!p2SubmittedAt;
     const effectiveIsPlayer1 = scores?.isPlayer1 ?? isPlayer1;
+    const show8BallScore = scores?.show8Ball !== false;
+    const show9BallScore = scores?.show9Ball !== false;
+    const isVerifiedMatch = verificationStatus === 'verified';
 
     // ... (rest of useEffects) ... 
 
@@ -246,6 +253,7 @@ export default function NextMatchCard({
 
     const handlePlayMatch = () => {
         if (!userId) return;
+        if (isVerifiedMatch || status === 'finalized' || status === 'completed') return;
 
         if (!isPaid(myPaymentStatus)) {
             Alert.alert(
@@ -395,24 +403,28 @@ export default function NextMatchCard({
             {scores && (status === 'finalized' || status === 'completed') && (
                 <View className="mb-4">
                     <View className="flex-row gap-4 mb-4">
-                        <View>
-                            <Text className="text-gray-400 text-[10px] uppercase">8-Ball</Text>
-                            <Text className={`font-bold ${scores.winnerId8
-                                ? (scores.winnerId8 === (scores.isPlayer1 ? player1Id : player2Id) ? 'text-green-400' : 'text-red-400')
-                                : ((scores.isPlayer1 ? scores.p1_8 : scores.p2_8) > (scores.isPlayer1 ? scores.p2_8 : scores.p1_8)) ? 'text-green-400' : 'text-red-400'
-                                }`}>
-                                {scores.isPlayer1 ? scores.p1_8 : scores.p2_8} - {scores.isPlayer1 ? scores.p2_8 : scores.p1_8}
-                            </Text>
-                        </View>
-                        <View>
-                            <Text className="text-gray-400 text-[10px] uppercase">9-Ball</Text>
-                            <Text className={`font-bold ${scores.winnerId9
-                                ? (scores.winnerId9 === (scores.isPlayer1 ? player1Id : player2Id) ? 'text-green-400' : 'text-red-400')
-                                : ((scores.isPlayer1 ? scores.p1_9 : scores.p2_9) > (scores.isPlayer1 ? scores.p2_9 : scores.p1_9)) ? 'text-green-400' : 'text-red-400'
-                                }`}>
-                                {scores.isPlayer1 ? scores.p1_9 : scores.p2_9} - {scores.isPlayer1 ? scores.p2_9 : scores.p1_9}
-                            </Text>
-                        </View>
+                        {show8BallScore ? (
+                            <View>
+                                <Text className="text-gray-400 text-[10px] uppercase">8-Ball</Text>
+                                <Text className={`font-bold ${scores.winnerId8
+                                    ? (scores.winnerId8 === (scores.isPlayer1 ? player1Id : player2Id) ? 'text-green-400' : 'text-red-400')
+                                    : ((scores.isPlayer1 ? scores.p1_8 : scores.p2_8) > (scores.isPlayer1 ? scores.p2_8 : scores.p1_8)) ? 'text-green-400' : 'text-red-400'
+                                    }`}>
+                                    {scores.isPlayer1 ? scores.p1_8 : scores.p2_8} - {scores.isPlayer1 ? scores.p2_8 : scores.p1_8}
+                                </Text>
+                            </View>
+                        ) : null}
+                        {show9BallScore ? (
+                            <View>
+                                <Text className="text-gray-400 text-[10px] uppercase">9-Ball</Text>
+                                <Text className={`font-bold ${scores.winnerId9
+                                    ? (scores.winnerId9 === (scores.isPlayer1 ? player1Id : player2Id) ? 'text-green-400' : 'text-red-400')
+                                    : ((scores.isPlayer1 ? scores.p1_9 : scores.p2_9) > (scores.isPlayer1 ? scores.p2_9 : scores.p1_9)) ? 'text-green-400' : 'text-red-400'
+                                    }`}>
+                                    {scores.isPlayer1 ? scores.p1_9 : scores.p2_9} - {scores.isPlayer1 ? scores.p2_9 : scores.p1_9}
+                                </Text>
+                            </View>
+                        ) : null}
                     </View>
 
                     {/* Uniform Stats Layout */}
@@ -421,17 +433,19 @@ export default function NextMatchCard({
                             {/* MY Box */}
                             <View className="flex-1 bg-surface-hover rounded p-2 border border-white/5 items-center">
                                 <Text className="text-primary font-bold text-xs uppercase mb-1 text-center" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{myName}</Text>
-                                <Text className="text-gray-400 text-[10px] uppercase font-bold">8BR - <Text className="text-white">{scores.isPlayer1 ? specialStats.p1_8br : specialStats.p2_8br}</Text></Text>
-                                <Text className="text-gray-400 text-[10px] uppercase font-bold">9BR - <Text className="text-white">{scores.isPlayer1 ? specialStats.p1_9br : specialStats.p2_9br}</Text></Text>
-                                <Text className="text-gray-400 text-[10px] uppercase font-bold">9BS - <Text className="text-white">{scores.isPlayer1 ? specialStats.p1_snap : specialStats.p2_snap}</Text></Text>
+                                {show8BallScore ? <Text className="text-gray-400 text-[10px] uppercase font-bold">8BR - <Text className="text-white">{scores.isPlayer1 ? specialStats.p1_8br : specialStats.p2_8br}</Text></Text> : null}
+                                {show8BallScore ? <Text className="text-gray-400 text-[10px] uppercase font-bold">8RR - <Text className="text-white">{scores.isPlayer1 ? (specialStats.p1_8rr || 0) : (specialStats.p2_8rr || 0)}</Text></Text> : null}
+                                {show9BallScore ? <Text className="text-gray-400 text-[10px] uppercase font-bold">9BR - <Text className="text-white">{scores.isPlayer1 ? specialStats.p1_9br : specialStats.p2_9br}</Text></Text> : null}
+                                {show9BallScore ? <Text className="text-gray-400 text-[10px] uppercase font-bold">9BS - <Text className="text-white">{scores.isPlayer1 ? specialStats.p1_snap : specialStats.p2_snap}</Text></Text> : null}
                             </View>
 
                             {/* OPP Box */}
                             <View className="flex-1 bg-surface-hover rounded p-2 border border-white/5 items-center">
                                 <Text className="text-gray-400 font-bold text-xs uppercase mb-1 text-center" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{oppName}</Text>
-                                <Text className="text-gray-400 text-[10px] uppercase font-bold">8BR - <Text className="text-white">{scores.isPlayer1 ? specialStats.p2_8br : specialStats.p1_8br}</Text></Text>
-                                <Text className="text-gray-400 text-[10px] uppercase font-bold">9BR - <Text className="text-white">{scores.isPlayer1 ? specialStats.p2_9br : specialStats.p1_9br}</Text></Text>
-                                <Text className="text-gray-400 text-[10px] uppercase font-bold">9BS - <Text className="text-white">{scores.isPlayer1 ? specialStats.p2_snap : specialStats.p1_snap}</Text></Text>
+                                {show8BallScore ? <Text className="text-gray-400 text-[10px] uppercase font-bold">8BR - <Text className="text-white">{scores.isPlayer1 ? specialStats.p2_8br : specialStats.p1_8br}</Text></Text> : null}
+                                {show8BallScore ? <Text className="text-gray-400 text-[10px] uppercase font-bold">8RR - <Text className="text-white">{scores.isPlayer1 ? (specialStats.p2_8rr || 0) : (specialStats.p1_8rr || 0)}</Text></Text> : null}
+                                {show9BallScore ? <Text className="text-gray-400 text-[10px] uppercase font-bold">9BR - <Text className="text-white">{scores.isPlayer1 ? specialStats.p2_9br : specialStats.p1_9br}</Text></Text> : null}
+                                {show9BallScore ? <Text className="text-gray-400 text-[10px] uppercase font-bold">9BS - <Text className="text-white">{scores.isPlayer1 ? specialStats.p2_snap : specialStats.p1_snap}</Text></Text> : null}
                             </View>
                         </View>
                     )}
@@ -456,7 +470,7 @@ export default function NextMatchCard({
             ) : (
 
                 matchId && !matchId.startsWith('user_') && matchId.length === 36 ? (
-                    status === 'finalized' ? null : (
+                    (status === 'finalized' || status === 'completed' || isVerifiedMatch) ? null : (
                         <TouchableOpacity
                             onPress={() => {
                                 handlePlayMatch();

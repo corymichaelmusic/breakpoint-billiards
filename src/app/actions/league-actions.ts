@@ -31,6 +31,8 @@ export async function createSession(
 
     if (!parent) return { error: "Parent league not found." };
 
+    const isTeamLeague = !!parent.is_team_league;
+
     // 2. Verify permission (Operator, Assigned Operator, or Admin)
     let isAuthorized = false;
 
@@ -107,7 +109,7 @@ export async function createSession(
             bounty_val_8_run: bounties.bounty8Run || 0,
             bounty_val_9_run: bounties.bounty9Run || 0,
             bounty_val_9_snap: bounties.bounty9Snap || 0,
-            bounty_val_shutout: bounties.bountyShutout || 0
+            bounty_val_shutout: isTeamLeague ? 0 : (bounties.bountyShutout || 0)
         })
         .select("id")
         .single();
@@ -427,7 +429,10 @@ export async function generateSchedule(
                         team_a_id: p1,
                         team_b_id: p2,
                         week_number: currentWeekOfPlay,
-                        status: 'scheduled'
+                        status: 'scheduled',
+                        scheduled_date: candidateDate.toISOString(),
+                        scheduled_time: assignedTime,
+                        table_name: assignedTable
                     });
                 } else {
                     scheduleRecords.push({
@@ -728,6 +733,14 @@ export async function updateLeagueDetails(leagueId: string, data: {
         return { error: "Unauthorized to edit this league." };
     }
 
+    const { data: existingLeague } = await supabase
+        .from("leagues")
+        .select("is_team_league")
+        .eq("id", leagueId)
+        .single();
+
+    const isTeamLeague = !!existingLeague?.is_team_league;
+
     const { error } = await supabase
         .from("leagues")
         .update({
@@ -742,7 +755,7 @@ export async function updateLeagueDetails(leagueId: string, data: {
             bounty_val_8_run: data.bounty_val_8_run,
             bounty_val_9_run: data.bounty_val_9_run,
             bounty_val_9_snap: data.bounty_val_9_snap,
-            bounty_val_shutout: data.bounty_val_shutout
+            bounty_val_shutout: isTeamLeague ? 0 : data.bounty_val_shutout
         })
         .eq("id", leagueId);
 
@@ -925,6 +938,64 @@ export async function resetSchedule(leagueId: string) {
 
     if (league.is_team_league) {
         if (teamMatchIds.length > 0) {
+            const { data: captainSubmissions, error: captainSubmissionFetchError } = await supabase
+                .from("team_match_captain_submissions")
+                .select("id")
+                .in("team_match_id", teamMatchIds);
+
+            if (captainSubmissionFetchError) {
+                console.error("Error fetching team match captain submissions:", captainSubmissionFetchError);
+                return { error: "Failed to inspect team match captain submissions." };
+            }
+
+            const captainSubmissionIds = (captainSubmissions || []).map((row) => row.id);
+
+            if (captainSubmissionIds.length > 0) {
+                const { data: submissionSets, error: submissionSetFetchError } = await supabase
+                    .from("team_match_submission_sets")
+                    .select("id")
+                    .in("captain_submission_id", captainSubmissionIds);
+
+                if (submissionSetFetchError) {
+                    console.error("Error fetching team match submission sets:", submissionSetFetchError);
+                    return { error: "Failed to inspect team match submission sets." };
+                }
+
+                const submissionSetIds = (submissionSets || []).map((row) => row.id);
+
+                if (submissionSetIds.length > 0) {
+                    const { error: deleteSubmissionGamesError } = await supabase
+                        .from("team_match_submission_games")
+                        .delete()
+                        .in("submission_set_id", submissionSetIds);
+
+                    if (deleteSubmissionGamesError) {
+                        console.error("Error deleting team match submission games:", deleteSubmissionGamesError);
+                        return { error: "Failed to delete team match submission games." };
+                    }
+                }
+
+                const { error: deleteSetSubmissionsError } = await supabase
+                    .from("team_match_submission_sets")
+                    .delete()
+                    .in("captain_submission_id", captainSubmissionIds);
+
+                if (deleteSetSubmissionsError) {
+                    console.error("Error deleting team match submission sets:", deleteSetSubmissionsError);
+                    return { error: "Failed to delete team match submission sets." };
+                }
+            }
+
+            const { error: deleteCaptainSubmissionsError } = await supabase
+                .from("team_match_captain_submissions")
+                .delete()
+                .in("team_match_id", teamMatchIds);
+
+            if (deleteCaptainSubmissionsError) {
+                console.error("Error deleting team match captain submissions:", deleteCaptainSubmissionsError);
+                return { error: "Failed to delete team match captain submissions." };
+            }
+
         const { error: deleteTeamSetsError } = await supabase
             .from("team_match_sets")
             .delete()

@@ -31,6 +31,8 @@ export default function EditGameScreen() {
         innings: 1
     });
 
+    const isReadOnlyMatch = match?.verification_status === 'verified' || match?.status === 'completed';
+
     useEffect(() => {
         fetchGameDetails();
     }, [id]);
@@ -86,7 +88,7 @@ export default function EditGameScreen() {
     };
 
     const handleSave = async () => {
-        if (!match || !game) return;
+        if (!match || !game || isReadOnlyMatch) return;
         setSaving(true);
         try {
             const token = await getToken({ template: 'supabase' });
@@ -183,6 +185,7 @@ export default function EditGameScreen() {
     };
 
     const handleDelete = async () => {
+        if (isReadOnlyMatch) return;
         Alert.alert("Delete Game", "Are you sure you want to delete this game? This will update the match score.", [
             { text: "Cancel", style: "cancel" },
             {
@@ -291,7 +294,7 @@ export default function EditGameScreen() {
         </View>
     );
 
-    const isLocked = match && game && (game.game_type === '8ball' ? match.status_8ball === 'finalized' : match.status_9ball === 'finalized');
+    const isLocked = !!(match && game && ((game.game_type === '8ball' ? match.status_8ball === 'finalized' : match.status_9ball === 'finalized') || isReadOnlyMatch));
 
     return (
         <SafeAreaView className="flex-1 bg-background">
@@ -322,8 +325,12 @@ export default function EditGameScreen() {
             <ScrollView className="flex-1 p-4">
                 {isLocked && (
                     <View className="bg-surface p-4 rounded-lg border border-yellow-600 mb-6 items-center">
-                        <Text className="text-yellow-500 font-bold uppercase mb-1">SET FINALIZED</Text>
-                        <Text className="text-gray-400 text-xs text-center">This game cannot be edited because the set has been finalized.</Text>
+                        <Text className="text-yellow-500 font-bold uppercase mb-1">{isReadOnlyMatch ? 'MATCH VERIFIED' : 'SET FINALIZED'}</Text>
+                        <Text className="text-gray-400 text-xs text-center">
+                            {isReadOnlyMatch
+                                ? 'This game cannot be edited because the match has been completed and verified.'
+                                : 'This game cannot be edited because the set has been finalized.'}
+                        </Text>
                     </View>
                 )}
 

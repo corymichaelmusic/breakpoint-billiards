@@ -26,7 +26,7 @@ interface SessionContextValue {
     loading: boolean;
     setCurrentSession: (session: Session) => void;
     setPrimarySession: (sessionId: string) => Promise<void>;
-    refreshSessions: () => Promise<void>;
+    refreshSessions: () => Promise<Session[]>;
     refreshUnreadCount: () => Promise<void>;
     markAsRead: () => Promise<void>;
 }
@@ -71,8 +71,8 @@ export function SessionProvider({ children }: SessionProviderProps) {
     }, [unreadCount]);
 
 
-    const fetchSessions = useCallback(async () => {
-        if (!isLoaded) return;
+    const fetchSessions = useCallback(async (): Promise<Session[]> => {
+        if (!isLoaded) return [];
 
         console.log(`[SessionContext] fetchSessions called. SignedIn: ${isSignedIn}, UserID: ${userId}`);
 
@@ -87,14 +87,14 @@ export function SessionProvider({ children }: SessionProviderProps) {
             setSessions([]);
             setCurrentSessionState(null);
             setLoading(false);
-            return;
+            return [];
         }
 
         if (!userId) {
             // Signed in but userId not ready? 
             console.warn('[SessionContext] SignedIn is true but userId is missing. Aborting fetch.');
             setLoading(false);
-            return;
+            return [];
         }
 
         try {
@@ -103,7 +103,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
             if (!token) {
                 console.log('[SessionContext] No token available yet, waiting...');
                 // Do not set loading false. Wait for re-render or effect.
-                return;
+                return [];
             }
 
             const supabase = createClient(
@@ -140,14 +140,14 @@ export function SessionProvider({ children }: SessionProviderProps) {
             if (error) {
                 console.error('[SessionContext] Error fetching sessions:', error);
                 setLoading(false);
-                return;
+                return [];
             }
 
             if (!memberships || memberships.length === 0) {
                 setSessions([]);
                 setCurrentSessionState(null);
                 setLoading(false);
-                return;
+                return [];
             }
 
             // Success - Reset
@@ -187,9 +187,11 @@ export function SessionProvider({ children }: SessionProviderProps) {
             setCurrentSessionState(matchingSession || defaultSession);
 
             setLoading(false);
+            return sessionList;
         } catch (e) {
             console.error('[SessionContext] Exception:', e);
             setLoading(false);
+            return [];
         }
     }, [userId, isLoaded, isSignedIn]); // Removed getToken
 
@@ -349,7 +351,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
 
     const refreshSessions = useCallback(async () => {
         setLoading(true);
-        await fetchSessions();
+        return await fetchSessions();
     }, [fetchSessions]);
 
     return (

@@ -1,7 +1,6 @@
-import { View, Text, ScrollView, ActivityIndicator, RefreshControl, FlatList, NativeSyntheticEvent, NativeScrollEvent, TouchableOpacity, useWindowDimensions } from "react-native";
+import { View, Text, ScrollView, ActivityIndicator, RefreshControl, NativeSyntheticEvent, NativeScrollEvent, TouchableOpacity, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { supabase } from "../../lib/supabase";
 import { createClient } from "@supabase/supabase-js";
 import { useAuth } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
@@ -18,6 +17,15 @@ const TEAM_COL_WIDTH_FIXED = 440;
 
 const formatRecord = (wins: number, losses: number) => `${wins}-${losses}`;
 const formatPercent = (wins: number, total: number) => `${total > 0 ? Math.round((wins / total) * 100) : 0}%`;
+const parsePercent = (wins: number, total: number) => total > 0 ? Math.round((wins / total) * 100) : 0;
+const gameModes = [
+    { key: 'overall', label: 'Overall' },
+    { key: '8ball', label: '8-Ball' },
+    { key: '9ball', label: '9-Ball' },
+] as const;
+
+type ViewMode = 'players' | 'teams';
+type GameMode = typeof gameModes[number]['key'];
 
 export default function LeaderboardScreen() {
     const { userId, getToken } = useAuth();
@@ -29,7 +37,9 @@ export default function LeaderboardScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [leaderboard, setLeaderboard] = useState<any[]>([]);
     const [teamLeaderboard, setTeamLeaderboard] = useState<any[]>([]);
-    const [viewMode, setViewMode] = useState<'players' | 'teams'>('players');
+    const [viewMode, setViewMode] = useState<ViewMode>('players');
+    const [gameMode, setGameMode] = useState<GameMode>('overall');
+    const [currentUserTeamId, setCurrentUserTeamId] = useState<string | null>(null);
     const [sessionName, setSessionName] = useState("");
     const [leagueName, setLeagueName] = useState("");
     const { currentSession } = useSession();
@@ -61,6 +71,15 @@ export default function LeaderboardScreen() {
             setSessionName(currentSession.name);
             setLeagueName(currentSession.parentLeagueName || '');
             const leagueId = currentSession.id;
+
+            const { data: memberTeamData } = await supabaseAuthenticated
+                .from('team_members')
+                .select('team_id, teams!inner(league_id)')
+                .eq('player_id', userId)
+                .eq('teams.league_id', leagueId)
+                .maybeSingle();
+
+            setCurrentUserTeamId(memberTeamData?.team_id || null);
 
             const { data: sessionMatches } = await supabaseAuthenticated
                 .from("matches")
@@ -118,6 +137,14 @@ export default function LeaderboardScreen() {
                     .select("*")
                     .eq("league_id", leagueId);
 
+                const teamMatchIds = (teamMatchesData || []).map((match: any) => match.id);
+                const { data: teamMatchSetsData } = teamMatchIds.length > 0
+                    ? await supabaseAuthenticated
+                        .from("team_match_sets")
+                        .select("team_match_id, game_type, winner_team_id")
+                        .in("team_match_id", teamMatchIds)
+                    : { data: [] as any[] };
+
                 const { data: rosterRows } = teamIds.length > 0
                     ? await supabaseAuthenticated
                         .from("team_members")
@@ -130,6 +157,43 @@ export default function LeaderboardScreen() {
                     const existing = membersByTeam.get(row.team_id) || [];
                     existing.push(row.player_id);
                     membersByTeam.set(row.team_id, existing);
+                });
+
+                const shutoutsByTeam = new Map<string, number>();
+                const setsByMatch = new Map<string, any[]>();
+
+                (teamMatchSetsData || []).forEach((setRow: any) => {
+                    const existing = setsByMatch.get(setRow.team_match_id) || [];
+                    existing.push(setRow);
+                    setsByMatch.set(setRow.team_match_id, existing);
+                });
+
+                (teamMatchesData || []).forEach((match: any) => {
+                    const setRows = setsByMatch.get(match.id) || [];
+                    let wins8A = 0;
+                    let wins8B = 0;
+                    let wins9A = 0;
+                    let wins9B = 0;
+
+                    setRows.forEach((setRow: any) => {
+                        if (setRow.game_type === '8ball') {
+                            if (setRow.winner_team_id === match.team_a_id) wins8A += 1;
+                            if (setRow.winner_team_id === match.team_b_id) wins8B += 1;
+                        }
+
+                        if (setRow.game_type === '9ball') {
+                            if (setRow.winner_team_id === match.team_a_id) wins9A += 1;
+                            if (setRow.winner_team_id === match.team_b_id) wins9B += 1;
+                        }
+                    });
+
+                    if (wins8A > wins8B && wins9A > wins9B) {
+                        shutoutsByTeam.set(match.team_a_id, (shutoutsByTeam.get(match.team_a_id) || 0) + 1);
+                    }
+
+                    if (wins8B > wins8A && wins9B > wins9A) {
+                        shutoutsByTeam.set(match.team_b_id, (shutoutsByTeam.get(match.team_b_id) || 0) + 1);
+                    }
                 });
                     
                 const tStats = teamsData.map(team => {
@@ -153,6 +217,8 @@ export default function LeaderboardScreen() {
                     const played9 = memberIds.reduce((sum, playerId) => sum + (playerStatsMap.get(playerId)?.played9 || 0), 0);
                     const losses8 = Math.max(played8 - wins8, 0);
                     const losses9 = Math.max(played9 - wins9, 0);
+                    const overallWins = wins8 + wins9;
+                    const overallPlayed = played8 + played9;
 
                     return {
                         ...team,
@@ -160,8 +226,21 @@ export default function LeaderboardScreen() {
                         losses,
                         played,
                         winRate: parseFloat(winRate),
+                        shutouts: shutoutsByTeam.get(team.id) || 0,
+                        overallWins,
+                        overallLosses: losses8 + losses9,
+                        overallPlayed,
+                        overallWinRate: parsePercent(overallWins, overallPlayed),
+                        wins8,
+                        losses8,
+                        played8,
+                        winRate8: parsePercent(wins8, played8),
                         record8: formatRecord(wins8, losses8),
                         pct8: formatPercent(wins8, played8),
+                        wins9,
+                        losses9,
+                        played9,
+                        winRate9: parsePercent(wins9, played9),
                         record9: formatRecord(wins9, losses9),
                         pct9: formatPercent(wins9, played9),
                     };
@@ -208,8 +287,16 @@ export default function LeaderboardScreen() {
                         shutouts,
                         winRate: played > 0 ? Math.round((wins / played) * 100) : 0,
                         rackWinRate: racksPlayed > 0 ? (racksWon / racksPlayed) * 100 : 0,
+                        wins8: typeStats.wins8,
+                        losses8,
+                        played8: typeStats.played8,
+                        winRate8: parsePercent(typeStats.wins8, typeStats.played8),
                         record8: formatRecord(typeStats.wins8, losses8),
                         pct8: formatPercent(typeStats.wins8, typeStats.played8),
+                        wins9: typeStats.wins9,
+                        losses9,
+                        played9: typeStats.played9,
+                        winRate9: parsePercent(typeStats.wins9, typeStats.played9),
                         record9: formatRecord(typeStats.wins9, losses9),
                         pct9: formatPercent(typeStats.wins9, typeStats.played9),
                         breakPoint: getBreakpointLevel(rating),
@@ -251,6 +338,69 @@ export default function LeaderboardScreen() {
         headerScrollViewRef.current?.scrollTo({ x, animated: false });
     };
 
+    const getDisplayStats = (item: any) => {
+        if (gameMode === '8ball') {
+            return {
+                played: item.played8 || 0,
+                winRate: item.winRate8 || 0,
+                wins: item.wins8 || 0,
+                losses: item.losses8 || 0,
+            };
+        }
+
+        if (gameMode === '9ball') {
+            return {
+                played: item.played9 || 0,
+                winRate: item.winRate9 || 0,
+                wins: item.wins9 || 0,
+                losses: item.losses9 || 0,
+            };
+        }
+
+        if (viewMode === 'teams') {
+            return {
+                played: item.played || 0,
+                winRate: item.winRate || 0,
+                wins: item.wins || 0,
+                losses: item.losses || 0,
+            };
+        }
+
+        return {
+            played: item.played || 0,
+            winRate: item.winRate || 0,
+            wins: item.wins || 0,
+            losses: Math.max((item.played || 0) - (item.wins || 0), 0),
+        };
+    };
+
+    const displayedLeaderboard = (viewMode === 'players' ? leaderboard : teamLeaderboard)
+        .map((item) => ({ ...item }))
+        .sort((a, b) => {
+            const aStats = getDisplayStats(a);
+            const bStats = getDisplayStats(b);
+
+            if (bStats.winRate !== aStats.winRate) return bStats.winRate - aStats.winRate;
+            if (bStats.wins !== aStats.wins) return bStats.wins - aStats.wins;
+
+            if (viewMode === 'players') {
+                if (gameMode === 'overall' && b.rackWinRate !== a.rackWinRate) return b.rackWinRate - a.rackWinRate;
+                if (b.rating !== a.rating) return b.rating - a.rating;
+            }
+
+            return (a.name || '').localeCompare(b.name || '');
+        })
+        .map((item, index) => ({ ...item, rank: index + 1, displayStats: getDisplayStats(item) }));
+
+    const baseMobileContentWidth = viewMode === 'teams'
+        ? (gameMode === 'overall' ? 232 : 184)
+        : 256;
+    const availableRightPaneWidth = Math.max(width - LEFT_COL_WIDTH, 0);
+    const mobileContentWidth = Math.max(baseMobileContentWidth, availableRightPaneWidth);
+    const isCurrentTeamRow = (item: any) => viewMode === 'teams' && item.id === currentUserTeamId;
+    const isHighlightedRow = (item: any) => item.id === userId || isCurrentTeamRow(item);
+    const showTeamShutouts = viewMode === 'teams' && gameMode === 'overall';
+
     if (loading) return <View className="flex-1 bg-background items-center justify-center"><ActivityIndicator color="#D4AF37" /></View>;
 
     return (
@@ -278,6 +428,19 @@ export default function LeaderboardScreen() {
                             <Text className={`font-bold text-xs uppercase tracking-wider ${viewMode === 'players' ? 'text-black' : 'text-gray-400'}`}>Players</Text>
                         </TouchableOpacity>
                     </View>
+                    <View className="flex-row bg-black/40 rounded-full p-1 border border-border/30 mt-3">
+                        {gameModes.map((mode) => (
+                            <TouchableOpacity
+                                key={mode.key}
+                                onPress={() => setGameMode(mode.key)}
+                                className={`flex-1 py-2 rounded-full items-center ${gameMode === mode.key ? 'bg-primary' : ''}`}
+                            >
+                                <Text className={`font-bold text-[11px] uppercase tracking-wider ${gameMode === mode.key ? 'text-black' : 'text-gray-400'}`}>
+                                    {mode.label}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
                 </View>
             )}
 
@@ -300,9 +463,7 @@ export default function LeaderboardScreen() {
                             <Text className="flex-1 text-center text-black font-bold text-sm">SP</Text>
                             <Text className="flex-1 text-center text-black font-bold text-sm">W%</Text>
                             <Text className="flex-1 text-center text-black font-bold text-sm">W-L</Text>
-                            <Text className="flex-1 text-center text-black font-bold text-sm">8B</Text>
-                            <Text className="flex-1 text-center text-black font-bold text-sm">9B</Text>
-                            {viewMode === 'players' && <Text className="flex-1 text-center text-black font-bold text-sm">SO</Text>}
+                            {showTeamShutouts && <Text className="flex-1 text-center text-black font-bold text-sm">SO</Text>}
                             {viewMode === 'players' && <Text className="flex-1 text-center text-black font-bold text-sm" style={{ includeFontPadding: false }}>BP</Text>}
                         </View>
                     ) : (
@@ -313,13 +474,11 @@ export default function LeaderboardScreen() {
                             showsHorizontalScrollIndicator={false}
                             style={{ flex: 1 }}
                         >
-                            <View style={{ width: viewMode === 'teams' ? TEAM_COL_WIDTH_FIXED : PLAYER_COL_WIDTH_FIXED, height: HEADER_HEIGHT }} className="flex-row items-center px-2">
+                            <View style={{ width: mobileContentWidth, height: HEADER_HEIGHT }} className="flex-row items-center px-2">
                                 <Text className="w-12 text-center text-black font-bold text-sm">SP</Text>
                                 <Text className="w-14 text-center text-black font-bold text-sm">W%</Text>
                                 <Text className="w-16 text-center text-black font-bold text-sm">W-L</Text>
-                                <Text style={{ width: 70 }} className="text-center text-black font-bold text-sm">8B</Text>
-                                <Text style={{ width: 70 }} className="text-center text-black font-bold text-sm">9B</Text>
-                                {viewMode === 'players' && <Text className="w-12 text-center text-black font-bold text-sm">SO</Text>}
+                                {showTeamShutouts && <Text className="w-12 text-center text-black font-bold text-sm">SO</Text>}
                                 {viewMode === 'players' && <Text className="w-10 text-center text-black font-bold text-sm" style={{ includeFontPadding: false }}>BP</Text>}
                             </View>
                         </ScrollView>
@@ -330,40 +489,47 @@ export default function LeaderboardScreen() {
                 <View className="flex-row pb-24">
                     {/* Left Column Stack (Fixed) */}
                     <View style={{ width: LEFT_COL_WIDTH }} className="border-r border-border bg-background">
-                        {(viewMode === 'players' ? leaderboard : teamLeaderboard).map((item) => (
+                        {displayedLeaderboard.map((item) => {
+                            const isCurrentTeam = isCurrentTeamRow(item);
+                            const isHighlighted = isHighlightedRow(item);
+
+                            return (
                             <TouchableOpacity
                                 key={item.id}
                                 onPress={() => viewMode === 'players' && router.push(`/player/${item.id}`)}
                                 disabled={viewMode === 'teams' || item.id === userId}
                                 style={{ height: ROW_HEIGHT }}
-                                className={`flex-row items-center px-2 border-b border-border ${item.id === userId ? 'bg-surface-hover' : ''}`}
+                                className={`flex-row items-center px-2 border-b border-border ${isHighlighted ? 'bg-surface-hover' : ''}`}
                             >
                                 <Text className={`w-10 text-center font-bold text-sm ${item.rank === 1 ? 'text-primary' : 'text-foreground'}`}>{item.rank}</Text>
-                                <Text className="w-36 ml-2 text-foreground font-medium text-sm" numberOfLines={1}>{item.name}</Text>
+                                <Text className={`w-36 ml-2 font-medium text-sm ${isCurrentTeam ? 'text-primary' : 'text-foreground'}`} numberOfLines={1}>{item.name}</Text>
                             </TouchableOpacity>
-                        ))}
+                            );
+                        })}
                     </View>
 
                     {/* Right Column Stack (Adaptive) */}
                     {isLargeScreen ? (
                         <View style={{ flex: 1 }}>
-                            {(viewMode === 'players' ? leaderboard : teamLeaderboard).map((item) => (
+                            {displayedLeaderboard.map((item) => {
+                                const isHighlighted = isHighlightedRow(item);
+
+                                return (
                                 <TouchableOpacity
                                     key={item.id}
                                     onPress={() => viewMode === 'players' && router.push(`/player/${item.id}`)}
                                     disabled={viewMode === 'teams' || item.id === userId}
                                     style={{ height: ROW_HEIGHT }}
-                                    className={`flex-row items-center px-4 border-b border-border ${item.id === userId ? 'bg-surface-hover' : ''}`}
+                                    className={`flex-row items-center px-4 border-b border-border ${isHighlighted ? 'bg-surface-hover' : ''}`}
                                 >
-                                    <Text className="flex-1 text-center text-gray-400 font-bold text-sm">{item.played}</Text>
-                                    <Text className="flex-1 text-center text-gray-300 font-bold text-sm">{item.winRate}%</Text>
-                                    <Text className="flex-1 text-center text-foreground font-bold text-sm">{item.wins}-{item.played - item.wins}</Text>
-                                    <Text className="flex-1 text-center text-foreground font-bold text-sm">{item.record8} {item.pct8}</Text>
-                                    <Text className="flex-1 text-center text-foreground font-bold text-sm">{item.record9} {item.pct9}</Text>
-                                    {viewMode === 'players' && <Text className="flex-1 text-center text-primary font-bold text-sm">{item.shutouts}</Text>}
+                                    <Text className="flex-1 text-center text-gray-400 font-bold text-sm">{item.displayStats.played}</Text>
+                                    <Text className="flex-1 text-center text-gray-300 font-bold text-sm">{item.displayStats.winRate}%</Text>
+                                    <Text className="flex-1 text-center text-foreground font-bold text-sm">{item.displayStats.wins}-{item.displayStats.losses}</Text>
+                                    {showTeamShutouts && <Text className="flex-1 text-center text-primary font-bold text-sm">{item.shutouts || 0}</Text>}
                                     {viewMode === 'players' && <Text className="flex-1 text-center text-primary font-bold text-sm" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>{item.breakPoint} </Text>}
                                 </TouchableOpacity>
-                            ))}
+                                );
+                            })}
                         </View>
                     ) : (
                         <ScrollView
@@ -373,24 +539,26 @@ export default function LeaderboardScreen() {
                             onScroll={handleHorizontalScroll}
                             style={{ flex: 1 }}
                         >
-                            <View style={{ width: viewMode === 'teams' ? TEAM_COL_WIDTH_FIXED : PLAYER_COL_WIDTH_FIXED }}>
-                                {(viewMode === 'players' ? leaderboard : teamLeaderboard).map((item) => (
+                            <View style={{ width: mobileContentWidth }}>
+                                {displayedLeaderboard.map((item) => {
+                                    const isHighlighted = isHighlightedRow(item);
+
+                                    return (
                                     <TouchableOpacity
                                         key={item.id}
                                         onPress={() => viewMode === 'players' && router.push(`/player/${item.id}`)}
                                         disabled={viewMode === 'teams' || item.id === userId}
                                         style={{ height: ROW_HEIGHT }}
-                                        className={`flex-row items-center px-2 border-b border-border ${item.id === userId ? 'bg-surface-hover' : ''}`}
+                                        className={`flex-row items-center px-2 border-b border-border ${isHighlighted ? 'bg-surface-hover' : ''}`}
                                     >
-                                        <Text className="w-12 text-center text-gray-400 font-bold text-sm">{item.played}</Text>
-                                        <Text className="w-14 text-center text-gray-300 font-bold text-sm">{item.winRate}%</Text>
-                                        <Text className="w-16 text-center text-foreground font-bold text-sm">{item.wins}-{item.played - item.wins}</Text>
-                                        <Text style={{ width: 70 }} className="text-center text-foreground font-bold text-sm">{item.record8} {item.pct8}</Text>
-                                        <Text style={{ width: 70 }} className="text-center text-foreground font-bold text-sm">{item.record9} {item.pct9}</Text>
-                                        {viewMode === 'players' && <Text className="w-12 text-center text-primary font-bold text-sm">{item.shutouts}</Text>}
+                                        <Text className="w-12 text-center text-gray-400 font-bold text-sm">{item.displayStats.played}</Text>
+                                        <Text className="w-14 text-center text-gray-300 font-bold text-sm">{item.displayStats.winRate}%</Text>
+                                        <Text className="w-16 text-center text-foreground font-bold text-sm">{item.displayStats.wins}-{item.displayStats.losses}</Text>
+                                        {showTeamShutouts && <Text className="w-12 text-center text-primary font-bold text-sm">{item.shutouts || 0}</Text>}
                                         {viewMode === 'players' && <Text className="w-10 text-center text-primary font-bold text-sm" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>{item.breakPoint} </Text>}
                                     </TouchableOpacity>
-                                ))}
+                                    );
+                                })}
                             </View>
                         </ScrollView>
                     )}

@@ -1,7 +1,7 @@
 import { View, Text, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Alert, Linking, AppState } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter, useFocusEffect } from "expo-router";
-import { useAuth, useUser } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/clerk-expo";
+import { useRouter } from "expo-router";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "../../lib/supabase";
 import { createClient } from "@supabase/supabase-js";
@@ -19,14 +19,13 @@ import TeamStatusBanner from "../../components/TeamStatusBanner";
 import { registerForPushNotificationsAsync, scheduleMatchReminder } from "../../utils/notifications";
 
 export default function HomeScreen() {
-  const { userId, signOut, getToken } = useAuth();
-  const { user } = useUser();
+  const { userId, getToken } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   // Get current session from context
-  const { currentSession, loading: sessionLoading } = useSession();
+  const { currentSession, loading: sessionLoading, refreshSessions } = useSession();
 
   console.log(`[Dashboard] Render. UserID: ${userId}, isLoading: ${loading}`);
 
@@ -37,17 +36,34 @@ export default function HomeScreen() {
   const [ratingHistory, setRatingHistory] = useState<any[]>([]);
   const [nextMatch, setNextMatch] = useState<any>(null);
   const [userTeamId, setUserTeamId] = useState<string | null>(null);
+  const [userTeamName, setUserTeamName] = useState<string | null>(null);
   const [globalNextMatch, setGlobalNextMatch] = useState<any>(null);
   const [races, setRaces] = useState<Record<string, any>>({});
   const [bountyDisplay, setBountyDisplay] = useState(false);
   const [bountyAmount, setBountyAmount] = useState(0);
   const [bountyExpanded, setBountyExpanded] = useState(false);
   const [bountyDetails, setBountyDetails] = useState<{
-    val8: number; val9: number; valSnap: number; valShutout: number;
-    bnr8: number; bnr9: number; snaps: number; shutoutsCount: number;
+    val8BreakRun: number; val8RackRun: number; val9: number; valSnap: number; valShutout: number;
+    bnr8: number; rr8: number; bnr9: number; snaps: number; shutoutsCount: number;
+    showShutouts: boolean;
   } | null>(null);
 
   const pushTokenSynced = useRef(false);
+  const getTokenRef = useRef(getToken);
+  const currentSessionRef = useRef(currentSession);
+  const profileRef = useRef(profile);
+
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
+  useEffect(() => {
+    currentSessionRef.current = currentSession;
+  }, [currentSession]);
+
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
 
   useEffect(() => {
     if (!userId || pushTokenSynced.current) return;
@@ -92,32 +108,36 @@ export default function HomeScreen() {
 
   const lastFetchTime = useRef<number>(0);
   const lastFetchedSessionId = useRef<string | null>(null);
+  const fetchInFlightRef = useRef(false);
   const CACHE_DURATION = 60000;
 
   const fetchData = useCallback(async (force = false) => {
-    if (sessionLoading) return;
+    if (sessionLoading || fetchInFlightRef.current) return;
+
+    let session = currentSessionRef.current;
 
     const now = Date.now();
-    const sessionChanged = currentSession?.id !== lastFetchedSessionId.current;
+    const sessionChanged = session?.id !== lastFetchedSessionId.current;
 
     // Use cache ONLY if:
     // 1. Not forced
     // 2. Session hasn't changed
     // 3. Cache hasn't expired
     // 4. We have profile data (meaning we successfully fetched at least once)
-    if (!force && !sessionChanged && lastFetchTime.current > 0 && (now - lastFetchTime.current) < CACHE_DURATION && profile) {
+    if (!force && !sessionChanged && lastFetchTime.current > 0 && (now - lastFetchTime.current) < CACHE_DURATION && profileRef.current) {
       console.log("Using cached dashboard data");
       setLoading(false);
       return;
     }
 
     lastFetchTime.current = now;
-    lastFetchedSessionId.current = currentSession?.id || null;
+    lastFetchedSessionId.current = session?.id || null;
+    fetchInFlightRef.current = true;
 
     try {
       if (!userId) return;
 
-      const token = await getToken({ template: 'supabase' });
+      const token = await getTokenRef.current({ template: 'supabase' });
       console.log(`[Dashboard] Fetching data... UserID: ${userId}, Token Available: ${!!token}`);
 
       if (!token) {
@@ -154,13 +174,23 @@ export default function HomeScreen() {
       const isBountyEnabled = settingsData?.value ? settingsData.value === 'true' : true;
       setBountyDisplay(isBountyEnabled);
 
-      if (!currentSession) {
+      if (force && !session) {
+        const refreshedSessions = await refreshSessions();
+        const refreshedSession =
+          refreshedSessions.find((item) => item.id === currentSessionRef.current?.id) ||
+          refreshedSessions.find((item) => item.isPrimary) ||
+          refreshedSessions[0] ||
+          null;
+
+        session = refreshedSession;
+        currentSessionRef.current = refreshedSession;
+      }
+
+      if (!session) {
+        setActiveSession(null);
         setLoading(false);
         return;
       }
-
-      // Use Session from Context
-      const session = currentSession;
 
       // Fetch Membership Details for this specific session (payment status, stats)
       const { data: membershipData, error: memError } = await supabaseAuthenticated
@@ -170,7 +200,7 @@ export default function HomeScreen() {
             total_break_and_runs_8ball, total_rack_and_runs_8ball,
             total_break_and_runs_9ball, total_rack_and_runs_9ball, total_nine_on_snap,
             leagues!inner (
-                id, name, type, status, start_date,
+                id, name, type, status, start_date, session_fee, is_team_league,
                 location, city,
                 bounty_val_8_run, bounty_val_9_run, bounty_val_9_snap, bounty_val_shutout,
                 parent_league:parent_league_id(name, location, city, bounty_val_8_run, bounty_val_9_run, bounty_val_9_snap, bounty_val_shutout)
@@ -185,12 +215,16 @@ export default function HomeScreen() {
       }
 
       const activeMembership: any = membershipData || {};
+      const sessionStatus = activeMembership.leagues?.status || session.status;
+      const isSessionLive = sessionStatus === 'active';
 
       setActiveSession({
         ...session,
+        status: sessionStatus,
         isTeamLeague: activeMembership.leagues?.is_team_league || session.isTeamLeague || false,
         paid: activeMembership.payment_status === 'paid',
         payment_status: activeMembership.payment_status,
+        session_fee: activeMembership.leagues?.session_fee,
         parent_league: activeMembership.leagues?.parent_league
       });
 
@@ -198,18 +232,64 @@ export default function HomeScreen() {
       const parent = activeMembership.leagues?.parent_league;
       // Handle parent array if necessary (though usually singular)
       const parentObj = Array.isArray(parent) ? parent[0] : parent;
+      const isTeamLeague = activeMembership.leagues?.is_team_league || session.isTeamLeague || false;
 
-      const val8 = activeMembership.leagues?.bounty_val_8_run ?? parentObj?.bounty_val_8_run ?? 5;
+      const val8BreakRun = activeMembership.leagues?.bounty_val_8_run ?? parentObj?.bounty_val_8_run ?? 5;
+      const val8RackRun = 2;
       const val9 = activeMembership.leagues?.bounty_val_9_run ?? parentObj?.bounty_val_9_run ?? 3;
       const valSnap = activeMembership.leagues?.bounty_val_9_snap ?? parentObj?.bounty_val_9_snap ?? 1;
-      const valShutout = activeMembership.leagues?.bounty_val_shutout ?? parentObj?.bounty_val_shutout ?? 1;
+      const valShutout = isTeamLeague ? 0 : (activeMembership.leagues?.bounty_val_shutout ?? parentObj?.bounty_val_shutout ?? 1);
 
       const bnr8 = activeMembership.total_break_and_runs_8ball || 0;
+      const rr8 = activeMembership.total_rack_and_runs_8ball || 0;
       const bnr9 = activeMembership.total_break_and_runs_9ball || 0;
       const snaps = activeMembership.total_nine_on_snap || 0;
-      const shutoutsCount = activeMembership.shutouts || 0;
-      setBountyAmount((bnr8 * val8) + (bnr9 * val9) + (snaps * valSnap) + (shutoutsCount * valShutout));
-      setBountyDetails({ val8, val9, valSnap, valShutout, bnr8, bnr9, snaps, shutoutsCount });
+      const shutoutsCount = isTeamLeague ? 0 : (activeMembership.shutouts || 0);
+      let resolvedTeamId: string | null = null;
+      setBountyAmount((bnr8 * val8BreakRun) + (rr8 * val8RackRun) + (bnr9 * val9) + (snaps * valSnap) + (shutoutsCount * valShutout));
+      setBountyDetails({ val8BreakRun, val8RackRun, val9, valSnap, valShutout, bnr8, rr8, bnr9, snaps, shutoutsCount, showShutouts: !isTeamLeague });
+
+      if (isTeamLeague) {
+        const { data: captainTeam } = await supabaseAuthenticated
+          .from('teams')
+          .select('id, name')
+          .eq('league_id', session.id)
+          .eq('captain_id', userId)
+          .maybeSingle();
+
+        const { data: memberTeamData } = await supabaseAuthenticated
+          .from('team_members')
+          .select('teams!inner(id, name)')
+          .eq('player_id', userId)
+          .eq('teams.league_id', session.id)
+          .maybeSingle();
+
+        const joinedTeam: any = memberTeamData?.teams;
+        resolvedTeamId = captainTeam?.id || (!Array.isArray(joinedTeam) ? joinedTeam?.id : null) || null;
+        const resolvedTeamName = captainTeam?.name || (!Array.isArray(joinedTeam) ? joinedTeam?.name : null) || null;
+        setUserTeamId(resolvedTeamId);
+        setUserTeamName(resolvedTeamName);
+      } else {
+        setUserTeamId(null);
+        setUserTeamName(null);
+      }
+
+      if (!isSessionLive) {
+        setMatches([]);
+        setNextMatch(null);
+        setGlobalNextMatch(null);
+        setRaces({});
+        setStats({
+          winRate: 0,
+          wl: "0-0",
+          shutouts: 0,
+          rank: "N/A",
+          stats8: {},
+          stats9: {}
+        });
+        setLoading(false);
+        return;
+      }
 
       // Fetch Matches
       const { data: matchesData } = await supabaseAuthenticated
@@ -233,7 +313,11 @@ export default function HomeScreen() {
           *,
           player1:player1_id(full_name, breakpoint_rating, fargo_rating),
           player2:player2_id(full_name, breakpoint_rating, fargo_rating),
-          games (*)
+          games (*),
+          team_match_sets(
+            team_match_id,
+            set_number
+          )
         `)
         .or(`player1_id.eq.${userId},player2_id.eq.${userId}`);
 
@@ -250,17 +334,6 @@ export default function HomeScreen() {
         fetchMatchRaces(inputs).then(raceData => {
           if (raceData) setRaces(raceData);
         });
-      }
-
-      // DEBUG: Check for rating_history table presence
-      try {
-        const { data: rhData, error: rhError } = await supabaseAuthenticated.from('rating_history').select('*').limit(1);
-        console.log("DEBUG: rating_history table check:", { data: rhData, error: rhError });
-
-        const { data: prData, error: prError } = await supabaseAuthenticated.from('player_ratings').select('*').limit(1);
-        console.log("DEBUG: player_ratings table check:", { data: prData, error: prError });
-      } catch (err) {
-        console.log("DEBUG: Table check failed", err);
       }
 
       // Calculate Stats
@@ -360,19 +433,9 @@ export default function HomeScreen() {
       });
 
       if (globalMatches) {
-        // Sort Newest -> Oldest for walking backwards
-        // Prefer submitted_at (actual finish time) > created_at > scheduled_date
-        const sortedMatches = globalMatches
-          .filter(m => m.status === 'finalized' || (m.status_8ball === 'finalized' && m.status_9ball === 'finalized'))
-          .sort((a, b) => {
-            const tA = new Date(a.submitted_at || a.created_at || a.scheduled_date).getTime();
-            const tB = new Date(b.submitted_at || b.created_at || b.scheduled_date).getTime();
-            return tB - tA;
-          });
-
-        console.log(`[Dashboard] Graph: Processing ${sortedMatches.length} global matches for history.`);
-
-        for (const m of sortedMatches) {
+        const getMatchTimestamp = (m: any) => new Date(m.submitted_at || m.created_at || m.scheduled_date).getTime();
+        const getTeamSetMeta = (m: any) => Array.isArray(m.team_match_sets) ? m.team_match_sets[0] : m.team_match_sets;
+        const getPreviousRatingForMatch = (m: any, currentRating: number) => {
           const isP1 = m.player1_id === userId;
           const opponent = isP1 ? m.player2 : m.player1;
           let oppRating = opponent?.breakpoint_rating || opponent?.fargo_rating || 500;
@@ -392,15 +455,10 @@ export default function HomeScreen() {
             }
           }
 
-          // 2. Determine Rating BEFORE this match
           let previousRating;
-
           if (snapshotVal) {
-            // We have exact data! Use it.
             previousRating = snapshotVal;
           } else {
-            // No snapshot (Legacy match). We must calculate Reverse Elo.
-            // Did we win?
             let mySets = 0, oppSets = 0;
             if (m.winner_id_8ball) { isP1 ? (m.winner_id_8ball === userId ? mySets++ : oppSets++) : (m.winner_id_8ball === userId ? mySets++ : oppSets++) }
             if (m.winner_id_9ball) { isP1 ? (m.winner_id_9ball === userId ? mySets++ : oppSets++) : (m.winner_id_9ball === userId ? mySets++ : oppSets++) }
@@ -408,38 +466,81 @@ export default function HomeScreen() {
             const draw = mySets === oppSets;
 
             if (draw) {
-              previousRating = runningRating; // No change
+              previousRating = currentRating;
             } else {
-              // Current = Previous + Change
-              // Previous = Current - Change
-              const change = calculateEloChange(runningRating, oppRating, wonMatch);
+              const change = calculateEloChange(currentRating, oppRating, wonMatch);
 
               if (isNaN(change)) {
-                console.warn("NaN Elo Change detected", { runningRating, oppRating });
-                previousRating = runningRating;
+                console.warn("NaN Elo Change detected", { currentRating, oppRating });
+                previousRating = currentRating;
               } else {
-                // If I won, change is positive. Previous was lower.
-                // If I lost, change is negative. Previous was higher.
-                // So Previous = Current - Change works.
-                previousRating = runningRating - change;
+                previousRating = currentRating - change;
               }
             }
           }
 
-          // Clamp previousRating to prevent runaway values
-          previousRating = Math.max(100, Math.min(1000, previousRating));
+          return Math.max(100, Math.min(1000, previousRating));
+        };
 
-          // 3. Push the "Before" state for this match
-          // Use submitted_at/created_at for better X-axis distribution
-          const matchDate = m.submitted_at || m.created_at || m.scheduled_date;
+        // Sort Newest -> Oldest for walking backwards
+        // Team-league set matches are grouped by team_match_id so one night = one graph point.
+        const sortedMatches = globalMatches
+          .filter(m =>
+            m.status === 'finalized' ||
+            m.status_8ball === 'finalized' ||
+            m.status_9ball === 'finalized'
+          )
+          .sort((a, b) => {
+            const tA = getMatchTimestamp(a);
+            const tB = getMatchTimestamp(b);
+            if (tB !== tA) return tB - tA;
 
-          history.push({
-            date: matchDate,
-            rating: parseFloat(getBreakpointLevel(previousRating))
+            const aTeamSet = getTeamSetMeta(a);
+            const bTeamSet = getTeamSetMeta(b);
+            if (aTeamSet?.team_match_id && bTeamSet?.team_match_id && aTeamSet.team_match_id === bTeamSet.team_match_id) {
+              return (bTeamSet.set_number || 0) - (aTeamSet.set_number || 0);
+            }
+
+            return 0;
           });
 
-          // 4. Update runningRating for the NEXT iteration (which is the OLDER match)
-          runningRating = previousRating;
+        const historyEvents: Array<{ date: string; matches: any[] }> = [];
+        const teamEvents = new Map<string, { date: string; matches: any[] }>();
+
+        for (const match of sortedMatches) {
+          const teamSet = getTeamSetMeta(match);
+          if (teamSet?.team_match_id) {
+            const existingEvent = teamEvents.get(teamSet.team_match_id);
+            if (existingEvent) {
+              existingEvent.matches.push(match);
+            } else {
+              const event = {
+                date: match.submitted_at || match.created_at || match.scheduled_date,
+                matches: [match]
+              };
+              teamEvents.set(teamSet.team_match_id, event);
+              historyEvents.push(event);
+            }
+            continue;
+          }
+
+          historyEvents.push({
+            date: match.submitted_at || match.created_at || match.scheduled_date,
+            matches: [match]
+          });
+        }
+
+        console.log(`[Dashboard] Graph: Processing ${sortedMatches.length} global matches across ${historyEvents.length} graph events.`);
+
+        for (const event of historyEvents) {
+          for (const m of event.matches) {
+            runningRating = getPreviousRatingForMatch(m, runningRating);
+          }
+
+          history.push({
+            date: event.date,
+            rating: parseFloat(getBreakpointLevel(runningRating))
+          });
         }
       }
 
@@ -473,28 +574,18 @@ export default function HomeScreen() {
       });
 
       if (activeMembership.leagues?.is_team_league || session.isTeamLeague) {
-        const { data: captainTeam } = await supabaseAuthenticated
-          .from('teams')
-          .select('id')
-          .eq('league_id', session.id)
-          .eq('captain_id', userId)
-          .maybeSingle();
-
-        const { data: memberTeamData } = await supabaseAuthenticated
-          .from('team_members')
-          .select('teams!inner(id)')
-          .eq('player_id', userId)
-          .eq('teams.league_id', session.id)
-          .maybeSingle();
-
-        const joinedTeam: any = memberTeamData?.teams;
-        const resolvedTeamId = captainTeam?.id || (!Array.isArray(joinedTeam) ? joinedTeam?.id : null) || null;
-        setUserTeamId(resolvedTeamId);
-
         if (resolvedTeamId) {
           const { data: teamMatchesData } = await supabaseAuthenticated
             .from('team_matches')
-            .select('*, team_a:team_a_id(*), team_b:team_b_id(*)')
+            .select(`
+              *,
+              team_a:team_a_id(*),
+              team_b:team_b_id(*),
+              team_match_captain_submissions(
+                team_id,
+                verification_status
+              )
+            `)
             .eq('league_id', session.id)
             .or(`team_a_id.eq.${resolvedTeamId},team_b_id.eq.${resolvedTeamId}`)
             .order('week_number', { ascending: true })
@@ -506,7 +597,6 @@ export default function HomeScreen() {
           setNextMatch(null);
         }
       } else {
-        setUserTeamId(null);
         const nextUp = matches?.find(m => {
           const is8Final = m.status_8ball === 'finalized';
           const is9Final = m.status_9ball === 'finalized';
@@ -568,23 +658,25 @@ export default function HomeScreen() {
     } catch (e) {
       console.error(e);
     } finally {
+      fetchInFlightRef.current = false;
       if (!sessionLoading) {
         setLoading(false);
         setRefreshing(false);
       }
     }
-  }, [userId, getToken, router, user, currentSession, sessionLoading]);
-
-  useFocusEffect(useCallback(() => { fetchData(false); }, [fetchData]));
+  }, [userId, sessionLoading, refreshSessions]);
 
   // Force re-fetch when session context finishes loading
   useEffect(() => {
     if (!sessionLoading) {
       fetchData(false);
     }
-  }, [sessionLoading]);
+  }, [sessionLoading, currentSession?.id, userId, fetchData]);
 
-  const onRefresh = useCallback(() => { setRefreshing(true); fetchData(true); }, [fetchData]);
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchData(true);
+  }, [fetchData]);
 
   // Force refresh when coming from background
   useEffect(() => {
@@ -607,6 +699,7 @@ export default function HomeScreen() {
   // 3. If user has a session in context, we must wait for activeSession to be populated
   const [isPaying, setIsPaying] = useState(false);
   const shouldShowLoader = sessionLoading || loading || (currentSession && !activeSession);
+  const effectiveSessionFee = Number(activeSession?.session_fee) > 0 ? Number(activeSession.session_fee) : 25;
 
   const handlePaySessionFee = async () => {
     if (!currentSession || !userId) return;
@@ -650,6 +743,7 @@ export default function HomeScreen() {
   const getSpecialStats = (match: any) => {
     if (!match || !match.games) return undefined;
     let p1_8br = 0, p2_8br = 0;
+    let p1_8rr = 0, p2_8rr = 0;
     let p1_9br = 0, p2_9br = 0;
     let p1_snap = 0, p2_snap = 0;
 
@@ -667,8 +761,12 @@ export default function HomeScreen() {
         if (g.winner_id === match.player1_id) p1_snap++;
         else if (g.winner_id === match.player2_id) p2_snap++;
       }
+      if (g.game_type === '8ball' && g.is_rack_and_run) {
+        if (g.winner_id === match.player1_id) p1_8rr++;
+        else if (g.winner_id === match.player2_id) p2_8rr++;
+      }
     });
-    return { p1_8br, p2_8br, p1_9br, p2_9br, p1_snap, p2_snap };
+    return { p1_8br, p2_8br, p1_8rr, p2_8rr, p1_9br, p2_9br, p1_snap, p2_snap };
   };
 
   const handleDismissReminder = async (type: '3day' | 'dayof') => {
@@ -717,6 +815,11 @@ export default function HomeScreen() {
             {(activeSession.parent_league.location || activeSession.location) ? ` | ${activeSession.parent_league.location || activeSession.location}` : ''}
           </Text>
         )}
+        {activeSession?.isTeamLeague && userTeamName && (
+          <Text className="text-gray-300 font-bold tracking-wider uppercase text-xs mt-2" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
+            {userTeamName}
+          </Text>
+        )}
         {bountyDisplay && (
           <TouchableOpacity
             onPress={() => setBountyExpanded(!bountyExpanded)}
@@ -735,8 +838,13 @@ export default function HomeScreen() {
                 <Text className="text-green-400 font-bold text-xs mb-2 text-center uppercase tracking-widest border-b border-green-500/30 pb-1">Bounty Breakdown</Text>
 
                 <View className="flex-row justify-between mb-1">
-                  <Text className="text-gray-400 text-xs">8-Ball B&R (${bountyDetails.val8})</Text>
-                  <Text className="text-green-400 text-xs font-bold">x{bountyDetails.bnr8} = ${bountyDetails.bnr8 * bountyDetails.val8}</Text>
+                  <Text className="text-gray-400 text-xs">8-Ball B&R (${bountyDetails.val8BreakRun})</Text>
+                  <Text className="text-green-400 text-xs font-bold">x{bountyDetails.bnr8} = ${bountyDetails.bnr8 * bountyDetails.val8BreakRun}</Text>
+                </View>
+
+                <View className="flex-row justify-between mb-1">
+                  <Text className="text-gray-400 text-xs">8-Ball R&R (${bountyDetails.val8RackRun})</Text>
+                  <Text className="text-green-400 text-xs font-bold">x{bountyDetails.rr8} = ${bountyDetails.rr8 * bountyDetails.val8RackRun}</Text>
                 </View>
 
                 <View className="flex-row justify-between mb-1">
@@ -749,10 +857,12 @@ export default function HomeScreen() {
                   <Text className="text-green-400 text-xs font-bold">x{bountyDetails.snaps} = ${bountyDetails.snaps * bountyDetails.valSnap}</Text>
                 </View>
 
-                <View className="flex-row justify-between">
-                  <Text className="text-gray-400 text-xs">Shutouts (${bountyDetails.valShutout})</Text>
-                  <Text className="text-green-400 text-xs font-bold">x{bountyDetails.shutoutsCount} = ${bountyDetails.shutoutsCount * bountyDetails.valShutout}</Text>
-                </View>
+                {bountyDetails.showShutouts && (
+                  <View className="flex-row justify-between">
+                    <Text className="text-gray-400 text-xs">Shutouts (${bountyDetails.valShutout})</Text>
+                    <Text className="text-green-400 text-xs font-bold">x{bountyDetails.shutoutsCount} = ${bountyDetails.shutoutsCount * bountyDetails.valShutout}</Text>
+                  </View>
+                )}
               </View>
             )}
           </TouchableOpacity>
@@ -784,7 +894,9 @@ export default function HomeScreen() {
               <View className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-6 flex-row items-center justify-between">
                 <View className="flex-1 mr-4">
                   <Text className="text-red-100 font-bold text-base mb-1" style={{ includeFontPadding: false }}>Session Fee Unpaid</Text>
-                  <Text className="text-red-200 text-xs">All players must pay session fee to start.   </Text>
+                  <Text className="text-red-200 text-xs">
+                    Session fee: ${effectiveSessionFee.toFixed(2)}. All players must pay before the session can start.
+                  </Text>
                 </View>
                 <TouchableOpacity
                   onPress={handlePaySessionFee}
@@ -936,6 +1048,15 @@ export default function HomeScreen() {
                   />
                 );
               })()
+            ) : activeSession?.status !== 'active' ? (
+              <View className="bg-surface p-6 rounded-lg border border-yellow-500/30 items-center justify-center mb-6">
+                <Text className="text-yellow-300 text-center font-bold" style={{ includeFontPadding: false }}>
+                  Schedule Not Live Yet
+                </Text>
+                <Text className="text-gray-400 text-center mt-2" style={{ includeFontPadding: false }}>
+                  The operator still needs to start this session before the schedule is visible.
+                </Text>
+              </View>
             ) : (
               <View className="bg-surface p-6 rounded-lg border border-border items-center justify-center mb-6">
                 <Text className="text-gray-500 text-center italic mt-4" style={{ includeFontPadding: false }}>No scheduled matches.</Text>

@@ -14,13 +14,14 @@ import { isMatchLocked } from "../../utils/match";
 type MatchGame = {
     winner_id?: string | null;
     is_break_and_run?: boolean | null;
+    is_rack_and_run?: boolean | null;
     is_9_on_snap?: boolean | null;
     game_type?: string | null;
     game_number?: number | null;
     scored_by?: string | null;
 };
 
-const getDisplayGames = (games: MatchGame[] | null | undefined, userId: string) => {
+const getDisplayGames = (games: MatchGame[] | null | undefined, userId: string | null | undefined) => {
     if (!games?.length) return [];
 
     const myGames = games.filter((game) => game.scored_by === userId);
@@ -33,6 +34,7 @@ const getDisplayGames = (games: MatchGame[] | null | undefined, userId: string) 
             game.game_number ?? "",
             game.winner_id ?? "",
             game.is_break_and_run ? "1" : "0",
+            game.is_rack_and_run ? "1" : "0",
             game.is_9_on_snap ? "1" : "0",
         ].join(":");
 
@@ -54,6 +56,7 @@ export default function MatchesScreen() {
     const lastFetchedSessionId = useRef<string | null>(null);
     const CACHE_DURATION = 60000; // 60 seconds
     const { currentSession } = useSession();
+    const isSessionLive = currentSession?.status === 'active';
 
     useEffect(() => {
         setLoading(true);
@@ -98,6 +101,15 @@ export default function MatchesScreen() {
                 return;
             }
 
+            if (currentSession.status !== 'active') {
+                setMatches([]);
+                setTeamMatches([]);
+                setUserTeamId(null);
+                setRaces({});
+                setLoading(false);
+                return;
+            }
+
             // 2. Fetch All Matches for this session
             const { data: fetchedMatches } = await supabaseAuthenticated
                 .from("matches")
@@ -107,7 +119,7 @@ export default function MatchesScreen() {
             p2_submitted_at,
             player1:player1_id(full_name, breakpoint_rating, fargo_rating),
             player2:player2_id(full_name, breakpoint_rating, fargo_rating),
-            games (winner_id, is_break_and_run, is_9_on_snap, game_type, game_number, scored_by)
+            games (winner_id, is_break_and_run, is_rack_and_run, is_9_on_snap, game_type, game_number, scored_by)
           `)
                 .eq("league_id", currentSession.id)
                 .eq('is_team_match_set', false)
@@ -129,7 +141,25 @@ export default function MatchesScreen() {
             if (uTeamId) {
                 const { data: tmData } = await supabaseAuthenticated
                     .from('team_matches')
-                    .select('*, team_a:team_a_id(*), team_b:team_b_id(*)')
+                    .select(`
+                        *,
+                        team_a:team_a_id(*),
+                        team_b:team_b_id(*),
+                        team_match_captain_submissions(
+                            team_id,
+                            verification_status
+                        ),
+                        team_match_sets(
+                            id,
+                            set_number,
+                            game_type,
+                            player_a_id,
+                            player_b_id,
+                            winner_team_id,
+                            player_a:player_a_id(full_name),
+                            player_b:player_b_id(full_name)
+                        )
+                    `)
                     .eq('league_id', currentSession.id)
                     .or(`team_a_id.eq.${uTeamId},team_b_id.eq.${uTeamId}`)
                     .order('week_number', { ascending: true })
@@ -201,16 +231,27 @@ export default function MatchesScreen() {
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#D4AF37" />}
                 contentContainerStyle={{ paddingBottom: 100 }}
             >
-                {teamMatches.length > 0 && (
+                {!isSessionLive && (
+                    <View className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
+                        <Text className="text-yellow-300 font-bold text-sm mb-1" style={{ includeFontPadding: false }}>
+                            Schedule Not Live Yet
+                        </Text>
+                        <Text className="text-gray-300 text-sm" style={{ includeFontPadding: false }}>
+                            The operator still needs to start this session before the schedule is visible.
+                        </Text>
+                    </View>
+                )}
+
+                {isSessionLive && teamMatches.length > 0 && (
                     <View className="mb-6">
                         <Text className="text-gray-400 font-bold text-xs uppercase tracking-widest mb-3 pl-2">Team Matches</Text>
                         {teamMatches.map(tm => (
-                            <TeamMatchCard key={tm.id} match={tm} userTeamId={userTeamId!} />
+                            <TeamMatchCard key={tm.id} match={tm} userTeamId={userTeamId!} expandableCompleted />
                         ))}
                     </View>
                 )}
 
-                {matches.length > 0 && (
+                {isSessionLive && matches.length > 0 && (
                     <View>
                         {teamMatches.length > 0 && <Text className="text-gray-400 font-bold text-xs uppercase tracking-widest mb-3 pl-2">Individual Matches</Text>}
                         {matches.map((match) => {
@@ -247,6 +288,7 @@ export default function MatchesScreen() {
 
                         // Calculate Special Stats
                         let p1_8br = 0, p2_8br = 0;
+                        let p1_8rr = 0, p2_8rr = 0;
                         let p1_9br = 0, p2_9br = 0;
                         let p1_snap = 0, p2_snap = 0;
 
@@ -267,11 +309,16 @@ export default function MatchesScreen() {
                                     if (g.winner_id === match.player1_id) p1_snap++;
                                     else if (g.winner_id === match.player2_id) p2_snap++;
                                 }
+                                if (g.game_type === '8ball' && g.is_rack_and_run) {
+                                    if (g.winner_id === match.player1_id) p1_8rr++;
+                                    else if (g.winner_id === match.player2_id) p2_8rr++;
+                                }
                             });
                         }
 
                         const specialStats = {
                             p1_8br, p2_8br,
+                            p1_8rr, p2_8rr,
                             p1_9br, p2_9br,
                             p1_snap, p2_snap
                         };
@@ -317,7 +364,7 @@ export default function MatchesScreen() {
                     </View>
                 )}
 
-                {matches.length === 0 && teamMatches.length === 0 && (
+                {isSessionLive && matches.length === 0 && teamMatches.length === 0 && (
                     <Text className="text-gray-500 text-center italic mt-10">No matches found for this session.</Text>
                 )}
             </ScrollView>

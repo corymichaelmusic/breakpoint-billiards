@@ -101,7 +101,9 @@ export default function ProfileScreen() {
 
                         setProfile({ ...data, confidence });
                         setTempFargo(data.fargo_rating ? String(data.fargo_rating) : "500");
-                        setTempNickname(data.nickname || "");
+                        if (!editingNickname) {
+                            setTempNickname(data.nickname || "");
+                        }
                         setNotifyMentions(data.notify_mentions !== false);
                         setNotifyMatchDay(data.notify_match_day !== false);
                         setNotifyLeague(data.notify_league !== false);
@@ -114,7 +116,7 @@ export default function ProfileScreen() {
             };
 
             fetchProfile();
-        }, [userId, getToken])
+        }, [userId, getToken, editingNickname])
     );
 
     const handleAvatarPress = () => {
@@ -511,7 +513,10 @@ export default function ProfileScreen() {
                                                 <Text className="text-primary font-bold text-2xl" style={{ includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>
                                                     {profile.nickname || (profile.full_name ? profile.full_name.split(' ')[0] : '---')}
                                                 </Text>
-                                                <TouchableOpacity onPress={() => setEditingNickname(true)}>
+                                                <TouchableOpacity onPress={() => {
+                                                    setTempNickname(profile.nickname || "");
+                                                    setEditingNickname(true);
+                                                }}>
                                                     <Ionicons name="pencil" size={18} color="#6b7280" />
                                                 </TouchableOpacity>
                                             </View>

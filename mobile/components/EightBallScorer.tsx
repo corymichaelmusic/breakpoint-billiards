@@ -133,8 +133,8 @@ export default function EightBallScorer({
                     let methodText = "";
                     if (game.is_break_and_run) methodText = "Break & Run";
                     else if (game.is_rack_and_run) methodText = "Rack & Run";
-                    else if (game.is_early_8) methodText = "Early 8";
-                    else if (game.is_scratch_8) methodText = "Scratch on 8";
+                    else if (game.is_early_8) methodText = "Opponent Early 8";
+                    else if (game.is_scratch_8) methodText = "Opponent Scratch on 8";
                     else methodText = "Made 8-Ball";
 
                     return (

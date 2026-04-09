@@ -20,6 +20,30 @@ function formatRecord(wins: number, losses: number) {
     return `${wins}-${losses}`;
 }
 
+function formatBreakpointSum(value: number) {
+    return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+function getTeamBreakpointRangeLabel(members: any[]) {
+    if (!members.length) return null;
+
+    const levels = members
+        .map((member) => {
+            const profile = Array.isArray(member.profiles) ? member.profiles[0] : member.profiles;
+            return parseFloat(getBreakpointLevel(profile?.breakpoint_rating));
+        })
+        .filter((level) => Number.isFinite(level))
+        .sort((a, b) => a - b);
+
+    if (!levels.length) return null;
+
+    const groupSize = Math.min(4, levels.length);
+    const lowTotal = levels.slice(0, groupSize).reduce((sum, level) => sum + level, 0);
+    const highTotal = levels.slice(-groupSize).reduce((sum, level) => sum + level, 0);
+
+    return `BP Range ${formatBreakpointSum(lowTotal)}-${formatBreakpointSum(highTotal)}`;
+}
+
 function sortRosterMembers(members: any[], captainId?: string) {
     return [...members].sort((a, b) => {
         if (a.player_id === captainId) return -1;
@@ -32,11 +56,22 @@ function sortRosterMembers(members: any[], captainId?: string) {
 }
 
 // ─── Captain Request Modal ──────────────────────────────────────────────────
-function CaptainModal({ visible, onClose, sessionId, userId, getToken, onSuccess }: any) {
+function CaptainModal({ visible, onClose, sessionId, userId, getToken, onSuccess, existingRequest }: any) {
     const [submitting, setSubmitting] = useState(false);
     const [requested, setRequested] = useState(false);
+    const alreadyRequested = Boolean(existingRequest || requested);
+
+    useEffect(() => {
+        if (visible) {
+            setRequested(Boolean(existingRequest));
+        } else {
+            setRequested(false);
+            setSubmitting(false);
+        }
+    }, [visible, existingRequest]);
 
     const handleRequest = async () => {
+        if (alreadyRequested) return;
         setSubmitting(true);
         try {
             const token = await getToken({ template: 'supabase' });
@@ -69,15 +104,15 @@ function CaptainModal({ visible, onClose, sessionId, userId, getToken, onSuccess
                     </View>
                     <Text style={{ color: '#fff', fontSize: 20, fontWeight: 'bold', marginBottom: 8 }}>Become a Team Captain</Text>
                     <Text style={{ color: '#888', fontSize: 13, textAlign: 'center', lineHeight: 20 }}>
-                        Build a 6-player roster, manage your lineup, and lead your team through the season under the 25 Breakpoint Rating cap.
+                        Build a 6-player roster, manage your lineup, and lead your team through the session under the 27 Breakpoint Rating cap.
                     </Text>
                 </View>
 
-                {requested ? (
+                {alreadyRequested ? (
                     <View style={{ backgroundColor: '#1f1f1f', borderRadius: 12, padding: 16, alignItems: 'center', marginBottom: 12, borderWidth: 1, borderColor: 'rgba(212,175,55,0.3)' }}>
                         <FontAwesome5 name="check-circle" size={22} color="#D4AF37" />
-                        <Text style={{ color: '#D4AF37', fontWeight: 'bold', marginTop: 8 }}>Request Sent!</Text>
-                        <Text style={{ color: '#888', fontSize: 12, marginTop: 4, textAlign: 'center' }}>The operator will review your request shortly.</Text>
+                        <Text style={{ color: '#D4AF37', fontWeight: 'bold', marginTop: 8 }}>Request Pending</Text>
+                        <Text style={{ color: '#888', fontSize: 12, marginTop: 4, textAlign: 'center' }}>The operator is reviewing your captain request.</Text>
                     </View>
                 ) : (
                     <TouchableOpacity
@@ -382,6 +417,8 @@ export default function TeamsScreen() {
         );
     };
 
+    const teamBreakpointRangeLabel = getTeamBreakpointRangeLabel(members);
+
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: '#0d0d0d' }} edges={['bottom', 'left', 'right']}>
             <ScrollView
@@ -389,28 +426,35 @@ export default function TeamsScreen() {
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor="#D4AF37" />}
             >
                 {/* Header */}
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, marginTop: 0 }}>
-                    <View>
-                        <Text style={{ color: '#888', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 2 }}>
+                <View style={{ marginBottom: 12, marginTop: 0 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+                        <Text
+                            style={{ color: '#888', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.5, flex: 1, flexShrink: 1, paddingRight: 8 }}
+                            numberOfLines={1}
+                        >
                             {currentSession?.parentLeagueName || 'Team League'}
                         </Text>
-                        <Text style={{ color: '#fff', fontSize: 22, fontWeight: 'bold' }}>
+                        {!team && (
+                            <TouchableOpacity
+                                onPress={() => !captainRequest && setShowCaptainModal(true)}
+                                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(212,175,55,0.12)', borderWidth: 1, borderColor: 'rgba(212,175,55,0.4)', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6, flexShrink: 0, opacity: captainRequest ? 0.75 : 1 }}
+                                activeOpacity={captainRequest ? 1 : 0.8}
+                            >
+                                <FontAwesome5 name="crown" size={10} color="#D4AF37" />
+                                <Text style={{ color: '#D4AF37', fontWeight: 'bold', fontSize: 10.5 }}>
+                                    {captainRequest ? 'Request Pending' : 'Become a Captain'}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <Text
+                            style={{ color: '#fff', fontSize: 22, fontWeight: 'bold', flex: 1, flexShrink: 1, paddingRight: 8 }}
+                            numberOfLines={1}
+                        >
                             {currentSession?.name || 'Teams'}
                         </Text>
                     </View>
-                    {/* Become a Captain button — only if not on a team */}
-                    {!team && (
-                        <TouchableOpacity
-                            onPress={() => setShowCaptainModal(true)}
-                            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(212,175,55,0.12)', borderWidth: 1, borderColor: 'rgba(212,175,55,0.4)', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 }}
-                            activeOpacity={0.8}
-                        >
-                            <FontAwesome5 name="crown" size={12} color="#D4AF37" />
-                            <Text style={{ color: '#D4AF37', fontWeight: 'bold', fontSize: 12 }}>
-                                {captainRequest ? 'Request Pending' : 'Become Captain'}
-                            </Text>
-                        </TouchableOpacity>
-                    )}
                 </View>
 
                 {/* MY TEAM */}
@@ -446,7 +490,9 @@ export default function TeamsScreen() {
 
                             {/* Roster */}
                             <View style={{ padding: 12 }}>
-                                <Text style={{ color: '#555', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Roster ({members.length}/6)</Text>
+                                <Text style={{ color: '#555', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+                                    {`Roster (${members.length}/6)${teamBreakpointRangeLabel ? ` • ${teamBreakpointRangeLabel}` : ''}`}
+                                </Text>
                                 {members.length === 0 ? (
                                     <Text style={{ color: '#444', fontSize: 13, textAlign: 'center', padding: 12 }}>No members yet. Manage your roster to add players.</Text>
                                 ) : (
@@ -468,6 +514,7 @@ export default function TeamsScreen() {
                                 const captain = Array.isArray(t.profiles) ? t.profiles[0] : t.profiles;
                                 const isMyTeam = team?.id === t.id;
                                 const isExpanded = expandedTeams.includes(t.id);
+                                const breakpointRangeLabel = getTeamBreakpointRangeLabel(t.members || []);
 
                                 return (
                                     <View key={t.id} style={{ backgroundColor: '#1a1a1a', borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: '#2a2a2a' }}>
@@ -504,7 +551,7 @@ export default function TeamsScreen() {
                                         {isExpanded && (
                                             <View style={{ paddingHorizontal: 12, paddingBottom: 12, borderTopWidth: 1, borderTopColor: '#2a2a2a' }}>
                                                 <Text style={{ color: '#555', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, marginVertical: 8 }}>
-                                                    Roster ({t.members?.length || 0}/6)
+                                                    {`Roster (${t.members?.length || 0}/6)${breakpointRangeLabel ? ` • ${breakpointRangeLabel}` : ''}`}
                                                 </Text>
                                                 {(t.members || []).length > 0 ? (
                                                     t.members.map((member: any, index: number) => renderRosterMember(member, t.captain_id, index))
@@ -539,6 +586,7 @@ export default function TeamsScreen() {
                 sessionId={currentSession?.id}
                 userId={userId}
                 getToken={getToken}
+                existingRequest={captainRequest}
                 onSuccess={() => { setCaptainRequest({ status: 'pending' }); setTimeout(() => setShowCaptainModal(false), 1500); }}
             />
         </SafeAreaView>

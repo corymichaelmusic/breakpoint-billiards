@@ -14,6 +14,7 @@ export default function SelectLeagueScreen() {
     const [loading, setLoading] = useState(true);
     const [joining, setJoining] = useState(false);
     const [leagues, setLeagues] = useState<any[]>([]);
+    const [membershipStatuses, setMembershipStatuses] = useState<Record<string, string>>({});
 
     useEffect(() => {
         fetchLeagues();
@@ -46,7 +47,28 @@ export default function SelectLeagueScreen() {
                 .order('name');
 
             if (error) throw error;
-            setLeagues(data || []);
+            const sessions = data || [];
+            setLeagues(sessions);
+
+            if (userId && sessions.length > 0) {
+                const sessionIds = sessions.map((league) => league.id);
+                const { data: memberships, error: membershipError } = await supabase
+                    .from('league_players')
+                    .select('league_id, status')
+                    .eq('player_id', userId)
+                    .in('league_id', sessionIds);
+
+                if (membershipError) throw membershipError;
+
+                const statusMap = (memberships || []).reduce((acc: Record<string, string>, membership: any) => {
+                    acc[membership.league_id] = membership.status;
+                    return acc;
+                }, {});
+
+                setMembershipStatuses(statusMap);
+            } else {
+                setMembershipStatuses({});
+            }
         } catch (e: any) {
             console.error(e);
             Alert.alert("Error", "Failed to load leagues.");
@@ -55,7 +77,7 @@ export default function SelectLeagueScreen() {
         }
     };
 
-    const handleJoin = async (league: any) => {
+    const submitJoinRequest = async (league: any) => {
         if (!userId) return;
         setJoining(true);
         try {
@@ -99,6 +121,7 @@ export default function SelectLeagueScreen() {
             Alert.alert("Request Sent", `Your request to join ${league.name} has been sent to the operator.`, [
                 { text: "OK", onPress: () => router.replace('/(tabs)') }
             ]);
+            setMembershipStatuses((prev) => ({ ...prev, [league.id]: 'pending' }));
 
         } catch (e: any) {
             console.error(e);
@@ -148,6 +171,7 @@ export default function SelectLeagueScreen() {
                     Alert.alert("Request Sent", `Your request to join ${league.name} has been sent to the operator.`, [
                         { text: "OK", onPress: () => router.replace('/(tabs)') }
                     ]);
+                    setMembershipStatuses((prev) => ({ ...prev, [league.id]: 'pending' }));
                     return; // Success after retry
 
                 } catch (retryE: any) {
@@ -161,6 +185,29 @@ export default function SelectLeagueScreen() {
         } finally {
             setJoining(false);
         }
+    };
+
+    const handleJoin = (league: any) => {
+        const membershipStatus = membershipStatuses[league.id];
+
+        if (membershipStatus === 'pending') {
+            Alert.alert("Join Request Pending", "Your request to join this session is still pending operator approval.");
+            return;
+        }
+
+        if (membershipStatus === 'active') {
+            Alert.alert("Already Joined", "You are already a member of this session.");
+            return;
+        }
+
+        Alert.alert(
+            "Send Join Request",
+            `Would you like to send a request to join ${league.name}?`,
+            [
+                { text: "Cancel", style: "cancel" },
+                { text: "Send Request", onPress: () => submitJoinRequest(league) }
+            ]
+        );
     };
 
     return (
@@ -193,11 +240,17 @@ export default function SelectLeagueScreen() {
                     data={leagues}
                     keyExtractor={item => item.id}
                     contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
-                    renderItem={({ item }) => (
+                    renderItem={({ item }) => {
+                        const membershipStatus = membershipStatuses[item.id];
+                        const isPending = membershipStatus === 'pending';
+                        const isActive = membershipStatus === 'active';
+
+                        return (
                         <TouchableOpacity
-                            disabled={joining}
+                            disabled={joining || isPending || isActive}
                             onPress={() => handleJoin(item)}
                             className="bg-surface border border-border p-4 rounded-xl mb-4 flex-row justify-between items-center active:bg-primary/10"
+                            style={{ opacity: isPending || isActive ? 0.75 : 1 }}
                         >
                             <View className="flex-1 mr-4">
                                 {/* Display Parent League Name as main title, Session Name as subtitle */}
@@ -224,10 +277,22 @@ export default function SelectLeagueScreen() {
                                         </Text>
                                     </View>
                                 )}
+                                {isPending && (
+                                    <Text className="text-primary text-xs font-bold mt-2 uppercase tracking-wide">
+                                        Join Request Pending
+                                    </Text>
+                                )}
+                                {isActive && (
+                                    <Text className="text-green-400 text-xs font-bold mt-2 uppercase tracking-wide">
+                                        Joined
+                                    </Text>
+                                )}
                             </View>
-                            <FontAwesome5 name="chevron-right" size={16} color="#D4AF37" />
+                            {!isPending && !isActive && (
+                                <FontAwesome5 name="chevron-right" size={16} color="#D4AF37" />
+                            )}
                         </TouchableOpacity>
-                    )}
+                    )}}
                     ListEmptyComponent={
                         <View className="items-center justify-center py-10">
                             <Text className="text-gray-400">No sessions available at this time</Text>

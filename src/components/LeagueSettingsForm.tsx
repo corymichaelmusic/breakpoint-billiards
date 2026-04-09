@@ -14,6 +14,7 @@ interface LeagueSettingsFormProps {
         state: string | null;
         schedule_day: string | null;
         type: string;
+        is_team_league?: boolean;
         session_fee?: number;
         match_fee?: number;
         start_date?: string;
@@ -29,6 +30,7 @@ export default function LeagueSettingsForm({ league, isAdmin = false }: LeagueSe
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const router = useRouter();
+    const isTeamSession = league.type === 'session' && !!league.is_team_league;
 
     const handleSubmit = async (formData: FormData) => {
         setLoading(true);
@@ -49,7 +51,7 @@ export default function LeagueSettingsForm({ league, isAdmin = false }: LeagueSe
         const bounty_val_8_run = formData.get("bounty_val_8_run") ? Number(formData.get("bounty_val_8_run")) : undefined;
         const bounty_val_9_run = formData.get("bounty_val_9_run") ? Number(formData.get("bounty_val_9_run")) : undefined;
         const bounty_val_9_snap = formData.get("bounty_val_9_snap") ? Number(formData.get("bounty_val_9_snap")) : undefined;
-        const bounty_val_shutout = formData.get("bounty_val_shutout") ? Number(formData.get("bounty_val_shutout")) : undefined;
+        const bounty_val_shutout = isTeamSession ? 0 : (formData.get("bounty_val_shutout") ? Number(formData.get("bounty_val_shutout")) : undefined);
 
         try {
             console.log("Submitting form for league:", league.id);
@@ -278,7 +280,7 @@ export default function LeagueSettingsForm({ league, isAdmin = false }: LeagueSe
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                     <div>
                         <label className="label">8-Ball Run</label>
-                        <input type="number" step="0.5" name="bounty_val_8_run" defaultValue={league.bounty_val_8_run ?? 5} className="input" />
+                        <input type="number" step="0.5" name="bounty_val_8_run" defaultValue={league.bounty_val_8_run ?? (isTeamSession ? 2 : 5)} className="input" />
                     </div>
                     <div>
                         <label className="label">9-Ball Run</label>
@@ -288,11 +290,18 @@ export default function LeagueSettingsForm({ league, isAdmin = false }: LeagueSe
                         <label className="label">9-Ball Snap</label>
                         <input type="number" step="0.5" name="bounty_val_9_snap" defaultValue={league.bounty_val_9_snap ?? 1} className="input" />
                     </div>
-                    <div>
-                        <label className="label">Shutout</label>
-                        <input type="number" step="0.5" name="bounty_val_shutout" defaultValue={league.bounty_val_shutout ?? 1} className="input" />
-                    </div>
+                    {!isTeamSession && (
+                        <div>
+                            <label className="label">Shutout</label>
+                            <input type="number" step="0.5" name="bounty_val_shutout" defaultValue={league.bounty_val_shutout ?? 1} className="input" />
+                        </div>
+                    )}
                 </div>
+                {isTeamSession && (
+                    <p style={{ fontSize: "0.8rem", color: "#666", marginTop: "0.75rem" }}>
+                        All sessions include a fixed 8-Ball Rack & Run bounty of $2. Team sessions do not include shutout bounties.
+                    </p>
+                )}
             </div>
 
             <div style={{ display: "flex", gap: "1rem", justifyContent: "space-between", alignItems: "center", marginTop: "2rem", paddingTop: "2rem", borderTop: "1px solid var(--border)" }}>

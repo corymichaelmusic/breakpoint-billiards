@@ -50,7 +50,7 @@ export default function MatchHistoryScreen() {
                         player1:player1_id(full_name),
                         player2:player2_id(full_name),
                         leagues(name, parent_league:parent_league_id(name)),
-                        games (winner_id, is_break_and_run, is_9_on_snap, game_type)
+                        games (winner_id, is_break_and_run, is_rack_and_run, is_9_on_snap, game_type)
                     `)
                     .or(`player1_id.eq.${targetId},player2_id.eq.${targetId}`)
                     .or('status_8ball.eq.finalized,status_9ball.eq.finalized')
@@ -114,6 +114,7 @@ export default function MatchHistoryScreen() {
 
                             // Calculate Special Stats Dynamically
                             let p1_8br = 0, p2_8br = 0;
+                            let p1_8rr = 0, p2_8rr = 0;
                             let p1_9br = 0, p2_9br = 0;
                             let p1_snap = 0, p2_snap = 0;
 
@@ -132,11 +133,16 @@ export default function MatchHistoryScreen() {
                                         if (g.winner_id === match.player1_id) p1_snap++;
                                         else if (g.winner_id === match.player2_id) p2_snap++;
                                     }
+                                    if (g.game_type === '8ball' && g.is_rack_and_run) {
+                                        if (g.winner_id === match.player1_id) p1_8rr++;
+                                        else if (g.winner_id === match.player2_id) p2_8rr++;
+                                    }
                                 });
                             }
 
                             const specialStats = {
                                 p1_8br, p2_8br,
+                                p1_8rr, p2_8rr,
                                 p1_9br, p2_9br,
                                 p1_snap, p2_snap
                             };

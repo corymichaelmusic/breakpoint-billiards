@@ -6,15 +6,12 @@ import { createClient } from "@supabase/supabase-js";
 import { FontAwesome5, Ionicons } from "@expo/vector-icons";
 import * as Haptics from 'expo-haptics';
 import { useSession } from "../../lib/SessionContext";
-import { useNavigation } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
-import { supabase } from "../../lib/supabase";
 
 export default function ChatScreen() {
     const { userId, getToken } = useAuth();
     const { user } = useUser();
     const { currentSession, unreadCount, lastReadAt, markAsRead } = useSession();
-    const navigation = useNavigation();
     const isFocused = useIsFocused();
     const [messages, setMessages] = useState<any[]>([]);
     const [players, setPlayers] = useState<any[]>([]);
@@ -24,8 +21,11 @@ export default function ChatScreen() {
     const [accessLoading, setAccessLoading] = useState(true);
     const [isTeamSession, setIsTeamSession] = useState(false);
     const [isTeamCaptain, setIsTeamCaptain] = useState(false);
+    const [captainTeamNames, setCaptainTeamNames] = useState<Record<string, string>>({});
+    const [playersLoading, setPlayersLoading] = useState(false);
     const [hasInitialScrolled, setHasInitialScrolled] = useState(false);
     const [showTagging, setShowTagging] = useState(false);
+    const isAndroid = Platform.OS === 'android';
     const flatListRef = useRef<FlatList>(null);
     const inputRef = useRef<TextInput>(null);
     const pollingInterval = useRef<NodeJS.Timeout | null>(null);
@@ -33,13 +33,19 @@ export default function ChatScreen() {
     const initialScrollComplete = useRef(false);
     const pendingInitialScroll = useRef<{ type: 'index'; index: number } | { type: 'end' } | null>(null);
     const scrollDebounceTimer = useRef<NodeJS.Timeout | null>(null);
-    const tabBarTimeout = useRef<NodeJS.Timeout | null>(null);
     const pendingFocus = useRef(false);
+    const [hasPrimedThread, setHasPrimedThread] = useState(false);
+    const initialRenderCount = hasPrimedThread
+        ? (isAndroid ? 24 : 36)
+        : (isAndroid ? Math.max(messages.length, 80) : Math.min(Math.max(messages.length, 60), 220));
 
     // Use refs for stable access in intervals/callbacks without triggering re-renders
     const getTokenRef = useRef(getToken);
     const currentSessionRef = useRef(currentSession);
     const userIdRef = useRef(userId);
+    const accessLoadingRef = useRef(accessLoading);
+    const isTeamSessionRef = useRef(isTeamSession);
+    const isTeamCaptainRef = useRef(isTeamCaptain);
 
     useEffect(() => {
         getTokenRef.current = getToken;
@@ -51,9 +57,24 @@ export default function ChatScreen() {
     }, [currentSession, userId]);
 
     useEffect(() => {
+        accessLoadingRef.current = accessLoading;
+        isTeamSessionRef.current = isTeamSession;
+        isTeamCaptainRef.current = isTeamCaptain;
+    }, [accessLoading, isTeamSession, isTeamCaptain]);
+
+    useEffect(() => {
         const checkAccess = async () => {
             if (!currentSession?.id || !userId) {
                 setIsTeamSession(false);
+                setIsTeamCaptain(false);
+                setAccessLoading(false);
+                return;
+            }
+
+            const teamSession = !!currentSession.isTeamLeague;
+            setIsTeamSession(teamSession);
+
+            if (!teamSession) {
                 setIsTeamCaptain(false);
                 setAccessLoading(false);
                 return;
@@ -68,20 +89,6 @@ export default function ChatScreen() {
                     process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
                     { global: { headers: token ? { Authorization: `Bearer ${token}` } : undefined } }
                 );
-
-                const { data: leagueData } = await authedSupabase
-                    .from('leagues')
-                    .select('is_team_league')
-                    .eq('id', currentSession.id)
-                    .single();
-
-                const teamSession = !!leagueData?.is_team_league;
-                setIsTeamSession(teamSession);
-
-                if (!teamSession) {
-                    setIsTeamCaptain(false);
-                    return;
-                }
 
                 const { data: captainTeam } = await authedSupabase
                     .from('teams')
@@ -101,13 +108,16 @@ export default function ChatScreen() {
         };
 
         checkAccess();
-    }, [currentSession?.id, userId]);
+    }, [currentSession?.id, currentSession?.isTeamLeague, userId]);
 
     const fetchMessages = useCallback(async () => {
         const sessionId = currentSessionRef.current?.id;
         const uid = userIdRef.current;
+        const isCheckingAccess = accessLoadingRef.current;
+        const teamSession = isTeamSessionRef.current;
+        const teamCaptain = isTeamCaptainRef.current;
 
-        if (!sessionId || !uid || accessLoading || (isTeamSession && !isTeamCaptain)) {
+        if (!sessionId || !uid || isCheckingAccess || (teamSession && !teamCaptain)) {
             setLoading(false);
             return;
         }
@@ -133,7 +143,12 @@ export default function ChatScreen() {
             if (error) throw error;
 
             if (data) {
-                setMessages(data);
+                const normalizedMessages = data.map((message: any) => ({
+                    ...message,
+                    content: typeof message.content === 'string' ? message.content : '',
+                    profiles: Array.isArray(message.profiles) ? message.profiles[0] : message.profiles,
+                }));
+                setMessages(normalizedMessages);
             }
         } catch (e: any) {
             // Suppress JWT expired errors
@@ -145,10 +160,21 @@ export default function ChatScreen() {
         } finally {
             setLoading(false);
         }
-    }, [getToken, accessLoading, isTeamSession, isTeamCaptain]);
+    }, []);
 
     const fetchPlayers = useCallback(async () => {
-        if (!currentSession?.id || accessLoading || (isTeamSession && !isTeamCaptain)) return;
+        const sessionId = currentSessionRef.current?.id;
+        const uid = userIdRef.current;
+        const isCheckingAccess = accessLoadingRef.current;
+        const teamSession = isTeamSessionRef.current;
+        const teamCaptain = isTeamCaptainRef.current;
+
+        if (!sessionId || !uid || isCheckingAccess || (teamSession && !teamCaptain)) {
+            setPlayersLoading(false);
+            return;
+        }
+
+        setPlayersLoading(true);
         try {
             const token = await getTokenRef.current({ template: 'supabase' });
             const supabase = createClient(
@@ -157,7 +183,7 @@ export default function ChatScreen() {
                 { global: { headers: token ? { Authorization: `Bearer ${token}` } : undefined } }
             );
 
-            if (isTeamSession) {
+            if (teamSession) {
                 const { data, error } = await supabase
                     .from('teams')
                     .select(`
@@ -166,11 +192,20 @@ export default function ChatScreen() {
                         captain_id,
                         profiles:captain_id(id, full_name, avatar_url, nickname)
                     `)
-                    .eq('league_id', currentSession.id);
+                    .eq('league_id', sessionId);
 
                 if (error) throw error;
 
                 if (data) {
+                    const teamNameMap = data.reduce((acc: Record<string, string>, team: any) => {
+                        if (team.captain_id && team.name) {
+                            acc[team.captain_id] = team.name;
+                        }
+                        return acc;
+                    }, {});
+
+                    setCaptainTeamNames(teamNameMap);
+
                     const mapped = data
                         .map((team: any) => {
                             const captain = Array.isArray(team.profiles) ? team.profiles[0] : team.profiles;
@@ -181,42 +216,101 @@ export default function ChatScreen() {
                             } : null;
                         })
                         .filter(Boolean)
-                        .filter((captain: any) => captain.id !== userId);
+                        .filter((captain: any) => captain.id !== uid);
 
                     setPlayers(mapped);
+                } else {
+                    setPlayers([]);
                 }
 
                 return;
             }
 
-            const { data, error } = await supabase
+            setCaptainTeamNames({});
+
+            const { data: memberships, error: membershipError } = await supabase
                 .from('league_players')
-                .select(`
-                    player_id,
-                    profiles:player_id(id, full_name, avatar_url, nickname)
-                `)
-                .eq('league_id', currentSession.id)
+                .select('player_id')
+                .eq('league_id', sessionId)
                 .eq('status', 'active');
 
-            if (error) throw error;
-            if (data) {
-                const mapped = data
-                    .map((d: any) => d.profiles)
-                    .filter(Boolean)
-                    .filter((p: any) => p.id !== userId);
-                setPlayers(mapped);
+            if (membershipError) throw membershipError;
+
+            const playerIds = (memberships || [])
+                .map((row: any) => row.player_id)
+                .filter((id: string | null | undefined) => !!id && id !== uid);
+
+            if (playerIds.length === 0) {
+                setPlayers([]);
+                return;
+            }
+
+            const { data: profileRows, error: profileError } = await supabase
+                .from('profiles')
+                .select('id, full_name, avatar_url, nickname')
+                .in('id', playerIds);
+
+            if (profileError) throw profileError;
+            if (profileRows) {
+                setPlayers(profileRows);
+            } else {
+                setPlayers([]);
             }
         } catch (e) {
             console.error("Error fetching players for tagging:", e);
+            setPlayers([]);
+        } finally {
+            setPlayersLoading(false);
         }
-    }, [getToken, currentSession?.id, userId, accessLoading, isTeamSession, isTeamCaptain]);
+    }, []);
 
     useEffect(() => {
-        fetchPlayers();
-    }, [fetchPlayers]);
+        if (showTagging && isFocused) {
+            fetchPlayers();
+        }
+    }, [showTagging, isFocused, fetchPlayers]);
+
+    useEffect(() => {
+        if (!currentSession?.id) {
+            setMessages([]);
+            setLoading(false);
+            return;
+        }
+
+        setMessages([]);
+        setPlayers([]);
+        initialScrollComplete.current = false;
+        pendingInitialScroll.current = null;
+        setHasInitialScrolled(false);
+        setHasPrimedThread(false);
+        initialLastReadAt.current = null;
+        hasStoredInitialReadAt.current = false;
+    }, [currentSession?.id]);
+
+    useEffect(() => {
+        if (!isFocused) return;
+
+        initialLastReadAt.current = lastReadAt;
+        hasStoredInitialReadAt.current = true;
+        initialScrollComplete.current = false;
+        pendingInitialScroll.current = null;
+        setHasInitialScrolled(false);
+    }, [isFocused, currentSession?.id, lastReadAt]);
+
+    const getPlayerMentionLabel = (player: any) => {
+        const normalizedPlayer = Array.isArray(player) ? player[0] : player;
+        const fullName = normalizedPlayer?.full_name || 'Unknown';
+        const nickname = normalizedPlayer?.nickname?.trim();
+
+        if (nickname && nickname.toLowerCase() !== fullName.toLowerCase()) {
+            return `${fullName} (${nickname})`;
+        }
+
+        return fullName;
+    };
 
     const handleTagPlayer = (player: any) => {
-        const name = player.nickname || player.full_name || 'Unknown';
+        const name = getPlayerMentionLabel(player);
         setInputText(prev => prev + `@[${name}] `);
         pendingFocus.current = true;
         setShowTagging(false);
@@ -233,18 +327,7 @@ export default function ChatScreen() {
 
 
 
-    // Polling logic using navigation events
     useEffect(() => {
-        const startPolling = () => {
-            // Always clear any existing interval before starting a new one
-            if (pollingInterval.current) {
-                clearInterval(pollingInterval.current);
-                pollingInterval.current = null;
-            }
-            fetchMessages(); // Initial fetch
-            pollingInterval.current = setInterval(fetchMessages, 10000);
-        };
-
         const stopPolling = () => {
             if (pollingInterval.current) {
                 clearInterval(pollingInterval.current);
@@ -252,19 +335,39 @@ export default function ChatScreen() {
             }
         };
 
-        // Subscribe to focus/blur
-        const unsubscribeFocus = navigation.addListener('focus', startPolling);
-        const unsubscribeBlur = navigation.addListener('blur', stopPolling);
+        if (!isFocused) {
+            stopPolling();
+            setLoading(false);
+            return;
+        }
 
-        // Manual check for initial focus
-        startPolling();
+        if (!currentSession?.id) {
+            setLoading(false);
+            return stopPolling;
+        }
+
+        if (accessLoading) {
+            setLoading(true);
+            return stopPolling;
+        }
+
+        if (isTeamSession && !isTeamCaptain) {
+            setLoading(false);
+            setMessages([]);
+            return stopPolling;
+        }
+
+        if (messages.length === 0) {
+            setLoading(true);
+        }
+        fetchMessages();
+        pollingInterval.current = setInterval(fetchMessages, 10000);
 
         return () => {
             stopPolling();
-            unsubscribeFocus();
-            unsubscribeBlur();
+            setLoading(false);
         };
-    }, []); // Empty dependency array = stable effect, only runs once on mount
+    }, [isFocused, currentSession?.id, accessLoading, isTeamSession, isTeamCaptain, fetchMessages]);
 
     // Auto-scroll to bottom when keyboard opens
     useEffect(() => {
@@ -327,6 +430,7 @@ export default function ChatScreen() {
             }, 500);
 
             setHasInitialScrolled(true);
+            setHasPrimedThread(true);
         }
     }, [loading, messages.length, hasInitialScrolled, userId]);
 
@@ -453,15 +557,15 @@ export default function ChatScreen() {
             setMessages(prev => prev.map(m => m.id === tempId ? data : m));
 
             // Fire-and-forget: send push notification for @mentions
-            const mentionMatches = content.match(/@\[[^\]]+\]/g);
-            if (mentionMatches && mentionMatches.length > 0) {
-                const taggedNames = mentionMatches.map((m: string) => m.slice(2, -1));
-                const taggedPlayerIds = players
-                    .filter((p: any) => {
-                        const name = (p.nickname || p.full_name || '').toLowerCase();
-                        return taggedNames.some((t: string) => t.toLowerCase() === name);
-                    })
-                    .map((p: any) => p.id);
+                const mentionMatches = content.match(/@\[[^\]]+\]/g);
+                if (mentionMatches && mentionMatches.length > 0) {
+                    const taggedNames = mentionMatches.map((m: string) => m.slice(2, -1));
+                    const taggedPlayerIds = players
+                        .filter((p: any) => {
+                            const name = getPlayerMentionLabel(p).toLowerCase();
+                            return taggedNames.some((t: string) => t.toLowerCase() === name);
+                        })
+                        .map((p: any) => p.id);
 
                 if (taggedPlayerIds.length > 0) {
                     supabase.functions.invoke('send-mention-notification', {
@@ -489,8 +593,15 @@ export default function ChatScreen() {
     const renderMessage = ({ item, index }: { item: any, index: number }) => {
         const isMe = item.user_id === userId;
         const profile = item.profiles;
+        const messageContent = typeof item.content === 'string' ? item.content : '';
 
         let displayName = profile?.full_name || 'Unknown';
+        const captainTeamName = captainTeamNames[item.user_id];
+
+        if (isTeamSession && captainTeamName) {
+            displayName += ` - ${captainTeamName}`;
+        }
+
         if (profile?.role === 'operator' || profile?.role === 'admin' || profile?.operator_status === 'active') {
             displayName += ' - L.O.';
         }
@@ -593,7 +704,7 @@ export default function ChatScreen() {
                         )}
 
                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' }}>
-                            {item.content.split(/(@\[[^\]]+\])/).map((part: string, i: number) =>
+                            {messageContent.split(/(@\[[^\]]+\])/).map((part: string, i: number) =>
                                 part.startsWith('@[') && part.endsWith(']') ? (
                                     <View key={i} style={{
                                         backgroundColor: isMe ? 'rgba(0,0,0,0.15)' : 'rgba(212, 175, 55, 0.15)',
@@ -661,11 +772,14 @@ export default function ChatScreen() {
                             ref={flatListRef}
                             style={{ flex: 1 }}
                             data={messages}
-                            keyExtractor={(item) => item.id}
+                            keyExtractor={(item) => String(item.id)}
                             renderItem={renderMessage}
                             contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 60 }}
-                            initialNumToRender={messages.length}
-                            maxToRenderPerBatch={messages.length}
+                            initialNumToRender={initialRenderCount}
+                            maxToRenderPerBatch={hasPrimedThread ? (isAndroid ? 24 : 40) : (isAndroid ? Math.max(messages.length, 80) : 100)}
+                            updateCellsBatchingPeriod={hasPrimedThread ? (isAndroid ? 60 : 50) : 16}
+                            windowSize={hasPrimedThread ? (isAndroid ? 7 : 10) : (isAndroid ? 21 : 18)}
+                            removeClippedSubviews={isAndroid && hasPrimedThread}
 
                             onContentSizeChange={() => {
                                 // If there's a pending initial scroll, debounce until content size stabilizes
@@ -797,7 +911,11 @@ export default function ChatScreen() {
                             <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold', textAlign: 'center', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 }}>
                                 {isTeamSession ? 'Tag a Team Captain' : 'Tag a Player'}
                             </Text>
-                            {players.length === 0 ? (
+                            {playersLoading ? (
+                                <View style={{ paddingVertical: 24, alignItems: 'center', justifyContent: 'center' }}>
+                                    <ActivityIndicator size="small" color="#D4AF37" />
+                                </View>
+                            ) : players.length === 0 ? (
                                 <Text style={{ color: '#666', textAlign: 'center', paddingVertical: 20 }}>
                                     {isTeamSession ? 'No other team captains in this session.' : 'No other players in this session.'}
                                 </Text>
@@ -825,11 +943,11 @@ export default function ChatScreen() {
                                             )}
                                             <View style={{ flex: 1 }}>
                                                 <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
-                                                    {isTeamSession ? (player.team_name || 'Unknown Team') : (player.nickname || player.full_name || 'Unknown')}
+                                                    {isTeamSession ? (player.team_name || 'Unknown Team') : getPlayerMentionLabel(player)}
                                                 </Text>
                                                 {isTeamSession && (
                                                     <Text style={{ color: '#888', fontSize: 12, marginTop: 2 }}>
-                                                        {player.nickname || player.full_name || 'Unknown'}
+                                                        {getPlayerMentionLabel(player)}
                                                     </Text>
                                                 )}
                                             </View>

@@ -15,6 +15,7 @@ import ResetMatchButton from "@/components/ResetMatchButton";
 import MatchesListView from "@/components/MatchesListView";
 import SendNotificationButton from "@/components/SendNotificationButton";
 import EndSessionButton from "@/components/EndSessionButton";
+import StartSessionButton from "@/components/StartSessionButton";
 
 import { verifyOperator } from "@/utils/auth-helpers";
 import { isMatchDateLocked } from "@/utils/match-utils";
@@ -507,19 +508,11 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
 
                                     {isSetup && hasMatches && (
                                         <div className="space-y-2">
-                                            <form action={async () => {
-                                                'use server';
-                                                const { startSession } = await import("@/app/actions/league-actions");
-                                                await startSession(id);
-                                            }}>
-                                                <button type="submit"
-                                                    disabled={league.creation_fee_status === 'unpaid' || hasUnpaidPlayers}
-                                                    className={`btn w-full ${league.creation_fee_status === 'unpaid' || hasUnpaidPlayers ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : ''}`}
-                                                    style={!(league.creation_fee_status === 'unpaid' || hasUnpaidPlayers) ? { backgroundColor: '#22c55e', color: 'black' } : {}}
-                                                >
-                                                    {league.creation_fee_status === 'unpaid' ? 'Fee Required to Start' : hasUnpaidPlayers ? `Waiting for ${unpaidPlayerCount} Player(s)` : 'Start Session'}
-                                                </button>
-                                            </form>
+                                            <StartSessionButton
+                                                leagueId={id}
+                                                disabled={league.creation_fee_status === 'unpaid' || hasUnpaidPlayers}
+                                                disabledLabel={league.creation_fee_status === 'unpaid' ? 'Fee Required to Start' : hasUnpaidPlayers ? `Waiting for ${unpaidPlayerCount} Player(s)` : 'Start Session'}
+                                            />
                                             <form action={async () => {
                                                 'use server';
                                                 const { resetSchedule } = await import("@/app/actions/league-actions");
