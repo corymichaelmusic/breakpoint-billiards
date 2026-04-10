@@ -7,6 +7,27 @@ import { createClient } from "@supabase/supabase-js";
 import { FontAwesome5 } from "@expo/vector-icons";
 import NextMatchCard from "../components/NextMatchCard";
 
+const firstRelatedRow = (value: any) => Array.isArray(value) ? value[0] : value;
+
+const formatMatchHistoryDate = (match: any) => {
+    const teamSet = firstRelatedRow(match.team_match_sets);
+    const rawDate =
+        match.scheduled_date ||
+        teamSet?.team_match?.scheduled_date ||
+        match.submitted_at ||
+        match.created_at ||
+        teamSet?.team_match?.created_at;
+
+    if (!rawDate) return 'Date TBD';
+
+    const date = new Date(rawDate);
+    if (!Number.isFinite(date.getTime()) || date.getFullYear() < 2000) {
+        return 'Date TBD';
+    }
+
+    return date.toLocaleDateString();
+};
+
 export default function MatchHistoryScreen() {
     const { userId, getToken } = useAuth();
     const router = useRouter();
@@ -50,6 +71,12 @@ export default function MatchHistoryScreen() {
                         player1:player1_id(full_name),
                         player2:player2_id(full_name),
                         leagues(name, parent_league:parent_league_id(name)),
+                        team_match_sets(
+                            team_match_id,
+                            set_number,
+                            game_type,
+                            team_match:team_match_id(scheduled_date, created_at)
+                        ),
                         games (winner_id, is_break_and_run, is_rack_and_run, is_9_on_snap, game_type)
                     `)
                     .or(`player1_id.eq.${targetId},player2_id.eq.${targetId}`)
@@ -153,7 +180,7 @@ export default function MatchHistoryScreen() {
                                     matchId={match.id}
                                     opponentName={opponentName}
                                     viewerName={playerId ? playerName : undefined}
-                                    date={match.scheduled_date ? new Date(match.scheduled_date).toLocaleDateString() : 'TBD'}
+                                    date={formatMatchHistoryDate(match)}
                                     weekNumber={match.week_number}
                                     status="finalized" // Force finalized to show stats
                                     player1Id={match.player1_id}

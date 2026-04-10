@@ -16,9 +16,11 @@ const getMatchTimestamp = (match: any) => {
     const teamSet = firstRelatedRow(match.team_match_sets);
     const rawDate =
         match.scheduled_date ||
+        teamSet?.team_match?.scheduled_date ||
         match.submitted_at ||
         match.created_at ||
         teamSet?.created_at ||
+        teamSet?.team_match?.created_at ||
         null;
 
     if (!rawDate) return 0;
@@ -27,7 +29,8 @@ const getMatchTimestamp = (match: any) => {
 };
 
 const formatMatchDate = (match: any) => {
-    const rawDate = match.scheduled_date || match.submitted_at || match.created_at;
+    const teamSet = firstRelatedRow(match.team_match_sets);
+    const rawDate = match.scheduled_date || teamSet?.team_match?.scheduled_date || match.submitted_at || match.created_at || teamSet?.team_match?.created_at;
     if (!rawDate) return "Date TBD";
 
     const date = new Date(rawDate);
@@ -109,7 +112,7 @@ const mergeH2HMatches = (rows: any[]) => {
         ];
 
         if (getMatchTimestamp(match) > getMatchTimestamp(existing)) {
-            existing.scheduled_date = match.scheduled_date || existing.scheduled_date;
+            existing.scheduled_date = match.scheduled_date || teamSet?.team_match?.scheduled_date || existing.scheduled_date;
             existing.submitted_at = match.submitted_at || existing.submitted_at;
             existing.created_at = match.created_at || existing.created_at;
         }
@@ -188,7 +191,12 @@ export default function PlayerDetailScreen() {
                     player1:player1_id(full_name),
                     player2:player2_id(full_name),
                     games (winner_id, is_break_and_run, is_rack_and_run, is_9_on_snap, game_type),
-                    team_match_sets(team_match_id, set_number, game_type)
+                    team_match_sets(
+                        team_match_id,
+                        set_number,
+                        game_type,
+                        team_match:team_match_id(scheduled_date, created_at)
+                    )
                 `)
                 .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
                 .or(`player1_id.eq.${id},player2_id.eq.${id}`)
