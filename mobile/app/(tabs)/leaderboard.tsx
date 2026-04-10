@@ -392,14 +392,14 @@ export default function LeaderboardScreen() {
         })
         .map((item, index) => ({ ...item, rank: index + 1, displayStats: getDisplayStats(item) }));
 
+    const showShutouts = gameMode === 'overall' && (viewMode === 'teams' || teamLeaderboard.length === 0);
     const baseMobileContentWidth = viewMode === 'teams'
-        ? (gameMode === 'overall' ? 232 : 184)
-        : 256;
+        ? (showShutouts ? 232 : 184)
+        : (showShutouts ? 304 : 256);
     const availableRightPaneWidth = Math.max(width - LEFT_COL_WIDTH, 0);
     const mobileContentWidth = Math.max(baseMobileContentWidth, availableRightPaneWidth);
     const isCurrentTeamRow = (item: any) => viewMode === 'teams' && item.id === currentUserTeamId;
     const isHighlightedRow = (item: any) => item.id === userId || isCurrentTeamRow(item);
-    const showTeamShutouts = viewMode === 'teams' && gameMode === 'overall';
 
     if (loading) return <View className="flex-1 bg-background items-center justify-center"><ActivityIndicator color="#D4AF37" /></View>;
 
@@ -463,7 +463,7 @@ export default function LeaderboardScreen() {
                             <Text className="flex-1 text-center text-black font-bold text-sm">SP</Text>
                             <Text className="flex-1 text-center text-black font-bold text-sm">W%</Text>
                             <Text className="flex-1 text-center text-black font-bold text-sm">W-L</Text>
-                            {showTeamShutouts && <Text className="flex-1 text-center text-black font-bold text-sm">SO</Text>}
+                            {showShutouts && <Text className="flex-1 text-center text-black font-bold text-sm">SO</Text>}
                             {viewMode === 'players' && <Text className="flex-1 text-center text-black font-bold text-sm" style={{ includeFontPadding: false }}>BP</Text>}
                         </View>
                     ) : (
@@ -478,7 +478,7 @@ export default function LeaderboardScreen() {
                                 <Text className="w-12 text-center text-black font-bold text-sm">SP</Text>
                                 <Text className="w-14 text-center text-black font-bold text-sm">W%</Text>
                                 <Text className="w-16 text-center text-black font-bold text-sm">W-L</Text>
-                                {showTeamShutouts && <Text className="w-12 text-center text-black font-bold text-sm">SO</Text>}
+                                {showShutouts && <Text className="w-12 text-center text-black font-bold text-sm">SO</Text>}
                                 {viewMode === 'players' && <Text className="w-10 text-center text-black font-bold text-sm" style={{ includeFontPadding: false }}>BP</Text>}
                             </View>
                         </ScrollView>
@@ -525,7 +525,7 @@ export default function LeaderboardScreen() {
                                     <Text className="flex-1 text-center text-gray-400 font-bold text-sm">{item.displayStats.played}</Text>
                                     <Text className="flex-1 text-center text-gray-300 font-bold text-sm">{item.displayStats.winRate}%</Text>
                                     <Text className="flex-1 text-center text-foreground font-bold text-sm">{item.displayStats.wins}-{item.displayStats.losses}</Text>
-                                    {showTeamShutouts && <Text className="flex-1 text-center text-primary font-bold text-sm">{item.shutouts || 0}</Text>}
+                                    {showShutouts && <Text className="flex-1 text-center text-primary font-bold text-sm">{item.shutouts || 0}</Text>}
                                     {viewMode === 'players' && <Text className="flex-1 text-center text-primary font-bold text-sm" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>{item.breakPoint} </Text>}
                                 </TouchableOpacity>
                                 );
@@ -554,7 +554,7 @@ export default function LeaderboardScreen() {
                                         <Text className="w-12 text-center text-gray-400 font-bold text-sm">{item.displayStats.played}</Text>
                                         <Text className="w-14 text-center text-gray-300 font-bold text-sm">{item.displayStats.winRate}%</Text>
                                         <Text className="w-16 text-center text-foreground font-bold text-sm">{item.displayStats.wins}-{item.displayStats.losses}</Text>
-                                        {showTeamShutouts && <Text className="w-12 text-center text-primary font-bold text-sm">{item.shutouts || 0}</Text>}
+                                        {showShutouts && <Text className="w-12 text-center text-primary font-bold text-sm">{item.shutouts || 0}</Text>}
                                         {viewMode === 'players' && <Text className="w-10 text-center text-primary font-bold text-sm" numberOfLines={1} adjustsFontSizeToFit style={{ includeFontPadding: false }}>{item.breakPoint} </Text>}
                                     </TouchableOpacity>
                                     );

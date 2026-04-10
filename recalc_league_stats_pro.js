@@ -71,7 +71,7 @@ function aggregateMatchStats(stats, match, playerId, games) {
         else if (isLoss) { stats.matchesLost++; stats.matchesLost_9ball++; if (isP1) p2Win9 = true; else p1Win9 = true; }
     }
 
-    if (has8Ball && has9Ball) {
+    if (!match.is_forfeit && has8Ball && has9Ball) {
         if (p1Win8 && p1Win9 && isP1) stats.shutouts++;
         if (p2Win8 && p2Win9 && !isP1) stats.shutouts++;
     }

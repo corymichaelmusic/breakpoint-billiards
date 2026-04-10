@@ -130,6 +130,12 @@ export function calculateEloChange(playerRating: number, opponentRating: number,
 export function aggregateMatchStats(stats: PlayerStats, match: any, playerId: string, games: any[]) {
     stats.matchesPlayed++;
     const isP1 = match.player1_id === playerId;
+    const isMatchShutout =
+        !match.is_forfeit &&
+        match.status_8ball === 'finalized' &&
+        match.status_9ball === 'finalized' &&
+        match.winner_id_8ball === playerId &&
+        match.winner_id_9ball === playerId;
 
     // Sum points explicitly
     const p1Points = (Number(match.points_8ball_p1) || 0) + (Number(match.points_9ball_p1) || 0);
@@ -278,6 +284,7 @@ export function aggregateMatchStats(stats: PlayerStats, match: any, playerId: st
     stats.matchesPlayed--;
     if (has8Ball) stats.matchesPlayed++;
     if (has9Ball) stats.matchesPlayed++;
+    if (isMatchShutout) stats.display_shutouts++;
 
     matchGames.forEach(game => {
         if (game.winner_id === playerId) {
@@ -304,8 +311,6 @@ export function aggregateMatchStats(stats: PlayerStats, match: any, playerId: st
 
     stats.display_setWinRate9 = formatPercent(stats.matchesWon_9ball, stats.matchesPlayed_9ball);
     stats.display_setRecord9 = formatRecord(stats.matchesWon_9ball, stats.matchesLost_9ball);
-
-    stats.display_shutouts = stats.racklessSets_8ball + stats.racklessSets_9ball; // Assuming rackless = shutout
 
     // Game (Rack) Stats
     const totalRacksWon = stats.racksWon_8ball + stats.racksWon_9ball;

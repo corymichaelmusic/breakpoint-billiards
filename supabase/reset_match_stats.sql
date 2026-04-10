@@ -37,13 +37,14 @@ DECLARE
     v_status_9ball text;
     v_winner_8ball text;
     v_winner_9ball text;
+    v_is_forfeit boolean;
     v_was_shutout boolean := false;
 BEGIN
     -- 1. Get Match Details
     SELECT league_id, player1_id, player2_id, 
-           status_8ball, status_9ball, winner_id_8ball, winner_id_9ball
+           status_8ball, status_9ball, winner_id_8ball, winner_id_9ball, COALESCE(is_forfeit, false)
     INTO v_league_id, v_player1_id, v_player2_id,
-         v_status_8ball, v_status_9ball, v_winner_8ball, v_winner_9ball
+         v_status_8ball, v_status_9ball, v_winner_8ball, v_winner_9ball, v_is_forfeit
     FROM matches WHERE id = p_match_id;
 
     -- 2. Determine Logic based on Game Type
@@ -73,7 +74,7 @@ BEGIN
         FROM games WHERE match_id = p_match_id AND game_type = '8ball';
 
         -- Check Shutout Reversal logic
-        IF v_status_9ball = 'finalized' AND v_winner_8ball = v_winner_9ball THEN
+        IF NOT v_is_forfeit AND v_status_9ball = 'finalized' AND v_winner_8ball = v_winner_9ball THEN
             v_was_shutout := true;
         END IF;
 
@@ -169,7 +170,7 @@ BEGIN
         FROM games WHERE match_id = p_match_id AND game_type = '9ball';
 
         -- Check Shutout Reversal (same logic: if both were finalized and winners matched)
-        IF v_status_8ball = 'finalized' AND v_winner_8ball = v_winner_9ball THEN
+        IF NOT v_is_forfeit AND v_status_8ball = 'finalized' AND v_winner_8ball = v_winner_9ball THEN
             v_was_shutout := true;
         END IF;
 

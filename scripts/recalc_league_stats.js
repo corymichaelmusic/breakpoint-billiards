@@ -101,7 +101,7 @@ async function recalcLeagueStats() {
         }
 
         // Shutouts (Both finalized and won by same player)
-        if (m.status_8ball === 'finalized' && m.status_9ball === 'finalized') {
+        if (!m.is_forfeit && m.status_8ball === 'finalized' && m.status_9ball === 'finalized') {
             if (p1Won8 && p1Won9) {
                 const p1 = ensureEntry(m.league_id, m.player1_id);
                 p1.shutouts = (p1.shutouts || 0) + 1;

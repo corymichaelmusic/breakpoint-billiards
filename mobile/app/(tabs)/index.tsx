@@ -368,7 +368,7 @@ export default function HomeScreen() {
             }
             matchesPlayed++;
           }
-          if (m.status_8ball === 'finalized' && m.status_9ball === 'finalized' && m.winner_id_8ball === userId && m.winner_id_9ball === userId) {
+          if (!m.is_forfeit && m.status_8ball === 'finalized' && m.status_9ball === 'finalized' && m.winner_id_8ball === userId && m.winner_id_9ball === userId) {
             shutouts++;
           }
         });

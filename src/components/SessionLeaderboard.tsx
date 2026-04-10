@@ -21,6 +21,7 @@ type PlayerStats = {
     rackAndRuns_9ball?: number;
     winZips_9ball?: number;
     nineOnSnaps_9ball?: number;
+    display_shutouts?: number;
 };
 
 type Props = {
@@ -87,8 +88,9 @@ export default function SessionLeaderboard({ sessionId, sessionName, initialStat
                     <thead>
                         <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
                             <th style={{ padding: "0.5rem", width: "15%", textAlign: "center" }}>Rank</th>
-                            <th style={{ padding: "0.5rem", width: "60%", textAlign: "left" }}>Player</th>
-                            <th style={{ padding: "0.5rem", width: "25%", textAlign: "right" }}>Win %</th>
+                            <th style={{ padding: "0.5rem", width: "45%", textAlign: "left" }}>Player</th>
+                            <th style={{ padding: "0.5rem", width: "20%", textAlign: "right" }}>Win %</th>
+                            <th style={{ padding: "0.5rem", width: "20%", textAlign: "right" }}>SO</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -115,6 +117,9 @@ export default function SessionLeaderboard({ sessionId, sessionName, initialStat
                                 </td>
                                 <td style={{ padding: "0.5rem", textAlign: "right", fontWeight: "bold" }}>
                                     {player.winRate}%
+                                </td>
+                                <td style={{ padding: "0.5rem", textAlign: "right", fontWeight: "bold", color: "#D4AF37" }}>
+                                    {player.display_shutouts || 0}
                                 </td>
                             </tr>
                         ))}

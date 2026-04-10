@@ -67,6 +67,7 @@ async function run() {
                   AND status_9ball = 'finalized'
                   AND winner_id_8ball = $2
                   AND winner_id_9ball = $2
+                  AND COALESCE(is_forfeit, false) = false
             `, [p.league_id, p.player_id]);
             const actualShutouts = parseInt(shutoutRes.rows[0].count);
 
