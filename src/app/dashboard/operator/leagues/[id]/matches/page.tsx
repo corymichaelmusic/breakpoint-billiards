@@ -32,7 +32,8 @@ export default async function MatchesPage({ params }: { params: Promise<{ id: st
     `)
         .eq("league_id", id)
         .order("week_number", { ascending: true })
-        .order("created_at", { ascending: true });
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true });
 
 
 
