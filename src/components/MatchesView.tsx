@@ -72,17 +72,9 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                         Table View
                     </h2>
                     <div className="flex gap-2">
-                        <Link href={listModeHref} className="btn bg-white hover:bg-gray-200 border border-white text-xs px-3 py-1 font-bold rounded transition-colors text-black shadow-lg shadow-white/10">
+                        <Link href={listModeHref} className="inline-flex min-h-[36px] items-center justify-center rounded-lg border border-white bg-white px-4 py-1.5 text-sm font-bold text-black shadow-lg shadow-white/10 transition-colors hover:bg-gray-200">
                             &larr; Back to List
                         </Link>
-                        {leagueStatus === 'active' && (
-                            <form action={async () => {
-                                const { submitLeagueResults } = await import("@/app/actions/league-actions");
-                                await submitLeagueResults(leagueId);
-                            }}>
-                                <button className="btn text-xs px-3 py-1 font-bold" style={{ backgroundColor: '#D4AF37', color: 'black', border: '1px solid #D4AF37' }}>End Season</button>
-                            </form>
-                        )}
                     </div>
                 </div>
 
