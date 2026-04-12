@@ -128,14 +128,14 @@ export default function MatchesListView({
                                     Week {week}
                                 </button>
                             ))}
+                            <Link
+                                href={tableModeHref}
+                                className="inline-flex min-h-[34px] min-w-[112px] items-center justify-center whitespace-nowrap rounded-lg border border-[#D4AF37] bg-[#D4AF37] px-6 py-1.5 text-xs font-bold uppercase tracking-[0.06em] text-black shadow-[0_0_0_1px_rgba(212,175,55,0.55),0_10px_24px_rgba(212,175,55,0.22)] transition-all hover:bg-[#e0bd54]"
+                            >
+                                Table Mode
+                            </Link>
                         </div>
                     )}
-                    <Link
-                        href={tableModeHref}
-                        className="btn btn-primary inline-flex min-h-[34px] min-w-[224px] items-center justify-center px-6 py-1.5 text-xs uppercase tracking-[0.06em]"
-                    >
-                        Table Mode
-                    </Link>
                 </div>
             </div>
 
