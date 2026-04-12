@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { calculateRace } from '@/utils/bbrs';
 
 interface MatchesViewProps {
@@ -13,25 +14,46 @@ interface MatchesViewProps {
 }
 
 export default function MatchesView({ matches, leagueId, leagueStatus, timezone, playerRatings }: MatchesViewProps) {
-    const [selectedWeek, setSelectedWeek] = useState<number | 'all'>('all');
-
-
-
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const hasMatches = matches && matches.length > 0;
 
-    // Get unique weeks
     const weeks = useMemo(() => {
         if (!hasMatches) return [];
-        const w = new Set(matches.map(m => m.week_number));
-        return Array.from(w).sort((a, b) => (a as number) - (b as number));
+        const w = new Set(
+            matches
+                .map((match) => Number(match.week_number))
+                .filter((week) => Number.isFinite(week))
+        );
+        return Array.from(w).sort((a, b) => a - b);
     }, [matches, hasMatches]);
 
-    // Filter matches
+    const requestedWeek = searchParams.get('week');
+    const parsedWeek = requestedWeek ? Number(requestedWeek) : NaN;
+    const selectedWeek = weeks.includes(parsedWeek) ? parsedWeek : 'all';
+
+    const setWeekFilter = (week: number | 'all') => {
+        const params = new URLSearchParams(searchParams.toString());
+
+        if (week === 'all') {
+            params.delete('week');
+        } else {
+            params.set('week', String(week));
+        }
+
+        const query = params.toString();
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    };
+
     const filteredMatches = useMemo(() => {
         if (selectedWeek === 'all') return matches;
-        return matches.filter(m => m.week_number === selectedWeek);
+        return matches.filter((match) => Number(match.week_number) === selectedWeek);
     }, [matches, selectedWeek]);
 
+    const listModeHref = selectedWeek === 'all'
+        ? `/dashboard/operator/leagues/${leagueId}`
+        : `/dashboard/operator/leagues/${leagueId}?week=${selectedWeek}`;
 
     if (!hasMatches) {
         return (
@@ -50,7 +72,7 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                         Table View
                     </h2>
                     <div className="flex gap-2">
-                        <Link href={`/dashboard/operator/leagues/${leagueId}`} className="btn bg-white hover:bg-gray-200 border border-white text-xs px-3 py-1 font-bold rounded transition-colors text-black shadow-lg shadow-white/10">
+                        <Link href={listModeHref} className="btn bg-white hover:bg-gray-200 border border-white text-xs px-3 py-1 font-bold rounded transition-colors text-black shadow-lg shadow-white/10">
                             &larr; Back to List
                         </Link>
                         {leagueStatus === 'active' && (
@@ -68,7 +90,8 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                 {weeks.length > 0 && (
                     <div className="flex flex-wrap gap-2 border-b border-white/10 pb-4">
                         <button
-                            onClick={() => setSelectedWeek('all')}
+                            type="button"
+                            onClick={() => setWeekFilter('all')}
                             className={`px-4 py-2 text-sm font-bold rounded-t-lg border-b-2 transition-all ${selectedWeek === 'all'
                                 ? '!bg-white !text-black border-white'
                                 : 'border-transparent !text-white hover:bg-white/5'
@@ -79,7 +102,8 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                         {weeks.map(week => (
                             <button
                                 key={week as number}
-                                onClick={() => setSelectedWeek(week as number)}
+                                type="button"
+                                onClick={() => setWeekFilter(week as number)}
                                 className={`px-4 py-2 text-sm font-bold rounded-t-lg border-b-2 transition-all ${selectedWeek === week
                                     ? '!bg-white !text-black border-white'
                                     : 'border-transparent !text-white hover:bg-white/5'

@@ -1,6 +1,8 @@
 'use client';
 
+import { useMemo } from 'react';
 import Link from 'next/link';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import MatchDateManager from '@/components/MatchDateManager';
 import PaymentStatusManager from '@/components/PaymentStatusManager';
 import ResetMatchButton from '@/components/ResetMatchButton';
@@ -24,7 +26,52 @@ export default function MatchesListView({
     timezone,
     isTeamLeague = false
 }: MatchesListViewProps) {
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const hasMatches = isTeamLeague ? teamMatches.length > 0 : matches && matches.length > 0;
+    const weekOptions = useMemo(() => {
+        const sourceMatches = isTeamLeague ? teamMatches : matches;
+        const weeks = new Set(
+            (sourceMatches || [])
+                .map((match) => Number(match.week_number))
+                .filter((week) => Number.isFinite(week))
+        );
+
+        return Array.from(weeks).sort((a, b) => a - b);
+    }, [isTeamLeague, matches, teamMatches]);
+
+    const requestedWeek = searchParams.get('week');
+    const parsedWeek = requestedWeek ? Number(requestedWeek) : NaN;
+    const selectedWeek = weekOptions.includes(parsedWeek) ? parsedWeek : 'all';
+
+    const setWeekFilter = (week: number | 'all') => {
+        const params = new URLSearchParams(searchParams.toString());
+
+        if (week === 'all') {
+            params.delete('week');
+        } else {
+            params.set('week', String(week));
+        }
+
+        const query = params.toString();
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    };
+
+    const filteredMatches = useMemo(() => {
+        if (selectedWeek === 'all') return matches;
+        return matches.filter((match) => Number(match.week_number) === selectedWeek);
+    }, [matches, selectedWeek]);
+
+    const filteredTeamMatches = useMemo(() => {
+        if (selectedWeek === 'all') return teamMatches;
+        return teamMatches.filter((match) => Number(match.week_number) === selectedWeek);
+    }, [teamMatches, selectedWeek]);
+
+    const currentWeekCount = isTeamLeague ? filteredTeamMatches.length : filteredMatches.length;
+    const tableModeHref = selectedWeek === 'all'
+        ? `/dashboard/operator/leagues/${leagueId}/matches`
+        : `/dashboard/operator/leagues/${leagueId}/matches?week=${selectedWeek}`;
 
     if (!hasMatches) {
         return (
@@ -41,20 +88,49 @@ export default function MatchesListView({
 
     return (
         <div className="card-glass">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-col gap-3 mb-4 lg:flex-row lg:items-center lg:justify-between">
                 <h2 className="console-section-title flex items-center gap-4">
                     Matches
-                    {matches.length > 0 && (
+                    {(isTeamLeague ? teamMatches.length : matches.length) > 0 && (
                         <span className="text-sm text-gray-400 font-normal">
-                            ({matches.length})
+                            ({currentWeekCount}
+                            {selectedWeek === 'all' ? '' : ` of ${isTeamLeague ? teamMatches.length : matches.length}`})
                         </span>
                     )}
                 </h2>
-                <div className="flex items-center gap-2">
-                    <Link href={`/dashboard/operator/leagues/${leagueId}/matches`} className="btn btn-primary text-xs">
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-end">
+                    {weekOptions.length > 1 && (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setWeekFilter('all')}
+                                className={`rounded-md border px-3 py-1 text-xs font-bold transition-colors ${
+                                    selectedWeek === 'all'
+                                        ? 'border-[#D4AF37] bg-[#D4AF37] text-black'
+                                        : 'border-white/15 bg-white/5 text-white hover:border-white/30 hover:bg-white/10'
+                                }`}
+                            >
+                                All Weeks
+                            </button>
+                            {weekOptions.map((week) => (
+                                <button
+                                    key={week}
+                                    type="button"
+                                    onClick={() => setWeekFilter(week)}
+                                    className={`rounded-md border px-3 py-1 text-xs font-bold transition-colors ${
+                                        selectedWeek === week
+                                            ? 'border-[#D4AF37] bg-[#D4AF37] text-black'
+                                            : 'border-white/15 bg-white/5 text-white hover:border-white/30 hover:bg-white/10'
+                                    }`}
+                                >
+                                    Week {week}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                    <Link href={tableModeHref} className="btn btn-primary text-xs">
                         View Table Mode &rarr;
                     </Link>
-                    {/* End Session Button has been moved to the page header */}
                 </div>
             </div>
 
@@ -70,7 +146,7 @@ export default function MatchesListView({
                         </tr>
                     </thead>
                     <tbody>
-                        {isTeamLeague ? teamMatches.map((match) => {
+                        {isTeamLeague ? filteredTeamMatches.map((match) => {
                             return (
                                 <tr key={match.id}>
                                     <td className="font-mono text-gray-400">{match.week_number}</td>
@@ -94,7 +170,7 @@ export default function MatchesListView({
                                     </td>
                                 </tr>
                             );
-                        }) : matches.map((match, index) => {
+                        }) : filteredMatches.map((match, index) => {
                             const hasPoints = (match.points_8ball_p1 || 0) > 0 || (match.points_8ball_p2 || 0) > 0 || (match.points_9ball_p1 || 0) > 0 || (match.points_9ball_p2 || 0) > 0;
                             const is8BallDone = match.status_8ball === 'finalized';
                             const is9BallDone = match.status_9ball === 'finalized';
@@ -176,6 +252,11 @@ export default function MatchesListView({
                     </tbody>
                 </table>
             </div>
+            {currentWeekCount === 0 && (
+                <div className="py-6 text-center text-sm italic text-gray-500">
+                    No matches scheduled for this week.
+                </div>
+            )}
         </div>
     );
 }
