@@ -1,26 +1,16 @@
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { createAdminClient } from "@/utils/supabase/admin";
+import { getAuthProfile } from "@/utils/auth-helpers";
 
 export default async function DashboardLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    const { userId } = await auth();
+    const { userId, profile } = await getAuthProfile();
 
     if (!userId) {
         redirect('/sign-in');
     }
-
-    const supabase = createAdminClient();
-
-    // Fetch user profile securely
-    const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", userId)
-        .single();
 
     // Role-Based Access Control
     // If role is strictly 'player' (not operator or admin), DENY access

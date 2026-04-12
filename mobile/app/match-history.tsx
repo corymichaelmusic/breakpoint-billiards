@@ -9,6 +9,22 @@ import NextMatchCard from "../components/NextMatchCard";
 
 const firstRelatedRow = (value: any) => Array.isArray(value) ? value[0] : value;
 
+const getMatchHistoryTimestamp = (match: any) => {
+    const teamSet = firstRelatedRow(match.team_match_sets);
+    const rawDate =
+        match.scheduled_date ||
+        teamSet?.team_match?.scheduled_date ||
+        match.submitted_at ||
+        match.created_at ||
+        teamSet?.created_at ||
+        teamSet?.team_match?.created_at ||
+        null;
+
+    if (!rawDate) return 0;
+    const time = new Date(rawDate).getTime();
+    return Number.isFinite(time) ? time : 0;
+};
+
 const formatMatchHistoryDate = (match: any) => {
     const teamSet = firstRelatedRow(match.team_match_sets);
     const rawDate =
@@ -26,6 +42,87 @@ const formatMatchHistoryDate = (match: any) => {
     }
 
     return date.toLocaleDateString();
+};
+
+const hasEightBallResult = (match: any) => {
+    const teamSet = firstRelatedRow(match.team_match_sets);
+    return teamSet?.game_type === '8ball' ||
+        match.status_8ball === 'finalized' ||
+        !!match.winner_id_8ball ||
+        Number(match.points_8ball_p1 || 0) > 0 ||
+        Number(match.points_8ball_p2 || 0) > 0;
+};
+
+const hasNineBallResult = (match: any) => {
+    const teamSet = firstRelatedRow(match.team_match_sets);
+    return teamSet?.game_type === '9ball' ||
+        match.status_9ball === 'finalized' ||
+        !!match.winner_id_9ball ||
+        Number(match.points_9ball_p1 || 0) > 0 ||
+        Number(match.points_9ball_p2 || 0) > 0;
+};
+
+const mergeMatchHistoryRows = (rows: any[], targetId: string) => {
+    const grouped = new Map<string, any>();
+
+    rows.forEach((match) => {
+        const teamSet = firstRelatedRow(match.team_match_sets);
+        const opponentId = match.player1_id === targetId ? match.player2_id : match.player1_id;
+        const groupedPlayerIds = [targetId, opponentId].sort().join(':');
+        const key = teamSet?.team_match_id
+            ? `team:${teamSet.team_match_id}:${groupedPlayerIds}`
+            : `match:${match.id}`;
+
+        if (!grouped.has(key)) {
+            grouped.set(key, {
+                ...match,
+                games: [],
+                show8Ball: false,
+                show9Ball: false,
+                points_8ball_p1: 0,
+                points_8ball_p2: 0,
+                points_9ball_p1: 0,
+                points_9ball_p2: 0,
+                winner_id_8ball: null,
+                winner_id_9ball: null,
+                status_8ball: null,
+                status_9ball: null,
+            });
+        }
+
+        const existing = grouped.get(key);
+        const show8Ball = hasEightBallResult(match);
+        const show9Ball = hasNineBallResult(match);
+
+        if (show8Ball) {
+            existing.show8Ball = true;
+            existing.points_8ball_p1 = match.points_8ball_p1 || 0;
+            existing.points_8ball_p2 = match.points_8ball_p2 || 0;
+            existing.winner_id_8ball = match.winner_id_8ball;
+            existing.status_8ball = match.status_8ball || 'finalized';
+        }
+
+        if (show9Ball) {
+            existing.show9Ball = true;
+            existing.points_9ball_p1 = match.points_9ball_p1 || 0;
+            existing.points_9ball_p2 = match.points_9ball_p2 || 0;
+            existing.winner_id_9ball = match.winner_id_9ball;
+            existing.status_9ball = match.status_9ball || 'finalized';
+        }
+
+        existing.games = [
+            ...(existing.games || []),
+            ...((match.games || []) as any[]),
+        ];
+
+        if (getMatchHistoryTimestamp(match) > getMatchHistoryTimestamp(existing)) {
+            existing.scheduled_date = match.scheduled_date || teamSet?.team_match?.scheduled_date || existing.scheduled_date;
+            existing.submitted_at = match.submitted_at || existing.submitted_at;
+            existing.created_at = match.created_at || existing.created_at;
+        }
+    });
+
+    return Array.from(grouped.values()).sort((a, b) => getMatchHistoryTimestamp(b) - getMatchHistoryTimestamp(a));
 };
 
 export default function MatchHistoryScreen() {
@@ -83,7 +180,7 @@ export default function MatchHistoryScreen() {
                     .or('status_8ball.eq.finalized,status_9ball.eq.finalized')
                     .order("scheduled_date", { ascending: false });
 
-                if (fetchedMatches) setMatches(fetchedMatches);
+                if (fetchedMatches) setMatches(mergeMatchHistoryRows(fetchedMatches, targetId));
             } catch (e) {
                 console.error(e);
             } finally {
@@ -127,16 +224,18 @@ export default function MatchHistoryScreen() {
                     {matches.length > 0 ? (
                         matches.map((match) => {
                             const isP1 = match.player1_id === targetId;
-                            const opponentName = isP1 ? match.player2?.full_name : match.player1?.full_name || 'Unknown';
+                            const opponentName = isP1 ? (match.player2?.full_name || 'Unknown') : (match.player1?.full_name || 'Unknown');
 
                             const scores = {
-                                p1_8: match.points_8ball_p1,
-                                p2_8: match.points_8ball_p2,
-                                p1_9: match.points_9ball_p1,
-                                p2_9: match.points_9ball_p2,
+                                p1_8: match.points_8ball_p1 || 0,
+                                p2_8: match.points_8ball_p2 || 0,
+                                p1_9: match.points_9ball_p1 || 0,
+                                p2_9: match.points_9ball_p2 || 0,
                                 winnerId8: match.winner_id_8ball,
                                 winnerId9: match.winner_id_9ball,
-                                isPlayer1: isP1
+                                isPlayer1: isP1,
+                                show8Ball: match.show8Ball,
+                                show9Ball: match.show9Ball
                             };
 
                             // Calculate Special Stats Dynamically
@@ -176,11 +275,13 @@ export default function MatchHistoryScreen() {
 
                             return (
                                 <NextMatchCard
-                                    key={match.id}
+                                    key={`${match.id}-${firstRelatedRow(match.team_match_sets)?.team_match_id || 'match'}`}
                                     matchId={match.id}
                                     opponentName={opponentName}
                                     viewerName={playerId ? playerName : undefined}
                                     date={formatMatchHistoryDate(match)}
+                                    leagueName={match.leagues?.parent_league?.name}
+                                    sessionName={match.leagues?.name}
                                     weekNumber={match.week_number}
                                     status="finalized" // Force finalized to show stats
                                     player1Id={match.player1_id}

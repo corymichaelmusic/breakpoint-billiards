@@ -28,6 +28,18 @@ export async function syncUserProfile(data: { id: string, email?: string, fullNa
         return { is_active: updatedProfile.is_active };
     }
 
+    if (data.email) {
+        const { data: existingProfile } = await supabase
+            .from("profiles")
+            .select("is_active")
+            .eq("email", data.email)
+            .maybeSingle();
+
+        if (existingProfile) {
+            return { is_active: existingProfile.is_active };
+        }
+    }
+
     // If update failed (likely didn't exist), insert
     const { data: newProfile, error: insertError } = await supabase
         .from("profiles")

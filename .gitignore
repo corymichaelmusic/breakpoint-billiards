@@ -44,3 +44,7 @@ next-env.d.ts
 *.ipa
 *.aab
 temp_pdf/
+mobile/build-*.tar.gz
+mobile/build-*/
+mobile/crashlogs/
+supabase/.temp/

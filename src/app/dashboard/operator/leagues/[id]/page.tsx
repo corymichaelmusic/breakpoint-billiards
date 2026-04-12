@@ -316,16 +316,16 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
 
     if (isLeagueOrg) {
         return (
-            <main className="min-h-screen flex flex-col bg-background">
+            <main className="console-page flex flex-col">
                 <Navbar />
-                <div className="container py-8 max-w-5xl">
-                    <div className="flex justify-between items-center mb-6">
+                <div className="console-container">
+                    <div className="console-header">
                         <div>
                             <Link href="/dashboard/operator" className="text-sm text-gray-300 hover:text-white transition-colors">&larr; Back to Dashboard</Link>
-                            <h1 className="text-3xl font-bold font-sans text-[#D4AF37] mt-2">{league.name}</h1>
-                            <p className="text-gray-300">Organization Dashboard</p>
+                            <h1 className="console-title mt-2">{league.name}</h1>
+                            <p className="console-subtitle">Organization dashboard</p>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="console-toolbar">
                             <Link href={`/dashboard/operator/leagues/${id}/sessions/new`} className="btn btn-primary text-sm px-4">
                                 + Add Session
                             </Link>
@@ -336,36 +336,35 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                     </div>
 
                     {hasPending && (
-                        <div className="card-glass p-6 mb-8 border-primary/30">
-                            <h2 className="text-lg font-bold text-[#D4AF37] mb-4 flex items-center gap-2">
+                        <div className="card-glass mb-4">
+                            <h2 className="console-section-title flex items-center gap-2">
                                 Pending Join Requests
-                                <span className="bg-[#D4AF37] text-black text-xs px-2 py-0.5 rounded-full">{pendingRequests.length}</span>
+                                <span className="console-pill console-pill-warning">{pendingRequests.length}</span>
                             </h2>
-                            <div className="grid gap-2">
+                            <div className="console-table-wrap">
+                                <table className="console-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Player</th>
+                                            <th>Email</th>
+                                            <th>Requesting</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
                                 {pendingRequests.map((request) => (
-                                    <div key={request.id} className="bg-surface/40 p-5 rounded-lg border border-white/5 flex flex-col sm:flex-row justify-between items-center shadow-lg shadow-black/50 gap-4 transition-all hover:bg-surface/60">
-                                        <div>
-                                            <div className="flex items-center gap-3">
-                                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-gray-800 to-black flex items-center justify-center border border-white/10 text-xs font-bold text-gray-400">
-                                                    {request.profiles?.full_name?.charAt(0) || "?"}
-                                                </div>
-                                                <div>
-                                                    <div className="font-bold text-white text-lg">{request.profiles?.full_name || "Unknown User"}</div>
-                                                    <div className="text-xs text-gray-500 font-mono">{request.profiles?.email}</div>
-                                                </div>
-                                            </div>
-                                            <div className="mt-2 inline-flex items-center gap-2 bg-[#D4AF37]/10 border border-[#D4AF37]/20 px-3 py-1 rounded-full">
-                                                <span className="text-[10px] text-[#D4AF37] uppercase tracking-wider font-bold">Requesting to Join:</span>
-                                                <span className="text-xs text-white font-bold">{request.leagues?.name || "Unknown League"}</span>
-                                            </div>
-                                        </div>
-                                        <div className="flex gap-3 w-full sm:w-auto">
+                                    <tr key={request.id}>
+                                        <td className="font-bold text-white">{request.profiles?.full_name || "Unknown User"}</td>
+                                        <td className="text-gray-400">{request.profiles?.email}</td>
+                                        <td>{request.leagues?.name || "Unknown League"}</td>
+                                        <td>
+                                            <div className="console-toolbar">
                                             <form action={async () => {
                                                 'use server';
                                                 const { approvePlayer } = await import("@/app/actions/league-actions");
                                                 await approvePlayer(request.league_id, request.player_id);
-                                            }} className="flex-1 sm:flex-none">
-                                                <button type="submit" className="btn w-full sm:w-auto !bg-green-600 !text-white hover:!bg-green-500 !border-none shadow-lg shadow-green-900/20 px-6 py-2.5 text-xs font-bold rounded uppercase tracking-wide transform hover:scale-105 transition-all">
+                                            }}>
+                                                <button type="submit" className="btn !bg-green-600 !text-white hover:!bg-green-500 text-xs">
                                                     Accept
                                                 </button>
                                             </form>
@@ -373,44 +372,64 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                                 'use server';
                                                 const { rejectPlayer } = await import("@/app/actions/league-actions");
                                                 await rejectPlayer(request.league_id, request.player_id);
-                                            }} className="flex-1 sm:flex-none">
-                                                <button type="submit" className="btn w-full sm:w-auto !bg-red-600 !text-white hover:!bg-red-500 !border-none shadow-lg shadow-red-900/20 px-6 py-2.5 text-xs font-bold rounded uppercase tracking-wide transform hover:scale-105 transition-all">
+                                            }}>
+                                                <button type="submit" className="btn btn-danger text-xs">
                                                     Reject
                                                 </button>
                                             </form>
-                                        </div>
-                                    </div>
+                                            </div>
+                                        </td>
+                                    </tr>
                                 ))}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     )}
 
-                    <h2 className="text-xl font-bold text-white mb-4 border-b border-white/10 pb-2">Active Sessions</h2>
+                    <h2 className="console-section-title">Active Sessions</h2>
                     {sessions.length > 0 ? (
-                        <div className="grid gap-4">
-                            {sessions.map((session: any) => (
-                                <Link key={session.id} href={`/dashboard/operator/leagues/${session.id}`}>
-                                    <div className="card-glass p-6 hover-effect cursor-pointer flex justify-between items-center group">
-                                        <div>
-                                            <h3 className="text-xl font-bold text-white mb-2 group-hover:text-primary transition-colors">{session.name}</h3>
-                                            <div className="flex gap-2 items-center">
-                                                <span className={`text-xs px-2 py-1 rounded font-bold uppercase tracking-wide border
-                                                    ${session.status === 'active' ? 'bg-[#22c55e]/20 text-[#4ade80] border-[#22c55e]/30' : 'bg-surface text-gray-300 border-border'}`}>
+                        <div className="console-table-wrap">
+                            <table className="console-table">
+                                <thead>
+                                    <tr>
+                                        <th>Session</th>
+                                        <th>Status</th>
+                                        <th>Fee</th>
+                                        <th>Created</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {sessions.map((session: any) => (
+                                        <tr key={session.id}>
+                                            <td>
+                                                <Link href={`/dashboard/operator/leagues/${session.id}`} className="console-row-link">
+                                                    {session.name}
+                                                </Link>
+                                            </td>
+                                            <td>
+                                                <span className={`console-pill ${session.status === 'active' ? 'console-pill-success' : ''}`}>
                                                     {session.status}
                                                 </span>
-                                                {session.creation_fee_status === 'unpaid' && (
-                                                    <span className="text-xs px-2 py-1 rounded font-bold uppercase tracking-wide bg-error text-white border border-error">
-                                                        Fee Unpaid
-                                                    </span>
+                                            </td>
+                                            <td>
+                                                {session.creation_fee_status === 'unpaid' ? (
+                                                    <span className="console-pill console-pill-danger">Fee unpaid</span>
+                                                ) : (
+                                                    <span className="console-pill console-pill-success">Current</span>
                                                 )}
-                                            </div>
-                                        </div>
-                                        <div className="text-[#D4AF37] font-semibold text-sm group-hover:underline">
-                                            Manage Session &rarr;
-                                        </div>
-                                    </div>
-                                </Link>
-                            ))}
+                                            </td>
+                                            <td>{session.created_at ? new Date(session.created_at).toLocaleDateString() : "Unknown"}</td>
+                                            <td>
+                                                <Link href={`/dashboard/operator/leagues/${session.id}`} className="btn btn-primary text-sm">
+                                                    Manage
+                                                </Link>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     ) : (
                         <div className="card-glass p-12 text-center text-gray-500 italic">
@@ -433,14 +452,14 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
     }
 
     return (
-        <main className="min-h-screen flex flex-col bg-background">
+        <main className="console-page flex flex-col">
             <Navbar />
-            <div className="container py-8 max-w-6xl">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <div className="console-container">
+                <div className="console-header">
                     <div>
                         <Link href={`/dashboard/operator/leagues/${league.parent_league_id}`} className="text-sm !text-[#D4AF37] hover:!text-white transition-colors" style={{ color: '#D4AF37' }}>&larr; Back to Organization</Link>
                         <div className="flex items-center gap-4 mt-2">
-                            <h1 className="text-3xl font-bold font-sans text-[#D4AF37] m-0">{league.name}</h1>
+                            <h1 className="console-title m-0">{league.name}</h1>
                             {sessionStartDate && (
                                 <span className="text-sm text-gray-300 border-l border-border pl-4" style={{ marginLeft: '0.5rem' }}>
                                     Start: {sessionStartDate}
@@ -452,20 +471,19 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                 </div>
                             )}
                         </div>
-                        <div className="flex gap-2 mt-2">
-                            <span className={`text-xs px-2 py-0.5 rounded font-bold uppercase tracking-wide border
-                                ${isCompleted ? 'bg-success/20 text-success border-success/30' : 'bg-surface text-gray-300 border-border'}`}>
+                        <div className="console-toolbar mt-2">
+                            <span className={`console-pill ${isCompleted ? 'console-pill-success' : ''}`}>
                                 Status: {league.status}
                             </span>
                             {league.creation_fee_status === 'unpaid' && (
-                                <span className="text-xs px-2 py-0.5 rounded font-bold uppercase tracking-wide bg-error text-white">
+                                <span className="console-pill console-pill-danger">
                                     Fee Pending
                                 </span>
                             )}
                         </div>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="console-toolbar">
                         <Link href={`/dashboard/operator/leagues/${id}/players`} className="btn bg-transparent border border-white hover:bg-white/20 !text-white text-sm px-4">
                             Players
                         </Link>
@@ -475,7 +493,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-8">
+                <div className="console-split">
                     {/* Left Column: Matches & Actions */}
                     <div className="space-y-8">
 

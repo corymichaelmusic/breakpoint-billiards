@@ -110,15 +110,15 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
     const playerList = Array.from(uniquePlayers.values());
 
     return (
-        <main className="min-h-screen bg-background">
+        <main className="console-page">
             <Navbar />
-            <div className="container py-8 max-w-6xl">
-                <div className="flex justify-between items-center mb-6">
+            <div className="console-container">
+                <div className="console-header">
                     <div>
                         <div className="h-[10px]" />
                         <BackButton label="Back" className="!text-[#D4AF37] hover:!text-white" />
-                        <h1 className="text-3xl font-bold font-sans text-[#D4AF37] mt-2">{league.name} Player Database</h1>
-                        <p className="text-gray-400">Total Players: {playerList.length}</p>
+                        <h1 className="console-title mt-2">{league.name} Player Database</h1>
+                        <p className="console-subtitle">Total Players: {playerList.length}</p>
                     </div>
                 </div>
 
@@ -126,26 +126,26 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
 
                 <div className="card-glass p-6">
                     {playerList.length > 0 ? (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
+                        <div className="console-table-wrap">
+                            <table className="console-table">
                                 <thead>
-                                    <tr className="border-b border-border text-gray-500 text-xs uppercase">
-                                        <th className="p-3 font-semibold">Name</th>
-                                        <th className="p-3 font-semibold">Contact</th>
-                                        <th className="p-3 font-semibold">Rating</th>
-                                        <th className="p-3 font-semibold">Org Status</th>
-                                        <th className="p-3 font-semibold">Active Sessions</th>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Contact</th>
+                                        <th>Rating</th>
+                                        <th>Org Status</th>
+                                        <th>Active Sessions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-border">
+                                <tbody>
                                     {playerList.map((p) => {
                                         // Safely extract profile
                                         const profile = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
                                         const rating = profile?.breakpoint_rating;
 
                                         return (
-                                            <tr key={p.player_id} className="hover:bg-white/5 transition-colors">
-                                                <td className="p-3 font-medium">
+                                            <tr key={p.player_id}>
+                                                <td className="font-medium">
                                                     <div className="flex items-center gap-2">
                                                         <Link href={`/dashboard/operator/leagues/${id}/players/${p.player_id}`} className="!text-white hover:!text-[#D4AF37] transition-colors font-bold whitespace-nowrap" style={{ color: 'white' }}>
                                                             {profile?.full_name || "Unknown"}
@@ -164,18 +164,18 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="p-3 text-sm text-gray-400">
+                                                <td className="text-sm text-gray-400">
                                                     <div>{profile?.email}</div>
                                                     <div className="text-xs opacity-70">{profile?.phone || "No Phone"}</div>
                                                 </td>
-                                                <td className="p-3">
+                                                <td>
                                                     <BreakpointRatingEditor
                                                         leagueId={id}
                                                         playerId={p.player_id}
                                                         currentRating={rating}
                                                     />
                                                 </td>
-                                                <td className="p-3">
+                                                <td>
                                                     {league.type === 'league' ? (
                                                         // For Org level, we generally don't have a direct "join request" flow yet, usually it's per session.
                                                         // But the table logic uses `p.leagueStatus` which is correct for the current context (id).
@@ -186,7 +186,7 @@ export default async function LeaguePlayersPage({ params }: { params: Promise<{ 
                                                         <PlayerStatusControl leagueId={id} playerId={p.player_id} currentStatus={p.leagueStatus} />
                                                     )}
                                                 </td>
-                                                <td className="p-3">
+                                                <td>
                                                     <div className="flex flex-wrap gap-2">
                                                         {p.sessions.map((s: any, idx: number) => {
                                                             const isPaid = ['paid', 'paid_cash', 'paid_online'].includes(s.payment);

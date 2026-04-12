@@ -33,28 +33,24 @@ export default async function StatsPage({ params }: { params: Promise<{ id: stri
     }
 
     return (
-        <main className="min-h-screen bg-background">
+        <main className="console-page">
             <Navbar />
-            <div className="w-full flex justify-center">
-                <div className="w-full max-w-5xl px-4 pb-16" style={{ marginTop: '60px' }}>
-                    <div className="mb-8">
+            <div className="console-container">
+                    <div className="console-header">
+                        <div>
                         <Link href={`/dashboard/operator/leagues/${id}`} className="text-sm !text-[#D4AF37] hover:!text-white transition-colors flex items-center gap-1" style={{ color: '#D4AF37' }}>
                             <span>&larr;</span> Back to Dashboard
                         </Link>
-                    </div>
-
-                    {/* Header Text left-aligned */}
-                    <div className="w-full mb-6 text-left">
-                        <h1 className="text-4xl font-bold font-sans text-[#D4AF37] mb-1">{league.name}</h1>
-                        <p className="text-white text-lg">{title}</p>
+                        <h1 className="console-title mt-2">{league.name}</h1>
+                        <p className="console-subtitle">{title}</p>
+                        </div>
                     </div>
 
                     <div className="card-glass p-6">
-                        <div className="overflow-x-auto">
+                        <div className="console-table-wrap">
                             <StatsTable stats={stats} leagueId={id} />
                         </div>
                     </div>
-                </div>
             </div>
         </main>
     );

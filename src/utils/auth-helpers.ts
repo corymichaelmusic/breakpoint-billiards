@@ -1,19 +1,38 @@
 import { createAdminClient } from "./supabase/admin";
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 
 export type UserRole = 'admin' | 'operator' | 'player' | null;
 
-export async function verifyUserRole(): Promise<{ userId: string; role: UserRole }> {
+export async function getAuthProfile() {
     const { userId } = await auth();
-    if (!userId) redirect("/sign-in");
+    if (!userId) return { userId: null, profile: null };
 
     const supabase = createAdminClient();
     const { data: profile } = await supabase
         .from("profiles")
-        .select("role")
+        .select("id, role, email")
         .eq("id", userId)
-        .single();
+        .maybeSingle();
+
+    if (profile) return { userId: profile.id as string, profile };
+
+    const user = await currentUser();
+    const email = user?.primaryEmailAddress?.emailAddress;
+    if (!email) return { userId, profile: null };
+
+    const { data: emailProfile } = await supabase
+        .from("profiles")
+        .select("id, role, email")
+        .eq("email", email)
+        .maybeSingle();
+
+    return { userId: (emailProfile?.id as string) || userId, profile: emailProfile };
+}
+
+export async function verifyUserRole(): Promise<{ userId: string; role: UserRole }> {
+    const { userId, profile } = await getAuthProfile();
+    if (!userId) redirect("/sign-in");
 
     return { userId, role: (profile?.role as UserRole) || 'player' };
 }
@@ -22,12 +41,7 @@ export async function checkAdmin(): Promise<{ userId: string | null; isAdmin: bo
     const { userId } = await auth();
     if (!userId) return { userId: null, isAdmin: false };
 
-    const supabase = createAdminClient();
-    const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", userId)
-        .single();
+    const { profile } = await getAuthProfile();
 
     return { userId, isAdmin: profile?.role === 'admin' };
 }
@@ -36,26 +50,23 @@ export async function checkOperator(leagueId?: string): Promise<{ userId: string
     const { userId } = await auth();
     if (!userId) return { userId: null, isAuthorized: false };
 
-    const supabase = createAdminClient();
-    const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", userId)
-        .single();
+    const { userId: profileUserId, profile } = await getAuthProfile();
+    const effectiveUserId = profileUserId || userId;
 
-    if (profile?.role === 'admin') return { userId, isAuthorized: true };
-    if (profile?.role !== 'operator') return { userId, isAuthorized: false };
+    if (profile?.role === 'admin') return { userId: effectiveUserId, isAuthorized: true };
+    if (profile?.role !== 'operator') return { userId: effectiveUserId, isAuthorized: false };
 
     if (leagueId) {
+        const supabase = createAdminClient();
         // Check if directly assigned to this league
         const { data: assignment } = await supabase
             .from("league_operators")
             .select("id")
             .eq("league_id", leagueId)
-            .eq("user_id", userId)
+            .eq("user_id", effectiveUserId)
             .single();
 
-        if (assignment) return { userId, isAuthorized: true };
+        if (assignment) return { userId: effectiveUserId, isAuthorized: true };
 
         // Check if it's a session of a league they manage
         const { data: league } = await supabase
@@ -64,17 +75,17 @@ export async function checkOperator(leagueId?: string): Promise<{ userId: string
             .eq("id", leagueId)
             .single();
 
-        if (league?.operator_id === userId) return { userId, isAuthorized: true };
+        if (league?.operator_id === effectiveUserId) return { userId: effectiveUserId, isAuthorized: true };
 
         if (league?.parent_league_id) {
             const { data: parentAssignment } = await supabase
                 .from("league_operators")
                 .select("id")
                 .eq("league_id", league.parent_league_id)
-                .eq("user_id", userId)
+                .eq("user_id", effectiveUserId)
                 .single();
 
-            if (parentAssignment) return { userId, isAuthorized: true };
+            if (parentAssignment) return { userId: effectiveUserId, isAuthorized: true };
 
             const { data: parentLeague } = await supabase
                 .from("leagues")
@@ -82,13 +93,13 @@ export async function checkOperator(leagueId?: string): Promise<{ userId: string
                 .eq("id", league.parent_league_id)
                 .single();
 
-            if (parentLeague?.operator_id === userId) return { userId, isAuthorized: true };
+            if (parentLeague?.operator_id === effectiveUserId) return { userId: effectiveUserId, isAuthorized: true };
         }
 
-        return { userId, isAuthorized: false };
+        return { userId: effectiveUserId, isAuthorized: false };
     }
 
-    return { userId, isAuthorized: true };
+    return { userId: effectiveUserId, isAuthorized: true };
 }
 
 export async function verifyAdmin() {

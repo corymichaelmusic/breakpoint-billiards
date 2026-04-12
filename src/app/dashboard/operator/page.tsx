@@ -22,7 +22,7 @@ export default async function OperatorDashboard() {
 
     if (profile?.operator_status === 'pending') {
         return (
-            <main className="min-h-screen flex flex-col">
+            <main className="console-page flex flex-col">
                 <Navbar />
                 <div className="container max-w-xl mt-20 text-center">
                     <div className="card-glass p-12">
@@ -41,7 +41,7 @@ export default async function OperatorDashboard() {
 
     if (profile?.operator_status === 'rejected') {
         return (
-            <main className="min-h-screen flex flex-col">
+            <main className="console-page flex flex-col">
                 <Navbar />
                 <div className="container max-w-xl mt-20 text-center">
                     <div className="card-glass p-12 border-error/50">
@@ -125,118 +125,137 @@ export default async function OperatorDashboard() {
         .eq("status", "pending_operator");
 
     return (
-        <main className="min-h-screen flex flex-col bg-background">
+        <main className="console-page flex flex-col">
             <Navbar />
-            <div className="container py-12 pb-24">
+            <div className="console-container">
 
-                <div className="flex justify-between items-center mb-12">
+                <div className="console-header">
                     <div>
-                        <h1 className="text-3xl font-bold font-sans text-white">Operator Dashboard</h1>
-                        <p className="text-sm text-gray-300 mt-1">Manage your leagues and player requests</p>
+                        <div className="console-kicker">Operations</div>
+                        <h1 className="console-title">Operator Dashboard</h1>
+                        <p className="console-subtitle">Manage leagues, sessions, requests, schedules, and tournaments.</p>
+                    </div>
+                </div>
+
+                <div className="console-stat-grid">
+                    <div className="console-stat">
+                        <div className="console-stat-label">Leagues</div>
+                        <div className="console-stat-value">{leagueOrgs?.length || 0}</div>
+                    </div>
+                    <div className="console-stat">
+                        <div className="console-stat-label">Sessions</div>
+                        <div className="console-stat-value">{allSessions?.length || 0}</div>
+                    </div>
+                    <div className="console-stat">
+                        <div className="console-stat-label">Join Requests</div>
+                        <div className="console-stat-value">{pendingRequests?.length || 0}</div>
+                    </div>
+                    <div className="console-stat">
+                        <div className="console-stat-label">Unlock Requests</div>
+                        <div className="console-stat-value">{unlockRequests?.length || 0}</div>
                     </div>
                 </div>
 
                 {/* Unlock Requests Section */}
                 {/* @ts-ignore */}
                 {unlockRequests && unlockRequests.length > 0 && (
-                    <div className="mb-16">
-                        <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                    <div className="console-panel mb-4">
+                        <h2 className="console-section-title flex items-center gap-2">
                             Unlock Requests
-                            <span className="bg-primary text-black text-xs px-2 py-0.5 rounded-full font-bold">
+                            <span className="console-pill console-pill-warning">
                                 {unlockRequests.length}
                             </span>
                         </h2>
-                        <div className="grid gap-6">
+                        <div className="console-table-wrap">
+                            <table className="console-table">
+                                <thead>
+                                    <tr>
+                                        <th>League</th>
+                                        <th>Session</th>
+                                        <th>Match</th>
+                                        <th>Requester</th>
+                                        <th>Reason</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
                             {unlockRequests.map((req) => (
-                                <div key={req.id} className="card-glass p-10 border-l-4 border-l-yellow-500 flex flex-col md:flex-row justify-between items-center gap-6">
-                                    <div className="flex-1">
-                                        <div className="text-xs text-primary font-bold uppercase tracking-wider mb-2">
+                                <tr key={req.id}>
+                                    <td>
                                             {/* @ts-ignore */}
                                             {req.match?.league?.parent_league?.name || 'Unknown League'}
-                                        </div>
-                                        <div className="text-lg font-bold text-white mb-2">
+                                    </td>
+                                    <td>
                                             {/* @ts-ignore */}
                                             {req.match?.league?.name} • Week {req.match?.week_number}
-                                        </div>
-                                        <div className="font-semibold text-gray-300 mb-4">
+                                    </td>
+                                    <td className="font-semibold text-white">
                                             {/* @ts-ignore */}
                                             {req.match?.player1?.full_name} vs {req.match?.player2?.full_name}
-                                        </div>
-                                        <div className="text-sm text-gray-400">
-                                            Requested by: <span className="text-white">{req.requester?.full_name}</span>
-                                        </div>
-                                        <div className="text-sm text-gray-300 italic mt-2 bg-surface/50 p-4 rounded max-w-md">
-                                            "{req.reason}"
-                                        </div>
-                                    </div>
-                                    <div>
+                                    </td>
+                                    <td>{req.requester?.full_name}</td>
+                                    <td className="max-w-md text-gray-300">{req.reason}</td>
+                                    <td>
                                         <UnlockRequestAction requestId={req.id} />
-                                    </div>
-                                </div>
+                                    </td>
+                                </tr>
                             ))}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 )}
 
                 {/* League Grid */}
-                <h2 className="text-xl font-bold text-white mb-8 border-b border-transparent pb-4">Your Leagues</h2>
+                <h2 className="console-section-title">Your Leagues</h2>
 
                 {leagueOrgs && leagueOrgs.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {leagueOrgs.map(leagueOrg => {
-                            const pendingCount = pendingCounts[leagueOrg.id] || 0;
+                    <div className="console-table-wrap">
+                        <table className="console-table">
+                            <thead>
+                                <tr>
+                                    <th>League</th>
+                                    <th>Venue</th>
+                                    <th>Schedule</th>
+                                    <th>Location</th>
+                                    <th>Requests</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {leagueOrgs.map(leagueOrg => {
+                                    const pendingCount = pendingCounts[leagueOrg.id] || 0;
 
-                            return (
-                                <Link key={leagueOrg.id} href={`/dashboard/operator/leagues/${leagueOrg.id}`}>
-                                    <div className="card-glass hover-effect h-full flex flex-col justify-between p-10 cursor-pointer group">
-                                        <div>
-                                            <div className="flex justify-between items-start mb-6">
-                                                <div className="w-14 h-14 rounded-full bg-surface-hover flex items-center justify-center text-[#D4AF37] font-sans text-2xl border border-transparent group-hover:border-[#D4AF37] transition-colors">
-                                                    {leagueOrg.name.charAt(0)}
-                                                </div>
-                                                {pendingCount > 0 && (
-                                                    <span className="bg-error text-white text-xs font-bold px-3 py-1 rounded-full animate-pulse">
-                                                        {pendingCount} Pending
-                                                    </span>
+                                    return (
+                                        <tr key={leagueOrg.id}>
+                                            <td>
+                                                <Link href={`/dashboard/operator/leagues/${leagueOrg.id}`} className="console-row-link">
+                                                    {leagueOrg.name}
+                                                </Link>
+                                            </td>
+                                            <td>{leagueOrg.location || "No venue"}</td>
+                                            <td>{leagueOrg.schedule_day ? `${leagueOrg.schedule_day}s` : "No schedule"}</td>
+                                            <td>{leagueOrg.city}, {leagueOrg.state}</td>
+                                            <td>
+                                                {pendingCount > 0 ? (
+                                                    <span className="console-pill console-pill-danger">{pendingCount} pending</span>
+                                                ) : (
+                                                    <span className="console-pill">Clear</span>
                                                 )}
-                                            </div>
-
-                                            <h3 className="text-2xl font-bold text-white mb-4 group-hover:text-primary transition-colors">
-                                                {leagueOrg.name}
-                                            </h3>
-
-                                            <div className="space-y-2 text-sm text-gray-300">
-                                                <div className="flex items-center gap-3">
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                                                    {leagueOrg.location || "No Location"}
-                                                </div>
-                                                <div className="flex items-center gap-3">
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                                                    {leagueOrg.schedule_day ? `${leagueOrg.schedule_day}s` : "No Schedule"}
-                                                </div>
-                                                <div className="flex items-center gap-3">
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                                    {leagueOrg.city}, {leagueOrg.state}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="mt-8 flex justify-end">
-                                            <span className="text-sm font-semibold text-[#D4AF37] group-hover:underline">
-                                                Manage League &rarr;
-                                            </span>
-                                        </div>
-                                    </div>
-                                </Link>
-                            )
-                        })}
-
+                                            </td>
+                                            <td>
+                                                <Link href={`/dashboard/operator/leagues/${leagueOrg.id}`} className="btn btn-primary text-sm">
+                                                    Manage
+                                                </Link>
+                                            </td>
+                                        </tr>
+                                    )
+                                })}
+                            </tbody>
+                        </table>
                     </div>
                 ) : (
                     <div className="card-glass p-16 text-center">
-                        <div className="w-24 h-24 bg-surface-hover rounded-full flex items-center justify-center mx-auto mb-8 text-4xl border border-transparent">
-                            🎱
-                        </div>
                         <h3 className="text-3xl font-bold mb-4">No Leagues Assigned</h3>
                         <p className="text-gray-400 mb-6 max-w-lg mx-auto">You haven't been assigned to any leagues yet.</p>
                         <p className="text-sm text-gray-500">Contact an administrator to get access to your organization.</p>
@@ -244,22 +263,19 @@ export default async function OperatorDashboard() {
                 )}
 
                 {/* Tournament Section */}
-                <h2 className="text-xl font-bold text-white mb-8 border-b border-transparent pb-4 mt-16">Tournaments</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+                <h2 className="console-section-title mt-6">Tournaments</h2>
+                <div className="console-grid mb-12">
                     <Link href="/dashboard/tournaments">
-                        <div className="card-glass hover-effect h-full flex flex-col justify-between p-10 cursor-pointer group bg-gradient-to-br from-surface to-surface-hover/50">
-                            <div>
-                                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary font-sans text-2xl border border-primary/20 mb-6 group-hover:scale-110 transition-transform">
-                                    🏆
-                                </div>
-                                <h3 className="text-2xl font-bold text-white mb-2 group-hover:text-primary transition-colors">
+                        <div className="card-glass cursor-pointer group">
+                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                                <div>
+                                <h3 className="text-lg font-bold text-white mb-1 group-hover:text-primary transition-colors">
                                     Manage Tournaments
                                 </h3>
                                 <p className="text-sm text-gray-400">
                                     Run single and double elimination events with automated brackets and Fargo handicaps.
                                 </p>
-                            </div>
-                            <div className="mt-8">
+                                </div>
                                 <span className="text-sm font-semibold text-[#D4AF37] group-hover:underline">
                                     Open Dashboard &rarr;
                                 </span>

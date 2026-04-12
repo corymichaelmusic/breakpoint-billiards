@@ -117,18 +117,38 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
 
 
     return (
-        <main className="min-h-screen flex flex-col bg-background text-foreground">
+        <main className="console-page flex flex-col">
             <Navbar />
-            <div className="container py-12 pb-24">
-                <div className="flex justify-between items-center mb-12">
+            <div className="console-container">
+                <div className="console-header">
                     <div>
-                        <h1 className="text-3xl font-bold font-sans text-white">Admin Dashboard</h1>
-                        <p className="text-sm text-gray-500 mt-1">System Overview & Management</p>
+                        <div className="console-kicker">Administration</div>
+                        <h1 className="console-title">Admin Dashboard</h1>
+                        <p className="console-subtitle">System settings, operator applications, leagues, players, and account requests.</p>
                     </div>
-                    <div>
-                        <Link href="/dashboard/admin/deleted-players" className="btn bg-error hover:bg-red-600 text-white font-bold text-xs px-4 py-2 uppercase tracking-wide">
+                    <div className="console-toolbar">
+                        <Link href="/dashboard/admin/deleted-players" className="btn btn-danger text-sm">
                             View Deleted Accounts
                         </Link>
+                    </div>
+                </div>
+
+                <div className="console-stat-grid">
+                    <div className="console-stat">
+                        <div className="console-stat-label">Applications</div>
+                        <div className="console-stat-value">{applications?.length || 0}</div>
+                    </div>
+                    <div className="console-stat">
+                        <div className="console-stat-label">Leagues</div>
+                        <div className="console-stat-value">{leagues?.length || 0}</div>
+                    </div>
+                    <div className="console-stat">
+                        <div className="console-stat-label">Players</div>
+                        <div className="console-stat-value">{displayedPlayers?.length || 0}</div>
+                    </div>
+                    <div className="console-stat">
+                        <div className="console-stat-label">Deletion Requests</div>
+                        <div className="console-stat-value">{deletionRequests?.length || 0}</div>
                     </div>
                 </div>
 
@@ -138,84 +158,92 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                 )}
 
                 {/* Operator Applications */}
-                <div className="card-glass mb-16 border-primary/30">
-                    <div className="flex justify-between items-center mb-8 pb-4">
-                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <div className="card-glass mb-4">
+                    <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-4">
+                        <h2 className="console-section-title flex items-center gap-2">
                             {showAllApps ? "All Operator Applications" : "Pending Operator Applications"}
                             {!showAllApps && applications && applications.length > 0 && (
-                                <span className="bg-primary text-black text-xs px-2 py-0.5 rounded-full">{applications.length}</span>
+                                <span className="console-pill console-pill-warning">{applications.length}</span>
                             )}
                         </h2>
                         <Link
                             href={showAllApps ? "/dashboard/admin" : "/dashboard/admin?app_view=all"}
-                            className="btn bg-[#D4AF37] text-black hover:bg-[#b0902c] border-transparent font-bold text-xs px-4 py-2 uppercase tracking-wide"
+                            className="btn btn-primary text-sm"
                         >
                             {showAllApps ? "View Pending Only" : "View Application Archive"}
                         </Link>
                     </div>
 
                     {applications && applications.length > 0 ? (
-                        <div className="grid gap-8">
-                            {applications.map((app) => (
-                                <div key={app.id} className="bg-surface/50 p-6 rounded border border-transparent flex flex-col md:flex-row justify-between gap-8">
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-3 flex-wrap mb-4">
-                                            <div className="font-bold text-lg text-white">{app.first_name} {app.last_name}</div>
-                                            <span className={`text-xs px-2 py-1 rounded font-bold uppercase tracking-wide
-                                                ${app.status === 'approved' ? 'bg-success/20 text-success' :
-                                                    app.status === 'rejected' ? 'bg-error/20 text-error' :
-                                                        'bg-warning/20 text-warning'}`}>
+                        <div className="console-table-wrap">
+                            <table className="console-table">
+                                <thead>
+                                    <tr>
+                                        <th>Applicant</th>
+                                        <th>Contact</th>
+                                        <th>Location</th>
+                                        <th>Target Area</th>
+                                        <th>Status</th>
+                                        <th>Notes</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {applications.map((app) => (
+                                        <tr key={app.id}>
+                                            <td className="font-bold text-white">{app.first_name} {app.last_name}</td>
+                                            <td>
+                                                <div>{app.email}</div>
+                                                <div className="text-xs text-gray-500">{app.phone}</div>
+                                            </td>
+                                            <td>{app.location}</td>
+                                            <td>{app.desired_league_location}</td>
+                                            <td>
+                                                <span className={`console-pill
+                                                    ${app.status === 'approved' ? 'console-pill-success' :
+                                                        app.status === 'rejected' ? 'console-pill-danger' :
+                                                            'console-pill-warning'}`}>
                                                 {app.status}
                                             </span>
-                                        </div>
-                                        <div className="text-sm text-gray-400 mb-4">
-                                            <span className="text-gray-300">{app.email}</span> • {app.phone}
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mb-4">
-                                            <div><span className="text-gray-500">Location:</span> {app.location}</div>
-                                            <div><span className="text-gray-500">Target Area:</span> {app.desired_league_location}</div>
-                                        </div>
-                                        {app.notes && (
-                                            <div className="mt-4 text-sm text-gray-400 italic bg-black/20 p-4 rounded">
-                                                "{app.notes}"
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="flex flex-col gap-4 min-w-[140px]">
-                                        {app.status === 'pending' && (
-                                            <>
-                                                <form action={async () => {
-                                                    'use server';
-                                                    await approveApplication(app.id);
-                                                }}>
-                                                    <button type="submit" className="btn w-full bg-success hover:bg-success/90 text-black font-bold text-sm py-3">Approve</button>
-                                                </form>
-                                                <form action={async () => {
-                                                    'use server';
-                                                    await rejectApplication(app.id);
-                                                }}>
-                                                    <button type="submit" className="btn w-full bg-error/10 hover:bg-error border border-error text-error hover:text-white text-sm py-3">Reject</button>
-                                                </form>
-                                            </>
-                                        )}
-                                        <DeleteApplicationButton applicationId={app.id} />
-                                    </div>
-                                </div>
-                            ))}
+                                            </td>
+                                            <td className="max-w-xs text-gray-400">{app.notes || "None"}</td>
+                                            <td>
+                                                <div className="console-toolbar">
+                                                    {app.status === 'pending' && (
+                                                        <>
+                                                            <form action={async () => {
+                                                                'use server';
+                                                                await approveApplication(app.id);
+                                                            }}>
+                                                                <button type="submit" className="btn bg-success hover:bg-success/90 text-black text-sm">Approve</button>
+                                                            </form>
+                                                            <form action={async () => {
+                                                                'use server';
+                                                                await rejectApplication(app.id);
+                                                            }}>
+                                                                <button type="submit" className="btn btn-danger text-sm">Reject</button>
+                                                            </form>
+                                                        </>
+                                                    )}
+                                                    <DeleteApplicationButton applicationId={app.id} />
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     ) : (
                         <div className="text-center py-12 text-gray-500 italic">No applications found.</div>
                     )}
                 </div>
 
-                <div className="h-5"></div>
-
                 {/* League Management */}
-                <div className="card-glass mb-16">
-                    <h2 className="text-xl font-bold text-white mb-6 border-b border-transparent pb-4">League Management</h2>
-                    <p className="mb-6 text-gray-400 text-sm">Create Organization for Approved Operator</p>
+                <div className="card-glass mb-4">
+                    <h2 className="console-section-title">League Management</h2>
+                    <p className="mb-4 text-gray-400 text-sm">Create an organization for an approved operator.</p>
 
-                    <div className="bg-surface/50 p-10 rounded border border-transparent">
+                    <div className="bg-black/20 p-4 rounded border border-border">
                         <form action={async (formData) => {
                             'use server';
                             const operatorId = formData.get("operatorId") as string;
@@ -230,12 +258,12 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                             await createLeagueForOperator(operatorId, name, location, city, state, schedule);
                         }}>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-16 mb-16">
-                                <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div className="space-y-2">
                                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">League Name</label>
                                     <input name="name" placeholder="e.g. Tarrant County Billiards" required className="input bg-black/50 border-transparent focus:border-primary h-12" />
                                 </div>
-                                <div className="space-y-4">
+                                <div className="space-y-2">
                                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Operator</label>
                                     <select name="operatorId" required className="input bg-black/50 border-transparent focus:border-primary text-sm py-3">
                                         <option value="">Select an Operator...</option>
@@ -248,16 +276,16 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-16 mb-16">
-                                <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                <div className="space-y-2">
                                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Venue</label>
                                     <input name="location" placeholder="e.g. Rusty's Billiards" required className="input bg-black/50 border-transparent focus:border-primary h-12" />
                                 </div>
-                                <div className="space-y-4">
+                                <div className="space-y-2">
                                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">City</label>
                                     <input name="city" placeholder="e.g. Fort Worth" required className="input bg-black/50 border-transparent focus:border-primary h-12" />
                                 </div>
-                                <div className="space-y-4">
+                                <div className="space-y-2">
                                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">State</label>
                                     <select name="state" required className="input bg-black/50 border-transparent focus:border-primary text-sm py-3">
                                         <option value="">State</option>
@@ -268,8 +296,8 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-16 items-end">
-                                <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-end">
+                                <div className="space-y-2">
                                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Primary Schedule Day</label>
                                     <select name="schedule" required className="input bg-black/50 border-transparent focus:border-primary text-sm py-3">
                                         <option value="Monday">Monday</option>
@@ -281,14 +309,12 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                                         <option value="Sunday">Sunday</option>
                                     </select>
                                 </div>
-                                <button type="submit" className="btn btn-primary h-12 px-10 text-lg">Create League</button>
+                                <button type="submit" className="btn btn-primary h-12 px-8 text-base">Create League</button>
                             </div>
                         </form>
                     </div>
 
-                    <div className="h-24 w-full">{/* Spacer */}</div>
-
-                    <h3 className="text-xl font-bold text-gray-300 mb-8">Active Organizations</h3>
+                    <h3 className="console-section-title mt-5">Active Organizations</h3>
                     <div className="grid gap-6">
                         {leagues?.map((l) => (
                             <AdminLeagueCard key={l.id} league={l} operators={approvedOperators}>
@@ -305,11 +331,9 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                     <PreregistrationManager preregs={preregs as any[]} />
                 )}
 
-                <div className="h-5"></div>
-
                 {/* Landing Page Settings */}
-                <div className="card-glass mb-16 border-primary/30">
-                    <h2 className="text-xl font-bold text-white mb-6 border-b border-transparent pb-4">Landing Page Announcement</h2>
+                <div className="card-glass mb-4">
+                    <h2 className="console-section-title mb-4">Landing Page Announcement</h2>
                     <LandingPageSettingsForm
                         titleLine1={lpTitle1}
                         titleLine2={lpTitle2}
@@ -318,49 +342,47 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                     />
                 </div>
 
-                <div className="h-5"></div>
-
                 {/* Financial Settings */}
-                <div className="card-glass mb-16 border-primary/30">
-                    <h2 className="text-xl font-bold text-white mb-6 border-b border-transparent pb-4">Financial Settings</h2>
+                <div className="card-glass mb-4">
+                    <h2 className="console-section-title mb-4">Financial Settings</h2>
                     <FinancialSettingsForm sessionFee={sessionFee} creationFee={creationFee} matchFee={matchFee} leaderboardLimit={leaderboardLimit} />
                 </div>
-
-                <div className="h-5"></div>
 
                 {/* Player Database */}
                 <div className="card-glass">
                     <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-6">
-                        <h2 className="text-xl font-bold text-white m-0">Player Database</h2>
+                        <h2 className="console-section-title m-0">Player Database</h2>
                         <AdminPlayerFilters currentRole={roleFilter} currentStatus={playerView} />
                     </div>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-separate border-spacing-y-[3px]">
+                    <div className="console-table-wrap">
+                        <table className="console-table">
                             <thead>
-                                <tr className="border-b border-transparent text-gray-500 text-sm uppercase">
-                                    <th className="p-3 font-semibold">Name</th>
-                                    <th className="p-3 font-semibold">Email</th>
-                                    <th className="p-3 font-semibold">Role</th>
-                                    <th className="p-3 font-semibold">Actions</th>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {displayedPlayers?.map((player) => (
-                                    <tr key={player.id} className="bg-white/5 hover:bg-white/10 transition-colors">
-                                        <td className="p-3 font-medium text-white">{player.full_name}</td>
-                                        <td className="p-3 text-gray-400">{player.email}</td>
-                                        <td className="p-3">
+                                    <tr key={player.id}>
+                                        <td className="font-medium text-white">{player.full_name}</td>
+                                        <td className="text-gray-400">{player.email}</td>
+                                        <td>
                                             <RoleSelector userId={player.id} currentRole={player.role} />
                                         </td>
-                                        <td className="p-3 flex gap-2">
-                                            <Link href={`/dashboard/admin/players/${player.id}`} className="btn bg-[#D4AF37] text-black hover:bg-[#b0902c] border-transparent font-bold text-xs px-4 py-2 uppercase tracking-wide">
+                                        <td>
+                                            <div className="console-toolbar">
+                                            <Link href={`/dashboard/admin/players/${player.id}`} className="btn btn-primary text-sm">
                                                 View
                                             </Link>
                                             {(player.role === 'operator' || player.role === 'admin') && (
                                                 <AssignLeagueButton operatorId={player.id} availableLeagues={leagues || []} />
                                             )}
                                             <PlayerActions playerId={player.id} isActive={player.is_active !== false} />
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}

@@ -66,14 +66,16 @@ export default async function MatchesPage({ params }: { params: Promise<{ id: st
     }
 
     return (
-        <main className="min-h-screen flex flex-col bg-background">
+        <main className="console-page flex flex-col">
             <Navbar />
-            <div className="container py-8 max-w-6xl">
-                <div className="mb-6">
+            <div className="console-container">
+                <div className="console-header">
+                    <div>
                     <Link href={`/dashboard/operator/leagues/${id}`} className="text-sm text-[#D4AF37] hover:text-white transition-colors">&larr; Back to Dashboard</Link>
-                    <h1 className="text-3xl font-bold font-sans text-white mt-2">
+                    <h1 className="console-title mt-2">
                         Matches <span className="text-gray-500 text-lg font-normal">/ {league.name}</span>
                     </h1>
+                    </div>
                 </div>
 
                 <MatchesView
