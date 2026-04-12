@@ -130,8 +130,11 @@ export default function MatchesListView({
                             ))}
                         </div>
                     )}
-                    <Link href={tableModeHref} className="btn btn-primary px-4 py-2 text-xs leading-none">
-                        View Table Mode &rarr;
+                    <Link
+                        href={tableModeHref}
+                        className="btn btn-primary inline-flex min-h-[34px] min-w-[224px] items-center justify-center px-6 py-1.5 text-xs uppercase tracking-[0.06em]"
+                    >
+                        Table Mode
                     </Link>
                 </div>
             </div>
