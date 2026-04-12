@@ -105,7 +105,7 @@ export default function MatchesListView({
                                 type="button"
                                 onClick={() => setWeekFilter('all')}
                                 aria-pressed={selectedWeek === 'all'}
-                                className={`inline-flex min-h-[34px] items-center justify-center whitespace-nowrap rounded-lg border px-4 py-1.5 text-xs font-bold uppercase tracking-[0.08em] transition-all ${
+                                className={`inline-flex min-h-[34px] min-w-[112px] items-center justify-center whitespace-nowrap rounded-lg border px-6 py-1.5 text-xs font-bold uppercase tracking-[0.06em] transition-all ${
                                     selectedWeek === 'all'
                                         ? 'border-[#D4AF37] bg-[#D4AF37] text-black shadow-[0_0_0_1px_rgba(212,175,55,0.55),0_10px_24px_rgba(212,175,55,0.22)]'
                                         : 'border-white/20 bg-[#161616] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-[#D4AF37]/55 hover:bg-[#1d1d1d]'
@@ -119,7 +119,7 @@ export default function MatchesListView({
                                     type="button"
                                     onClick={() => setWeekFilter(week)}
                                     aria-pressed={selectedWeek === week}
-                                    className={`inline-flex min-h-[34px] items-center justify-center whitespace-nowrap rounded-lg border px-4 py-1.5 text-xs font-bold uppercase tracking-[0.08em] transition-all ${
+                                    className={`inline-flex min-h-[34px] min-w-[112px] items-center justify-center whitespace-nowrap rounded-lg border px-6 py-1.5 text-xs font-bold uppercase tracking-[0.06em] transition-all ${
                                         selectedWeek === week
                                             ? 'border-[#D4AF37] bg-[#D4AF37] text-black shadow-[0_0_0_1px_rgba(212,175,55,0.55),0_10px_24px_rgba(212,175,55,0.22)]'
                                             : 'border-white/20 bg-[#161616] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-[#D4AF37]/55 hover:bg-[#1d1d1d]'
