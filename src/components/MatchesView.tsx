@@ -74,7 +74,7 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                     <div className="flex gap-2">
                         <Link
                             href={listModeHref}
-                            className="inline-flex min-h-[36px] items-center justify-center rounded-lg border border-white bg-white px-4 py-1.5 text-sm font-bold !text-black no-underline shadow-lg shadow-white/10 transition-colors hover:bg-gray-200 hover:!text-black"
+                            className="inline-flex min-h-[36px] min-w-[148px] items-center justify-center whitespace-nowrap rounded-lg border border-white bg-white px-6 py-1.5 text-sm font-bold !text-black no-underline shadow-lg shadow-white/10 transition-colors hover:bg-gray-200 hover:!text-black"
                             style={{ color: '#000000' }}
                         >
                             &larr; Back to List
