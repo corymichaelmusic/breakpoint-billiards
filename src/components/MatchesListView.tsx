@@ -104,10 +104,11 @@ export default function MatchesListView({
                             <button
                                 type="button"
                                 onClick={() => setWeekFilter('all')}
-                                className={`rounded-md border px-3 py-1 text-xs font-bold transition-colors ${
+                                aria-pressed={selectedWeek === 'all'}
+                                className={`min-h-[36px] rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] transition-all ${
                                     selectedWeek === 'all'
-                                        ? 'border-[#D4AF37] bg-[#D4AF37] text-black'
-                                        : 'border-white/15 bg-white/5 text-white hover:border-white/30 hover:bg-white/10'
+                                        ? 'border-[#D4AF37] bg-[#D4AF37] text-black shadow-[0_0_0_1px_rgba(212,175,55,0.55),0_10px_24px_rgba(212,175,55,0.22)]'
+                                        : 'border-white/20 bg-[#161616] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-[#D4AF37]/55 hover:bg-[#1d1d1d]'
                                 }`}
                             >
                                 All Weeks
@@ -117,10 +118,11 @@ export default function MatchesListView({
                                     key={week}
                                     type="button"
                                     onClick={() => setWeekFilter(week)}
-                                    className={`rounded-md border px-3 py-1 text-xs font-bold transition-colors ${
+                                    aria-pressed={selectedWeek === week}
+                                    className={`min-h-[36px] rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] transition-all ${
                                         selectedWeek === week
-                                            ? 'border-[#D4AF37] bg-[#D4AF37] text-black'
-                                            : 'border-white/15 bg-white/5 text-white hover:border-white/30 hover:bg-white/10'
+                                            ? 'border-[#D4AF37] bg-[#D4AF37] text-black shadow-[0_0_0_1px_rgba(212,175,55,0.55),0_10px_24px_rgba(212,175,55,0.22)]'
+                                            : 'border-white/20 bg-[#161616] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-[#D4AF37]/55 hover:bg-[#1d1d1d]'
                                     }`}
                                 >
                                     Week {week}

@@ -92,9 +92,10 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                         <button
                             type="button"
                             onClick={() => setWeekFilter('all')}
-                            className={`px-4 py-2 text-sm font-bold rounded-t-lg border-b-2 transition-all ${selectedWeek === 'all'
-                                ? '!bg-white !text-black border-white'
-                                : 'border-transparent !text-white hover:bg-white/5'
+                            aria-pressed={selectedWeek === 'all'}
+                            className={`min-h-[40px] rounded-lg border px-4 py-2 text-sm font-bold uppercase tracking-[0.18em] transition-all ${selectedWeek === 'all'
+                                ? 'border-[#D4AF37] bg-[#D4AF37] text-black shadow-[0_0_0_1px_rgba(212,175,55,0.55),0_12px_28px_rgba(212,175,55,0.22)]'
+                                : 'border-white/20 bg-[#161616] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-[#D4AF37]/55 hover:bg-[#1d1d1d]'
                                 }`}
                         >
                             All Weeks
@@ -104,9 +105,10 @@ export default function MatchesView({ matches, leagueId, leagueStatus, timezone,
                                 key={week as number}
                                 type="button"
                                 onClick={() => setWeekFilter(week as number)}
-                                className={`px-4 py-2 text-sm font-bold rounded-t-lg border-b-2 transition-all ${selectedWeek === week
-                                    ? '!bg-white !text-black border-white'
-                                    : 'border-transparent !text-white hover:bg-white/5'
+                                aria-pressed={selectedWeek === week}
+                                className={`min-h-[40px] rounded-lg border px-4 py-2 text-sm font-bold uppercase tracking-[0.18em] transition-all ${selectedWeek === week
+                                    ? 'border-[#D4AF37] bg-[#D4AF37] text-black shadow-[0_0_0_1px_rgba(212,175,55,0.55),0_12px_28px_rgba(212,175,55,0.22)]'
+                                    : 'border-white/20 bg-[#161616] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-[#D4AF37]/55 hover:bg-[#1d1d1d]'
                                     }`}
                             >
                                 Week {week as number}
