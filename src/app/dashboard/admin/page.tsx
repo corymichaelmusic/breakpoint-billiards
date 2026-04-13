@@ -247,6 +247,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                         <form action={async (formData) => {
                             'use server';
                             const operatorId = formData.get("operatorId") as string;
+                            const additionalOperatorIds = formData.getAll("additionalOperatorIds").map((value) => String(value));
                             const name = formData.get("name") as string;
                             const location = formData.get("location") as string;
                             const city = formData.get("city") as string;
@@ -255,7 +256,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
 
                             if (!operatorId) return;
 
-                            await createLeagueForOperator(operatorId, name, location, city, state, schedule);
+                            await createLeagueForOperator(operatorId, name, location, city, state, schedule, additionalOperatorIds);
                         }}>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -274,6 +275,24 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                                         ))}
                                     </select>
                                 </div>
+                            </div>
+
+                            <div className="mb-4 space-y-2">
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Additional Operators</label>
+                                <select
+                                    name="additionalOperatorIds"
+                                    multiple
+                                    className="input min-h-[168px] bg-black/50 border-transparent focus:border-primary text-sm py-3"
+                                >
+                                    {approvedOperators?.map(op => (
+                                        <option key={op.id} value={op.id}>
+                                            {op.full_name} ({op.email})
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="text-xs text-gray-500">
+                                    Hold Command on Mac or Ctrl on Windows to select more than one additional operator.
+                                </p>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">

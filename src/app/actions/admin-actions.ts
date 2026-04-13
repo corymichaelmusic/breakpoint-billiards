@@ -97,7 +97,15 @@ export async function rejectApplication(applicationId: string) {
     return { success: true };
 }
 
-export async function createLeagueForOperator(operatorId: string, name: string, location: string, city: string, state: string, schedule: string) {
+export async function createLeagueForOperator(
+    operatorId: string,
+    name: string,
+    location: string,
+    city: string,
+    state: string,
+    schedule: string,
+    additionalOperatorIds: string[] = []
+) {
     const { supabase, error: authError } = await verifyAdmin();
     if (authError || !supabase) return { error: authError };
 
@@ -135,18 +143,29 @@ export async function createLeagueForOperator(operatorId: string, name: string, 
         return { error: "Failed to create league." };
     }
 
-    // Also add operator to league_operators junction table so it appears in their dashboard
+    const operatorIds = Array.from(
+        new Set(
+            [operatorId, ...additionalOperatorIds]
+                .map((id) => id?.trim())
+                .filter(Boolean)
+        )
+    );
+
+    // Add all selected operators to league_operators so it appears in their dashboards
     const { error: assignError } = await adminSupabase
         .from("league_operators")
-        .insert({
-            league_id: newLeague.id,
-            user_id: operatorId,
-            role: 'admin'
-        });
+        .upsert(
+            operatorIds.map((selectedOperatorId) => ({
+                league_id: newLeague.id,
+                user_id: selectedOperatorId,
+                role: 'admin'
+            })),
+            { onConflict: 'league_id,user_id' }
+        );
 
     if (assignError) {
         console.error("Error assigning operator to league:", assignError);
-        return { error: "League created but failed to assign operator: " + assignError.message };
+        return { error: "League created but failed to assign operators: " + assignError.message };
     }
 
     revalidatePath("/dashboard/admin");
