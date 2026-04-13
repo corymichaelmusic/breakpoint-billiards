@@ -112,17 +112,6 @@ export async function createLeagueForOperator(
     // Use admin client to bypass RLS
     const adminSupabase = createAdminClient();
 
-    // Check if operator already has a league
-    const { count } = await adminSupabase
-        .from("leagues")
-        .select("*", { count: 'exact', head: true })
-        .eq("operator_id", operatorId)
-        .eq("type", "league");
-
-    if (count && count > 0) {
-        return { error: "Operator already has a League Organization." };
-    }
-
     const { data: newLeague, error } = await adminSupabase
         .from("leagues")
         .insert({
