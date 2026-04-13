@@ -21,6 +21,7 @@ export default function AdminLeagueCreateForm({ approvedOperators }: AdminLeague
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
     const [primaryOperatorId, setPrimaryOperatorId] = useState('');
+    const [leagueMode, setLeagueMode] = useState<'singles' | 'team'>('singles');
     const [additionalOperatorIds, setAdditionalOperatorIds] = useState<string[]>([]);
 
     const addOperatorRow = () => {
@@ -59,6 +60,7 @@ export default function AdminLeagueCreateForm({ approvedOperators }: AdminLeague
         const city = String(formData.get('city') || '');
         const state = String(formData.get('state') || '');
         const schedule = String(formData.get('schedule') || '');
+        const isTeamLeague = String(formData.get('leagueMode') || 'singles') === 'team';
         const cleanedAdditionalOperatorIds = additionalOperatorIds.map((id) => id.trim()).filter(Boolean);
 
         if (!operatorId) {
@@ -74,6 +76,7 @@ export default function AdminLeagueCreateForm({ approvedOperators }: AdminLeague
                 city,
                 state,
                 schedule,
+                isTeamLeague,
                 cleanedAdditionalOperatorIds
             );
 
@@ -112,6 +115,40 @@ export default function AdminLeagueCreateForm({ approvedOperators }: AdminLeague
                             </option>
                         ))}
                     </select>
+                </div>
+            </div>
+
+            <div className="mb-4 space-y-2">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">League Format</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors ${leagueMode === 'singles' ? 'border-[#D4AF37] bg-[#D4AF37]/10' : 'border-border bg-black/30 hover:border-[#D4AF37]/40'}`}>
+                        <input
+                            type="radio"
+                            name="leagueMode"
+                            value="singles"
+                            checked={leagueMode === 'singles'}
+                            onChange={() => setLeagueMode('singles')}
+                            className="accent-[#D4AF37]"
+                        />
+                        <div>
+                            <div className="text-sm font-bold text-white">Singles League</div>
+                            <div className="text-xs text-gray-400">Standard individual match play</div>
+                        </div>
+                    </label>
+                    <label className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors ${leagueMode === 'team' ? 'border-[#D4AF37] bg-[#D4AF37]/10' : 'border-border bg-black/30 hover:border-[#D4AF37]/40'}`}>
+                        <input
+                            type="radio"
+                            name="leagueMode"
+                            value="team"
+                            checked={leagueMode === 'team'}
+                            onChange={() => setLeagueMode('team')}
+                            className="accent-[#D4AF37]"
+                        />
+                        <div>
+                            <div className="text-sm font-bold text-white">Team League</div>
+                            <div className="text-xs text-gray-400">Team match scheduling and roster flow</div>
+                        </div>
+                    </label>
                 </div>
             </div>
 

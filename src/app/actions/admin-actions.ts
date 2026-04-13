@@ -104,6 +104,7 @@ export async function createLeagueForOperator(
     city: string,
     state: string,
     schedule: string,
+    isTeamLeague: boolean,
     additionalOperatorIds: string[] = []
 ) {
     const { supabase, error: authError } = await verifyAdmin();
@@ -121,6 +122,7 @@ export async function createLeagueForOperator(
             state,
             schedule_day: schedule,
             operator_id: operatorId,
+            is_team_league: isTeamLeague,
             status: 'setup',
             type: 'league'
         })
