@@ -29,7 +29,7 @@ export default function AdminLeagueCard({ league, operators, children }: AdminLe
 
     return (
         <>
-            <div className="border border-border rounded bg-black/20 overflow-hidden">
+            <div className="border border-border rounded bg-black/20 overflow-visible">
                 <div className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
                     <div>
                         <div className="font-bold text-white text-base">
