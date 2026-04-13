@@ -90,35 +90,51 @@ export async function createSession(
     const sessionFee = sessionFeeSetting ? Number(sessionFeeSetting.value) : 25; // Default fallback
     const creationFee = creationFeeSetting ? Number(creationFeeSetting.value) : 100; // Default fallback
 
-    // 4. Create Session
-    const { data: newSession, error } = await supabase
+    const sessionPayload = {
+        name: name,
+        location: parent.location,
+        city: parent.city,
+        state: parent.state,
+        schedule_day: parent.schedule_day,
+        operator_id: userId,
+        status: 'setup',
+        type: 'session',
+        parent_league_id: parentLeagueId,
+        creation_fee_status: 'unpaid',
+        session_fee: sessionFee,
+        creation_fee: creationFee,
+        start_date: startDate,
+        bounty_val_8_run: bounties.bounty8Run || 0,
+        bounty_val_8_rack_run: bounties.bounty8RackRun || 0,
+        bounty_val_9_run: bounties.bounty9Run || 0,
+        bounty_val_9_snap: bounties.bounty9Snap || 0,
+        bounty_val_shutout: isTeamLeague ? 0 : (bounties.bountyShutout || 0)
+    };
+
+    let { data: newSession, error } = await supabase
         .from("leagues")
-        .insert({
-            name: name, // e.g. "Fall 2025"
-            location: parent.location,
-            city: parent.city,
-            state: parent.state,
-            schedule_day: parent.schedule_day,
-            operator_id: userId,
-            status: 'setup',
-            type: 'session',
-            parent_league_id: parentLeagueId,
-            creation_fee_status: 'unpaid', // Default to unpaid
-            session_fee: sessionFee,
-            creation_fee: creationFee,
-            start_date: startDate,
-            bounty_val_8_run: bounties.bounty8Run || 0,
-            bounty_val_8_rack_run: bounties.bounty8RackRun || 0,
-            bounty_val_9_run: bounties.bounty9Run || 0,
-            bounty_val_9_snap: bounties.bounty9Snap || 0,
-            bounty_val_shutout: isTeamLeague ? 0 : (bounties.bountyShutout || 0)
-        })
+        .insert(sessionPayload)
         .select("id")
         .single();
 
+    const missingRackRunColumn = error?.message?.includes("bounty_val_8_rack_run")
+        || error?.message?.includes("schema cache");
+
+    if (error && missingRackRunColumn) {
+        const { bounty_val_8_rack_run: _ignored, ...legacyPayload } = sessionPayload;
+        const retry = await supabase
+            .from("leagues")
+            .insert(legacyPayload)
+            .select("id")
+            .single();
+
+        newSession = retry.data;
+        error = retry.error;
+    }
+
     if (error) {
         console.error("Error creating session:", error);
-        return { error: "Failed to create session." };
+        return { error: error.message || "Failed to create session." };
     }
 
     revalidatePath("/dashboard/operator");
@@ -744,24 +760,39 @@ export async function updateLeagueDetails(leagueId: string, data: {
 
     const isTeamLeague = !!existingLeague?.is_team_league;
 
-    const { error } = await supabase
+    const updatePayload = {
+        name: data.name,
+        location: data.location,
+        city: data.city,
+        state: data.state,
+        schedule_day: data.schedule_day,
+        session_fee: data.session_fee,
+        match_fee: data.match_fee,
+        start_date: data.start_date,
+        bounty_val_8_run: data.bounty_val_8_run,
+        bounty_val_8_rack_run: data.bounty_val_8_rack_run,
+        bounty_val_9_run: data.bounty_val_9_run,
+        bounty_val_9_snap: data.bounty_val_9_snap,
+        bounty_val_shutout: isTeamLeague ? 0 : data.bounty_val_shutout
+    };
+
+    let { error } = await supabase
         .from("leagues")
-        .update({
-            name: data.name,
-            location: data.location,
-            city: data.city,
-            state: data.state,
-            schedule_day: data.schedule_day,
-            session_fee: data.session_fee,
-            match_fee: data.match_fee,
-            start_date: data.start_date,
-            bounty_val_8_run: data.bounty_val_8_run,
-            bounty_val_8_rack_run: data.bounty_val_8_rack_run,
-            bounty_val_9_run: data.bounty_val_9_run,
-            bounty_val_9_snap: data.bounty_val_9_snap,
-            bounty_val_shutout: isTeamLeague ? 0 : data.bounty_val_shutout
-        })
+        .update(updatePayload)
         .eq("id", leagueId);
+
+    const missingRackRunUpdateColumn = error?.message?.includes("bounty_val_8_rack_run")
+        || error?.message?.includes("schema cache");
+
+    if (error && missingRackRunUpdateColumn) {
+        const { bounty_val_8_rack_run: _ignored, ...legacyPayload } = updatePayload;
+        const retry = await supabase
+            .from("leagues")
+            .update(legacyPayload)
+            .eq("id", leagueId);
+
+        error = retry.error;
+    }
 
     if (error) {
         console.error("Error updating league details:", error);
