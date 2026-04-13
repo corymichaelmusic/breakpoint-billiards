@@ -137,6 +137,10 @@ export async function createSession(
         return { error: error.message || "Failed to create session." };
     }
 
+    if (!newSession) {
+        return { error: "Failed to create session." };
+    }
+
     revalidatePath("/dashboard/operator");
     return { success: true, sessionId: newSession.id };
 }
