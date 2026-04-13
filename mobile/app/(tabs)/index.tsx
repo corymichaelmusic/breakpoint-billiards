@@ -202,8 +202,8 @@ export default function HomeScreen() {
             leagues!inner (
                 id, name, type, status, start_date, session_fee, is_team_league,
                 location, city,
-                bounty_val_8_run, bounty_val_9_run, bounty_val_9_snap, bounty_val_shutout,
-                parent_league:parent_league_id(name, location, city, bounty_val_8_run, bounty_val_9_run, bounty_val_9_snap, bounty_val_shutout)
+                bounty_val_8_run, bounty_val_8_rack_run, bounty_val_9_run, bounty_val_9_snap, bounty_val_shutout,
+                parent_league:parent_league_id(name, location, city, bounty_val_8_run, bounty_val_8_rack_run, bounty_val_9_run, bounty_val_9_snap, bounty_val_shutout)
             )
         `)
         .eq("player_id", userId)
@@ -235,7 +235,7 @@ export default function HomeScreen() {
       const isTeamLeague = activeMembership.leagues?.is_team_league || session.isTeamLeague || false;
 
       const val8BreakRun = activeMembership.leagues?.bounty_val_8_run ?? parentObj?.bounty_val_8_run ?? 5;
-      const val8RackRun = 2;
+      const val8RackRun = activeMembership.leagues?.bounty_val_8_rack_run ?? parentObj?.bounty_val_8_rack_run ?? 2;
       const val9 = activeMembership.leagues?.bounty_val_9_run ?? parentObj?.bounty_val_9_run ?? 3;
       const valSnap = activeMembership.leagues?.bounty_val_9_snap ?? parentObj?.bounty_val_9_snap ?? 1;
       const valShutout = isTeamLeague ? 0 : (activeMembership.leagues?.bounty_val_shutout ?? parentObj?.bounty_val_shutout ?? 1);

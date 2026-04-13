@@ -10,6 +10,7 @@ export async function createSession(
     startDate: string | null = null,
     bounties: {
         bounty8Run?: number,
+        bounty8RackRun?: number,
         bounty9Run?: number,
         bounty9Snap?: number,
         bountyShutout?: number
@@ -107,6 +108,7 @@ export async function createSession(
             creation_fee: creationFee,
             start_date: startDate,
             bounty_val_8_run: bounties.bounty8Run || 0,
+            bounty_val_8_rack_run: bounties.bounty8RackRun || 0,
             bounty_val_9_run: bounties.bounty9Run || 0,
             bounty_val_9_snap: bounties.bounty9Snap || 0,
             bounty_val_shutout: isTeamLeague ? 0 : (bounties.bountyShutout || 0)
@@ -718,6 +720,7 @@ export async function updateLeagueDetails(leagueId: string, data: {
     match_fee?: number,
     start_date?: string,
     bounty_val_8_run?: number,
+    bounty_val_8_rack_run?: number,
     bounty_val_9_run?: number,
     bounty_val_9_snap?: number,
     bounty_val_shutout?: number
@@ -753,6 +756,7 @@ export async function updateLeagueDetails(leagueId: string, data: {
             match_fee: data.match_fee,
             start_date: data.start_date,
             bounty_val_8_run: data.bounty_val_8_run,
+            bounty_val_8_rack_run: data.bounty_val_8_rack_run,
             bounty_val_9_run: data.bounty_val_9_run,
             bounty_val_9_snap: data.bounty_val_9_snap,
             bounty_val_shutout: isTeamLeague ? 0 : data.bounty_val_shutout

@@ -13,7 +13,7 @@ export default async function NewSessionPage({ params }: { params: Promise<{ id:
 
     const { data: parentLeague } = await createAdminClient()
         .from("leagues")
-        .select("bounty_val_8_run, bounty_val_9_run, bounty_val_9_snap, bounty_val_shutout, is_team_league")
+        .select("bounty_val_8_run, bounty_val_8_rack_run, bounty_val_9_run, bounty_val_9_snap, bounty_val_shutout, is_team_league")
         .eq("id", id)
         .single();
 
@@ -21,6 +21,7 @@ export default async function NewSessionPage({ params }: { params: Promise<{ id:
 
     const defaultBounties = {
         bounty8Run: parentLeague?.bounty_val_8_run || 0,
+        bounty8RackRun: parentLeague?.bounty_val_8_rack_run || 2,
         bounty9Run: parentLeague?.bounty_val_9_run || 0,
         bounty9Snap: parentLeague?.bounty_val_9_snap || 0,
         bountyShutout: isTeamLeague ? 0 : (parentLeague?.bounty_val_shutout || 0)

@@ -7,12 +7,13 @@ import { useState } from "react";
 export default function CreateSessionForm({
     leagueId,
     isTeamLeague = false,
-    defaultBounties = { bounty8Run: 0, bounty9Run: 0, bounty9Snap: 0, bountyShutout: 0 }
+    defaultBounties = { bounty8Run: 0, bounty8RackRun: 0, bounty9Run: 0, bounty9Snap: 0, bountyShutout: 0 }
 }: {
     leagueId: string,
     isTeamLeague?: boolean,
     defaultBounties?: {
         bounty8Run: number,
+        bounty8RackRun: number,
         bounty9Run: number,
         bounty9Snap: number,
         bountyShutout: number
@@ -31,6 +32,7 @@ export default function CreateSessionForm({
 
         const bounties = {
             bounty8Run: Number(formData.get("bounty8Run") || 0),
+            bounty8RackRun: Number(formData.get("bounty8RackRun") || 0),
             bounty9Run: Number(formData.get("bounty9Run") || 0),
             bounty9Snap: Number(formData.get("bounty9Snap") || 0),
             bountyShutout: isTeamLeague ? 0 : Number(formData.get("bountyShutout") || 0)
@@ -118,6 +120,16 @@ export default function CreateSessionForm({
                         />
                     </div>
                     <div>
+                        <label className="label">8-Ball Rack & Run ($)</label>
+                        <input
+                            name="bounty8RackRun"
+                            type="number"
+                            defaultValue={defaultBounties.bounty8RackRun}
+                            min="0"
+                            className="input"
+                        />
+                    </div>
+                    <div>
                         <label className="label">9-Ball On the Snap ($)</label>
                         <input
                             name="bounty9Snap"
@@ -142,8 +154,8 @@ export default function CreateSessionForm({
                 </div>
                 <p className="text-xs text-gray-400 mt-2">
                     {isTeamLeague
-                        ? "All sessions include a fixed 8-Ball Rack & Run bounty of $2. Team sessions do not include shutout bounties."
-                        : "Default values are loaded from the parent league organization settings. All sessions also include a fixed 8-Ball Rack & Run bounty of $2."}
+                        ? "Default values are loaded from the parent league organization settings. Team sessions do not include shutout bounties."
+                        : "Default values are loaded from the parent league organization settings."}
                 </p>
             </div>
 
