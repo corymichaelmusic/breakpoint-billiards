@@ -1,10 +1,8 @@
 import { createClient } from "@/utils/supabase/server";
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import AdminPlayerFilters from "@/components/AdminPlayerFilters";
 import Navbar from "@/components/Navbar";
-import { approveOperator, rejectOperator, createLeagueForOperator, updateSessionFeeStatus, approveApplication, rejectApplication, deleteApplication } from "@/app/actions/admin-actions";
+import { approveOperator, rejectOperator, updateSessionFeeStatus, approveApplication, rejectApplication, deleteApplication } from "@/app/actions/admin-actions";
 import { createAdminClient } from "@/utils/supabase/admin";
 import PlayerActions from "@/components/PlayerActions";
 import RoleSelector from "@/components/RoleSelector";
@@ -17,6 +15,7 @@ import DeletionRequestManager from "@/components/DeletionRequestManager";
 import DeleteSessionButton from "@/components/DeleteSessionButton";
 import LandingPageSettingsForm from "@/components/LandingPageSettingsForm";
 import AdminLeagueCard from "@/components/AdminLeagueCard";
+import AdminLeagueCreateForm from "@/components/AdminLeagueCreateForm";
 
 import { verifyAdmin } from "@/utils/auth-helpers";
 
@@ -244,93 +243,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                     <p className="mb-4 text-gray-400 text-sm">Create an organization for an approved operator.</p>
 
                     <div className="bg-black/20 p-4 rounded border border-border">
-                        <form action={async (formData) => {
-                            'use server';
-                            const operatorId = formData.get("operatorId") as string;
-                            const additionalOperatorIds = formData.getAll("additionalOperatorIds").map((value) => String(value));
-                            const name = formData.get("name") as string;
-                            const location = formData.get("location") as string;
-                            const city = formData.get("city") as string;
-                            const state = formData.get("state") as string;
-                            const schedule = formData.get("schedule") as string;
-
-                            if (!operatorId) return;
-
-                            await createLeagueForOperator(operatorId, name, location, city, state, schedule, additionalOperatorIds);
-                        }}>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">League Name</label>
-                                    <input name="name" placeholder="e.g. Tarrant County Billiards" required className="input bg-black/50 border-transparent focus:border-primary h-12" />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Operator</label>
-                                    <select name="operatorId" required className="input bg-black/50 border-transparent focus:border-primary text-sm py-3">
-                                        <option value="">Select an Operator...</option>
-                                        {approvedOperators?.map(op => (
-                                            <option key={op.id} value={op.id}>
-                                                {op.full_name} ({op.email})
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="mb-4 space-y-2">
-                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Additional Operators</label>
-                                <select
-                                    name="additionalOperatorIds"
-                                    multiple
-                                    className="input min-h-[168px] bg-black/50 border-transparent focus:border-primary text-sm py-3"
-                                >
-                                    {approvedOperators?.map(op => (
-                                        <option key={op.id} value={op.id}>
-                                            {op.full_name} ({op.email})
-                                        </option>
-                                    ))}
-                                </select>
-                                <p className="text-xs text-gray-500">
-                                    Hold Command on Mac or Ctrl on Windows to select more than one additional operator.
-                                </p>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Venue</label>
-                                    <input name="location" placeholder="e.g. Rusty's Billiards" required className="input bg-black/50 border-transparent focus:border-primary h-12" />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">City</label>
-                                    <input name="city" placeholder="e.g. Fort Worth" required className="input bg-black/50 border-transparent focus:border-primary h-12" />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">State</label>
-                                    <select name="state" required className="input bg-black/50 border-transparent focus:border-primary text-sm py-3">
-                                        <option value="">State</option>
-                                        {['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'].map(s => (
-                                            <option key={s} value={s}>{s}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-end">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Primary Schedule Day</label>
-                                    <select name="schedule" required className="input bg-black/50 border-transparent focus:border-primary text-sm py-3">
-                                        <option value="Monday">Monday</option>
-                                        <option value="Tuesday">Tuesday</option>
-                                        <option value="Wednesday">Wednesday</option>
-                                        <option value="Thursday">Thursday</option>
-                                        <option value="Friday">Friday</option>
-                                        <option value="Saturday">Saturday</option>
-                                        <option value="Sunday">Sunday</option>
-                                    </select>
-                                </div>
-                                <button type="submit" className="btn btn-primary h-12 px-8 text-base">Create League</button>
-                            </div>
-                        </form>
+                        <AdminLeagueCreateForm approvedOperators={approvedOperators || []} />
                     </div>
 
                     <h3 className="console-section-title mt-5">Active Organizations</h3>
