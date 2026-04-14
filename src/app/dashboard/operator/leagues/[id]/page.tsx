@@ -19,6 +19,7 @@ import StartSessionButton from "@/components/StartSessionButton";
 
 import { verifyOperator } from "@/utils/auth-helpers";
 import { isMatchDateLocked } from "@/utils/match-utils";
+import { getBreakpointLevel } from "@/utils/stats-calculator";
 
 export default async function LeaguePage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -650,7 +651,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                                 {submission.members.map((m: any) => (
                                                     <div key={m.id} className="flex justify-between text-xs text-white bg-black/20 px-2 py-1.5 rounded">
                                                         <span>{m.profiles?.full_name}</span>
-                                                        <span className="text-[#D4AF37] font-bold">{m.profiles?.breakpoint_rating}</span>
+                                                        <span className="text-[#D4AF37] font-bold">{getBreakpointLevel(m.profiles?.breakpoint_rating)}</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -696,7 +697,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                                 {submission.members.map((m: any) => (
                                                     <div key={m.id} className="flex justify-between text-xs text-white bg-black/20 px-2 py-1.5 rounded">
                                                         <span>{m.profiles?.full_name}</span>
-                                                        <span className="text-[#D4AF37] font-bold">{m.profiles?.breakpoint_rating}</span>
+                                                        <span className="text-[#D4AF37] font-bold">{getBreakpointLevel(m.profiles?.breakpoint_rating)}</span>
                                                     </div>
                                                 ))}
                                             </div>
