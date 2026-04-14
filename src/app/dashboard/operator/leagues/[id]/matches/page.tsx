@@ -68,16 +68,33 @@ export default async function MatchesPage({ params }: { params: Promise<{ id: st
     }
 
     const matchesWithDisplayRaces = (matches || []).map((match) => {
-        const p1Rating = match.player1_rating ?? playerRatings[match.player1_id]?.rating ?? 500;
-        const p2Rating = match.player2_rating ?? playerRatings[match.player2_id]?.rating ?? 500;
-        const previewRaces = calculateRace(p1Rating, p2Rating);
+        const hasStoredRaces = (
+            match.race_8ball_p1 != null &&
+            match.race_8ball_p2 != null &&
+            match.race_9ball_p1 != null &&
+            match.race_9ball_p2 != null
+        );
+        const isMatchStartedOrFinalized = (
+            match.status !== 'scheduled' ||
+            match.status_8ball === 'in_progress' ||
+            match.status_8ball === 'finalized' ||
+            match.status_9ball === 'in_progress' ||
+            match.status_9ball === 'finalized' ||
+            match.started_at != null ||
+            match.started_at_8ball != null ||
+            match.started_at_9ball != null
+        );
+        const p1CurrentRating = playerRatings[match.player1_id]?.rating ?? 500;
+        const p2CurrentRating = playerRatings[match.player2_id]?.rating ?? 500;
+        const previewRaces = calculateRace(p1CurrentRating, p2CurrentRating);
+        const shouldUseStoredRaces = hasStoredRaces && isMatchStartedOrFinalized;
 
         return {
             ...match,
-            display_race_8ball_p1: match.race_8ball_p1 ?? previewRaces.race8.p1,
-            display_race_8ball_p2: match.race_8ball_p2 ?? previewRaces.race8.p2,
-            display_race_9ball_p1: match.race_9ball_p1 ?? previewRaces.race9.p1,
-            display_race_9ball_p2: match.race_9ball_p2 ?? previewRaces.race9.p2,
+            display_race_8ball_p1: shouldUseStoredRaces ? match.race_8ball_p1 : previewRaces.race8.p1,
+            display_race_8ball_p2: shouldUseStoredRaces ? match.race_8ball_p2 : previewRaces.race8.p2,
+            display_race_9ball_p1: shouldUseStoredRaces ? match.race_9ball_p1 : previewRaces.race9.p1,
+            display_race_9ball_p2: shouldUseStoredRaces ? match.race_9ball_p2 : previewRaces.race9.p2,
         };
     });
 
