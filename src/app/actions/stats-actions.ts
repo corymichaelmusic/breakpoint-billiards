@@ -295,66 +295,68 @@ export async function getPlayerSessionStats(playerId: string, sessionId: string)
 }
 
 export async function getPlayerBreakpointHistory(playerId: string) {
-    // This is a minimal implementation based on assumption. 
-    // If there was complex logic here, it needs to be restored.
-    // Assuming it fetches rating history or match history to calculate progress.
     const supabase = createAdminClient();
 
-    // Fetch matches in date order
     const { data: matches } = await supabase
         .from("matches")
-        .select("scheduled_date, player1_id, player2_id, winner_id, is_forfeit, points_8ball_p1, points_8ball_p2, points_9ball_p1, points_9ball_p2, player1:player1_id(fargo_rating), player2:player2_id(fargo_rating)")
+        .select(`
+            id,
+            scheduled_date,
+            created_at,
+            player1_id,
+            player2_id,
+            player1_rating,
+            player2_rating,
+            status_8ball,
+            status_9ball,
+            delta_8ball_p1,
+            delta_8ball_p2,
+            delta_9ball_p1,
+            delta_9ball_p2,
+            is_forfeit
+        `)
         .or(`player1_id.eq.${playerId},player2_id.eq.${playerId}`)
-        // Exclude forfeited matches from rating/history as per previous requirement
-        // Exclude forfeited matches from rating/history as per previous requirement
-        .or("status.eq.finalized,winner_id.not.is.null")
         .eq("is_forfeit", false)
-        .order("scheduled_date", { ascending: true });
+        .order("scheduled_date", { ascending: true })
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true });
 
     if (!matches || matches.length === 0) return [];
 
-    // Calculate rating history
-    // Start everyone at 500 (Level 5)
-    let currentRating = 500;
+    const finalizedMatches = matches.filter((match: any) =>
+        match.status_8ball === 'finalized' || match.status_9ball === 'finalized'
+    );
 
-    const history = matches.map(match => {
-        // Determine outcome
-        let isWin = false;
-        let isLoss = false;
+    if (finalizedMatches.length === 0) return [];
 
+    const history: { date: string; rating: number }[] = [];
+    const firstMatch = finalizedMatches[0] as any;
+    const firstIsP1 = firstMatch.player1_id === playerId;
+    const firstPreMatchRating = Number(firstIsP1 ? firstMatch.player1_rating : firstMatch.player2_rating) || 500;
+
+    history.push({
+        date: firstMatch.scheduled_date,
+        rating: parseFloat(getBreakpointLevel(firstPreMatchRating))
+    });
+
+    for (const match of finalizedMatches as any[]) {
         const isP1 = match.player1_id === playerId;
-        // Determine Opponent Rating (Approximate using their current rating)
-        // If we want detailed history we'd need to simulate everyone. 
-        // For now, use their current DB rating as the "Opponent Strength".
-        const opponentProfile = isP1 ? match.player2 : match.player1;
-        const opponentRating = (opponentProfile as any)?.fargo_rating || 500;
+        const preMatchRating = Number(isP1 ? match.player1_rating : match.player2_rating) || 500;
+        let endMatchRating = preMatchRating;
 
-        if (match.winner_id) {
-            if (match.winner_id === playerId) isWin = true;
-            else isLoss = true;
-        } else {
-            // Fallback for legacy
-            // Uses explicit Number casting from earlier fix
-            const p1Points = (Number(match.points_8ball_p1) || 0) + (Number(match.points_9ball_p1) || 0);
-            const p2Points = (Number(match.points_8ball_p2) || 0) + (Number(match.points_9ball_p2) || 0);
-            const myPoints = isP1 ? p1Points : p2Points;
-            const oppPoints = isP1 ? p2Points : p1Points;
-            if (myPoints > oppPoints) isWin = true;
-            else if (oppPoints > myPoints) isLoss = true;
+        if (match.status_8ball === 'finalized') {
+            endMatchRating += Number(isP1 ? match.delta_8ball_p1 : match.delta_8ball_p2) || 0;
         }
 
-        const delta = calculateEloChange(currentRating, opponentRating, isWin);
+        if (match.status_9ball === 'finalized') {
+            endMatchRating += Number(isP1 ? match.delta_9ball_p1 : match.delta_9ball_p2) || 0;
+        }
 
-        // Prevent rating from dropping below 100 or exceeding 1000 effectively?
-        // Or just let it float.
-        currentRating += delta;
-
-        // Return Breakpoint Level
-        return {
+        history.push({
             date: match.scheduled_date,
-            rating: parseFloat(getBreakpointLevel(currentRating))
-        };
-    });
+            rating: parseFloat(getBreakpointLevel(endMatchRating))
+        });
+    }
 
     return history;
 }
