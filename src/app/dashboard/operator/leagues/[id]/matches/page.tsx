@@ -3,6 +3,7 @@ import Navbar from "@/components/Navbar";
 import Link from "next/link";
 import MatchesView from "@/components/MatchesView";
 import { verifyOperator } from "@/utils/auth-helpers";
+import { calculateRace } from "@/utils/bbrs";
 
 export default async function MatchesPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -66,6 +67,20 @@ export default async function MatchesPage({ params }: { params: Promise<{ id: st
         });
     }
 
+    const matchesWithDisplayRaces = (matches || []).map((match) => {
+        const p1Rating = match.player1_rating ?? playerRatings[match.player1_id]?.rating ?? 500;
+        const p2Rating = match.player2_rating ?? playerRatings[match.player2_id]?.rating ?? 500;
+        const previewRaces = calculateRace(p1Rating, p2Rating);
+
+        return {
+            ...match,
+            display_race_8ball_p1: match.race_8ball_p1 ?? previewRaces.race8.p1,
+            display_race_8ball_p2: match.race_8ball_p2 ?? previewRaces.race8.p2,
+            display_race_9ball_p1: match.race_9ball_p1 ?? previewRaces.race9.p1,
+            display_race_9ball_p2: match.race_9ball_p2 ?? previewRaces.race9.p2,
+        };
+    });
+
     return (
         <main className="console-page flex flex-col">
             <Navbar />
@@ -80,7 +95,7 @@ export default async function MatchesPage({ params }: { params: Promise<{ id: st
                 </div>
 
                 <MatchesView
-                    matches={matches || []}
+                    matches={matchesWithDisplayRaces}
                     leagueId={id}
                     leagueStatus={league.status}
                     timezone={league.timezone}
