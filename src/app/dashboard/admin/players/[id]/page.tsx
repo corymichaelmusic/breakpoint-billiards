@@ -26,10 +26,10 @@ export default async function AdminPlayerPage({ params }: { params: Promise<{ id
         getPlayerActiveLeagues(id)
     ]);
 
-    // Fetch Confidence & Rating from most recent/active league membership
-    // This is more accurate than the profile table which might be stale.
+    // Fetch confidence from the most recent/active league membership.
+    // Breakpoint rating itself is global and must come from profiles.
     const { data: lpData } = await supabase.from("league_players")
-        .select("breakpoint_confidence, breakpoint_rating")
+        .select("breakpoint_confidence")
         .eq("player_id", id)
         .order("joined_at", { ascending: false })
         .limit(1)
@@ -39,11 +39,8 @@ export default async function AdminPlayerPage({ params }: { params: Promise<{ id
     // Fallback to DB if stats is 0 (though stats should be accurate now that we include scheduled matches)
     const confidence = stats?.totalRacksPlayed || lpData?.breakpoint_confidence || 0;
 
-    // Use League Rating first, then Profile Rating, then 500 default.
-    // Explicitly decouple from Fargo Rating as per user request.akpoint Level from Profile Rating (or Fargo if missing)
-    // Default to 500 if both missing.
-    // Removed Fargo Fallback.
-    const rawRating = lpData?.breakpoint_rating ?? player?.breakpoint_rating ?? 500;
+    // Breakpoint rating has a single source of truth: profiles.breakpoint_rating.
+    const rawRating = player?.breakpoint_rating ?? 500;
     const breakpointLevel = getBreakpointLevel(rawRating);
 
     const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${player?.player_number || id}`;
