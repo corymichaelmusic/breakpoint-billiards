@@ -17,6 +17,7 @@ import SendNotificationButton from "@/components/SendNotificationButton";
 import EndSessionButton from "@/components/EndSessionButton";
 import StartSessionButton from "@/components/StartSessionButton";
 import { getSessionLeaderboard, getTeamSessionLeaderboard } from "@/app/actions/stats-actions";
+import UnlockRequestAction from "@/components/UnlockRequestAction";
 
 import { verifyOperator } from "@/utils/auth-helpers";
 import { isMatchDateLocked } from "@/utils/match-utils";
@@ -336,6 +337,8 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
             .order('created_at', { ascending: false });
         rescheduleRequests = [...(singlesReqs || []), ...(teamReqs || [])];
     }
+
+    const unlockRequests = rescheduleRequests.filter((req: any) => req.status === 'pending_operator');
 
 
 
@@ -758,9 +761,49 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                         </div>
                         )}
 
+                        {!isLeagueOrg && unlockRequests.length > 0 && (
+                            <div className="console-panel mb-4">
+                                <h2 className="console-section-title flex items-center gap-2">
+                                    Unlock Requests
+                                    <span className="console-pill console-pill-warning">
+                                        {unlockRequests.length}
+                                    </span>
+                                </h2>
+                                <div className="console-table-wrap">
+                                    <table className="console-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Match</th>
+                                                <th>Requester</th>
+                                                <th>Reason</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {unlockRequests.map((req: any) => (
+                                                <tr key={req.id}>
+                                                    <td className="font-semibold text-white">
+                                                        {req.match
+                                                            ? `${req.match.player1?.full_name || 'Player 1'} vs ${req.match.player2?.full_name || 'Player 2'}`
+                                                            : `${req.team_match?.team_a?.name || 'Team A'} vs ${req.team_match?.team_b?.name || 'Team B'} • Week ${req.team_match?.week_number ?? '-'}`
+                                                        }
+                                                    </td>
+                                                    <td>{req.requester?.full_name || 'Unknown'}</td>
+                                                    <td className="max-w-md text-gray-300">{req.reason}</td>
+                                                    <td>
+                                                        <UnlockRequestAction requestId={req.id} />
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
                         {!isLeagueOrg && rescheduleRequests.length > 0 && (
                             <div>
-                                <h3 className="text-lg font-bold text-white mb-2 ml-1">Reschedule Inbox</h3>
+                                <h3 className="text-lg font-bold text-white mb-2 ml-1">Request History</h3>
                                 <RescheduleInbox requests={rescheduleRequests} userId={userId} userRole="operator" />
                             </div>
                         )}
