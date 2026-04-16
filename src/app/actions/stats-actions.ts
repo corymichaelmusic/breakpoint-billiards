@@ -159,6 +159,125 @@ export async function getSessionLeaderboard(sessionId: string, limit: number = 1
     return rankedStats;
 }
 
+type TeamLeaderboardEntry = {
+    teamId: string;
+    teamName: string;
+    wins: number;
+    losses: number;
+    played: number;
+    winRate: number;
+    shutouts: number;
+    rank: number;
+};
+
+export async function getTeamSessionLeaderboard(sessionId: string, limit: number = 10): Promise<TeamLeaderboardEntry[]> {
+    const supabase = createAdminClient();
+
+    const { data: teams } = await supabase
+        .from("teams")
+        .select("id, name")
+        .eq("league_id", sessionId);
+
+    if (!teams || teams.length === 0) {
+        return [];
+    }
+
+    const { data: teamMatches } = await supabase
+        .from("team_matches")
+        .select("id, team_a_id, team_b_id, wins_a, wins_b, losses_a, losses_b")
+        .eq("league_id", sessionId);
+
+    const teamMatchIds = (teamMatches || []).map((match) => match.id);
+    const { data: teamMatchSets } = teamMatchIds.length > 0
+        ? await supabase
+            .from("team_match_sets")
+            .select("team_match_id, game_type, winner_team_id")
+            .in("team_match_id", teamMatchIds)
+        : { data: [] as any[] };
+
+    const shutoutsByTeam = new Map<string, number>();
+    const setsByMatch = new Map<string, any[]>();
+
+    (teamMatchSets || []).forEach((setRow: any) => {
+        const existing = setsByMatch.get(setRow.team_match_id) || [];
+        existing.push(setRow);
+        setsByMatch.set(setRow.team_match_id, existing);
+    });
+
+    (teamMatches || []).forEach((match: any) => {
+        const setRows = setsByMatch.get(match.id) || [];
+        let wins8A = 0;
+        let wins8B = 0;
+        let wins9A = 0;
+        let wins9B = 0;
+
+        setRows.forEach((setRow: any) => {
+            if (setRow.game_type === "8ball") {
+                if (setRow.winner_team_id === match.team_a_id) wins8A += 1;
+                if (setRow.winner_team_id === match.team_b_id) wins8B += 1;
+            }
+
+            if (setRow.game_type === "9ball") {
+                if (setRow.winner_team_id === match.team_a_id) wins9A += 1;
+                if (setRow.winner_team_id === match.team_b_id) wins9B += 1;
+            }
+        });
+
+        if (wins8A > wins8B && wins9A > wins9B) {
+            shutoutsByTeam.set(match.team_a_id, (shutoutsByTeam.get(match.team_a_id) || 0) + 1);
+        }
+
+        if (wins8B > wins8A && wins9B > wins9A) {
+            shutoutsByTeam.set(match.team_b_id, (shutoutsByTeam.get(match.team_b_id) || 0) + 1);
+        }
+    });
+
+    const rankedStats = teams
+        .map((team) => {
+            let wins = 0;
+            let losses = 0;
+
+            (teamMatches || []).forEach((match: any) => {
+                if (match.team_a_id === team.id) {
+                    wins += match.wins_a || 0;
+                    losses += match.losses_a || 0;
+                } else if (match.team_b_id === team.id) {
+                    wins += match.wins_b || 0;
+                    losses += match.losses_b || 0;
+                }
+            });
+
+            const played = wins + losses;
+            const winRate = played > 0 ? Number(((wins / played) * 100).toFixed(1)) : 0;
+
+            return {
+                teamId: team.id,
+                teamName: team.name || "Unnamed Team",
+                wins,
+                losses,
+                played,
+                winRate,
+                shutouts: shutoutsByTeam.get(team.id) || 0,
+                rank: 0
+            };
+        })
+        .sort((a, b) => {
+            if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+            if (b.wins !== a.wins) return b.wins - a.wins;
+            return a.teamName.localeCompare(b.teamName);
+        })
+        .map((team, index) => ({
+            ...team,
+            rank: index + 1
+        }));
+
+    if (limit > 0) {
+        return rankedStats.slice(0, limit);
+    }
+
+    return rankedStats;
+}
+
 export async function getPlayerLifetimeStats(playerId: string) {
     const supabase = createAdminClient();
 

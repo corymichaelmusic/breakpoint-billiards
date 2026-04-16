@@ -16,6 +16,7 @@ import MatchesListView from "@/components/MatchesListView";
 import SendNotificationButton from "@/components/SendNotificationButton";
 import EndSessionButton from "@/components/EndSessionButton";
 import StartSessionButton from "@/components/StartSessionButton";
+import { getSessionLeaderboard, getTeamSessionLeaderboard } from "@/app/actions/stats-actions";
 
 import { verifyOperator } from "@/utils/auth-helpers";
 import { isMatchDateLocked } from "@/utils/match-utils";
@@ -255,7 +256,6 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
 
         leaderboardLimit = parseInt(settings?.value || '25');
 
-        const { getSessionLeaderboard, getTeamSessionLeaderboard } = await import("@/app/actions/stats-actions");
         leaderboard = league.is_team_league
             ? await getTeamSessionLeaderboard(id, 5)
             : await getSessionLeaderboard(id, 5);
