@@ -747,20 +747,6 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                             </div>
                         )}
 
-                        {!isLeagueOrg && (
-                            <div className="card-glass p-0 overflow-hidden">
-                                <SessionLeaderboard
-                                    sessionId={id}
-                                sessionName="Leaderboard"
-                                initialStats={leaderboard}
-                                totalPlayers={totalPlayers}
-                                limit={leaderboardLimit}
-                                enablePlayerLinks={true}
-                                isTeamLeague={league.is_team_league}
-                            />
-                        </div>
-                        )}
-
                         {!isLeagueOrg && unlockRequests.length > 0 && (
                             <div className="console-panel mb-4">
                                 <h2 className="console-section-title flex items-center gap-2">
@@ -799,6 +785,20 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                     </table>
                                 </div>
                             </div>
+                        )}
+
+                        {!isLeagueOrg && (
+                            <div className="card-glass p-0 overflow-hidden">
+                                <SessionLeaderboard
+                                    sessionId={id}
+                                sessionName="Leaderboard"
+                                initialStats={leaderboard}
+                                totalPlayers={totalPlayers}
+                                limit={leaderboardLimit}
+                                enablePlayerLinks={true}
+                                isTeamLeague={league.is_team_league}
+                            />
+                        </div>
                         )}
 
                         {!isLeagueOrg && rescheduleRequests.length > 0 && (

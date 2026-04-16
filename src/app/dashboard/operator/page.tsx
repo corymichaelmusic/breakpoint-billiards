@@ -8,6 +8,8 @@ import { createAdminClient } from "@/utils/supabase/admin";
 
 import { verifyOperator } from "@/utils/auth-helpers";
 
+export const dynamic = 'force-dynamic';
+
 export default async function OperatorDashboard() {
     const { userId } = await verifyOperator();
 
