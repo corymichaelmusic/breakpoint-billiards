@@ -128,7 +128,7 @@ export default async function OperatorDashboard() {
         .from("reschedule_requests")
         .select(`
             *,
-            team_match:team_matches!reschedule_requests_team_match_id_fkey(
+            team_match:team_matches!reschedule_requests_team_match_id_fkey!inner(
                 league_id,
                 week_number,
                 team_a:team_a_id(name),

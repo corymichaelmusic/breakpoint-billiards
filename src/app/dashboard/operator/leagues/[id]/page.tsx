@@ -324,7 +324,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
             .select(`
                 *,
                 requester:requester_id(full_name),
-                team_match:team_matches!reschedule_requests_team_match_id_fkey(
+                team_match:team_matches!reschedule_requests_team_match_id_fkey!inner(
                     week_number,
                     league_id,
                     team_a:team_a_id(name),
