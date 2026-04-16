@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 type PlayerStats = {
@@ -24,17 +23,29 @@ type PlayerStats = {
     display_shutouts?: number;
 };
 
+type TeamStats = {
+    teamId: string;
+    teamName: string;
+    wins: number;
+    losses: number;
+    played: number;
+    winRate: number;
+    shutouts: number;
+    rank?: number;
+};
+
 type Props = {
     sessionId: string;
     sessionName: string;
-    initialStats: PlayerStats[];
-    totalPlayers: number; // To know if we should show "View Top 25"
+    initialStats: PlayerStats[] | TeamStats[];
+    totalPlayers: number; // To know if we should show "View All"
     limit: number; // The configured limit (e.g. 25)
     enablePlayerLinks?: boolean;
+    isTeamLeague?: boolean;
 };
 
-export default function SessionLeaderboard({ sessionId, sessionName, initialStats, totalPlayers, limit, enablePlayerLinks = false }: Props) {
-    const [stats, setStats] = useState<PlayerStats[]>(initialStats);
+export default function SessionLeaderboard({ sessionId, sessionName, initialStats, totalPlayers, limit, enablePlayerLinks = false, isTeamLeague = false }: Props) {
+    const [stats, setStats] = useState<(PlayerStats | TeamStats)[]>(initialStats);
     const [isExpanded, setIsExpanded] = useState(false);
     const [loading, setLoading] = useState(false);
     const router = useRouter();
@@ -50,9 +61,10 @@ export default function SessionLeaderboard({ sessionId, sessionName, initialStat
         // Expand
         setLoading(true);
         try {
-            const { getSessionLeaderboard } = await import("@/app/actions/stats-actions");
-            // Pass 0 to get ALL players
-            const allStats = await getSessionLeaderboard(sessionId, 0);
+            const { getSessionLeaderboard, getTeamSessionLeaderboard } = await import("@/app/actions/stats-actions");
+            const allStats = isTeamLeague
+                ? await getTeamSessionLeaderboard(sessionId, 0)
+                : await getSessionLeaderboard(sessionId, 0);
             setStats(allStats);
             setIsExpanded(true);
         } catch (error) {
@@ -78,7 +90,7 @@ export default function SessionLeaderboard({ sessionId, sessionName, initialStat
                         Session Leaderboard
                     </h3>
                     <p style={{ color: "#888", fontSize: "0.8rem", marginTop: "0.25rem" }}>
-                        Top players by Win %
+                        {isTeamLeague ? "Top teams by Win %" : "Top players by Win %"}
                     </p>
                 </div>
             </div>
@@ -88,38 +100,38 @@ export default function SessionLeaderboard({ sessionId, sessionName, initialStat
                     <thead>
                         <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
                             <th style={{ padding: "0.5rem", width: "15%", textAlign: "center" }}>Rank</th>
-                            <th style={{ padding: "0.5rem", width: "45%", textAlign: "left" }}>Player</th>
+                            <th style={{ padding: "0.5rem", width: "45%", textAlign: "left" }}>{isTeamLeague ? "Team" : "Player"}</th>
                             <th style={{ padding: "0.5rem", width: "20%", textAlign: "right" }}>Win %</th>
                             <th style={{ padding: "0.5rem", width: "20%", textAlign: "right" }}>SO</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {stats.map((player) => (
+                        {stats.map((entry) => (
                             <tr
-                                key={player.playerId}
+                                key={isTeamLeague ? (entry as TeamStats).teamId : (entry as PlayerStats).playerId}
                                 style={{
                                     borderBottom: "1px solid var(--border)",
-                                    cursor: enablePlayerLinks ? "pointer" : "default",
+                                    cursor: !isTeamLeague && enablePlayerLinks ? "pointer" : "default",
                                     transition: "background-color 0.2s"
                                 }}
-                                className={enablePlayerLinks ? "hover:bg-surface-hover" : ""}
+                                className={!isTeamLeague && enablePlayerLinks ? "hover:bg-surface-hover" : ""}
                                 onClick={() => {
-                                    if (enablePlayerLinks) {
-                                        router.push(`/dashboard/operator/leagues/${sessionId}/players/${player.playerId}`);
+                                    if (!isTeamLeague && enablePlayerLinks) {
+                                        router.push(`/dashboard/operator/leagues/${sessionId}/players/${(entry as PlayerStats).playerId}`);
                                     }
                                 }}
                             >
-                                <td style={{ padding: "0.5rem", textAlign: "center", fontWeight: "bold", color: player.rank === 1 ? "#D4AF37" : "inherit" }}>
-                                    {player.rank}
+                                <td style={{ padding: "0.5rem", textAlign: "center", fontWeight: "bold", color: entry.rank === 1 ? "#D4AF37" : "inherit" }}>
+                                    {entry.rank}
                                 </td>
                                 <td style={{ padding: "0.5rem", fontWeight: "600", textAlign: "left", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                    {player.playerName}
+                                    {isTeamLeague ? (entry as TeamStats).teamName : (entry as PlayerStats).playerName}
                                 </td>
                                 <td style={{ padding: "0.5rem", textAlign: "right", fontWeight: "bold" }}>
-                                    {player.winRate}%
+                                    {entry.winRate}%
                                 </td>
                                 <td style={{ padding: "0.5rem", textAlign: "right", fontWeight: "bold", color: "#D4AF37" }}>
-                                    {player.display_shutouts || 0}
+                                    {isTeamLeague ? (entry as TeamStats).shutouts || 0 : (entry as PlayerStats).display_shutouts || 0}
                                 </td>
                             </tr>
                         ))}
@@ -135,7 +147,7 @@ export default function SessionLeaderboard({ sessionId, sessionName, initialStat
                         disabled={loading}
                         style={{ width: "100%", fontSize: "0.8rem", padding: "0.5rem" }}
                     >
-                        {loading ? "Loading..." : (isExpanded ? "Show Top 5" : "View All Players")}
+                        {loading ? "Loading..." : (isExpanded ? "Show Top 5" : `View All ${isTeamLeague ? "Teams" : "Players"}`)}
                     </button>
                 </div>
             )}
