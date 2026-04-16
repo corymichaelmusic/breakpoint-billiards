@@ -107,11 +107,24 @@ export default async function OperatorDashboard() {
         }
     });
 
-    const { data: singlesUnlockRequests } = await supabase
+    const { data: pendingUnlockRequestRows } = await supabase
         .from("reschedule_requests")
-        .select(`
-            *,
-            match:matches!inner(
+        .select("id, match_id, team_match_id, requester_id, reason, status, created_at, dismissed")
+        .eq("status", "pending_operator");
+
+    const requesterIds = [...new Set((pendingUnlockRequestRows || []).map((req) => req.requester_id).filter(Boolean))];
+    const matchIds = [...new Set((pendingUnlockRequestRows || []).map((req) => req.match_id).filter(Boolean))];
+    const teamMatchIds = [...new Set((pendingUnlockRequestRows || []).map((req) => req.team_match_id).filter(Boolean))];
+
+    const { data: requesters } = requesterIds.length > 0
+        ? await supabase.from("profiles").select("id, full_name").in("id", requesterIds)
+        : { data: [] as any[] };
+
+    const { data: singleMatches } = matchIds.length > 0
+        ? await supabase
+            .from("matches")
+            .select(`
+                id,
                 league_id,
                 week_number,
                 player1:player1_id(full_name),
@@ -120,17 +133,16 @@ export default async function OperatorDashboard() {
                     name,
                     parent_league:parent_league_id(name)
                 )
-            ),
-            requester:requester_id(full_name)
-        `)
-        .in("match.league_id", allRelevantIds)
-        .eq("status", "pending_operator");
+            `)
+            .in("id", matchIds)
+            .in("league_id", allRelevantIds)
+        : { data: [] as any[] };
 
-    const { data: teamUnlockRequests } = await supabase
-        .from("reschedule_requests")
-        .select(`
-            *,
-            team_match:team_matches!reschedule_requests_team_match_id_fkey!inner(
+    const { data: teamMatches } = teamMatchIds.length > 0
+        ? await supabase
+            .from("team_matches")
+            .select(`
+                id,
                 league_id,
                 week_number,
                 team_a:team_a_id(name),
@@ -139,22 +151,44 @@ export default async function OperatorDashboard() {
                     name,
                     parent_league:parent_league_id(name)
                 )
-            ),
-            requester:requester_id(full_name)
-        `)
-        .in("team_match.league_id", allRelevantIds)
-        .eq("status", "pending_operator");
+            `)
+            .in("id", teamMatchIds)
+            .in("league_id", allRelevantIds)
+        : { data: [] as any[] };
 
-    const unlockRequests = [
-        ...((singlesUnlockRequests || []).map((req: any) => ({
-            ...req,
-            request_type: 'singles'
-        }))),
-        ...((teamUnlockRequests || []).map((req: any) => ({
-            ...req,
-            request_type: 'team'
-        })))
-    ];
+    const requesterMap = new Map((requesters || []).map((requester: any) => [requester.id, requester]));
+    const singleMatchMap = new Map((singleMatches || []).map((match: any) => [match.id, match]));
+    const teamMatchMap = new Map((teamMatches || []).map((match: any) => [match.id, match]));
+
+    const unlockRequests = (pendingUnlockRequestRows || [])
+        .map((req: any) => {
+            if (req.match_id) {
+                const match = singleMatchMap.get(req.match_id);
+                if (!match) return null;
+
+                return {
+                    ...req,
+                    match,
+                    requester: requesterMap.get(req.requester_id) || null,
+                    request_type: 'singles'
+                };
+            }
+
+            if (req.team_match_id) {
+                const teamMatch = teamMatchMap.get(req.team_match_id);
+                if (!teamMatch) return null;
+
+                return {
+                    ...req,
+                    team_match: teamMatch,
+                    requester: requesterMap.get(req.requester_id) || null,
+                    request_type: 'team'
+                };
+            }
+
+            return null;
+        })
+        .filter(Boolean);
 
     return (
         <main className="console-page flex flex-col">

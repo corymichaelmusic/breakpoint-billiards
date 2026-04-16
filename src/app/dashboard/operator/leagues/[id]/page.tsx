@@ -306,36 +306,78 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
     // Fetch Reschedule Requests (if session)
     let rescheduleRequests: any[] = [];
     if (!isLeagueOrg) {
-        const { data: singlesReqs } = await supabase
+        const { data: requestRows } = await supabase
             .from("reschedule_requests")
-            .select(`
-                *,
-                requester:requester_id(full_name),
-                match:matches!inner(
-                    player1:player1_id(full_name),
-                    player2:player2_id(full_name),
-                    league_id
-                )
-            `)
-            .eq("match.league_id", id)
+            .select("id, match_id, team_match_id, requester_id, reason, status, created_at, dismissed")
             .eq("status", "pending_operator")
             .order('created_at', { ascending: false });
-        const { data: teamReqs } = await supabase
-            .from("reschedule_requests")
-            .select(`
-                *,
-                requester:requester_id(full_name),
-                team_match:team_matches!reschedule_requests_team_match_id_fkey!inner(
-                    week_number,
+
+        const requesterIds = [...new Set((requestRows || []).map((req) => req.requester_id).filter(Boolean))];
+        const matchIds = [...new Set((requestRows || []).map((req) => req.match_id).filter(Boolean))];
+        const teamMatchIds = [...new Set((requestRows || []).map((req) => req.team_match_id).filter(Boolean))];
+
+        const { data: requesters } = requesterIds.length > 0
+            ? await supabase.from("profiles").select("id, full_name").in("id", requesterIds)
+            : { data: [] as any[] };
+
+        const { data: singleMatches } = matchIds.length > 0
+            ? await supabase
+                .from("matches")
+                .select(`
+                    id,
                     league_id,
+                    player1:player1_id(full_name),
+                    player2:player2_id(full_name)
+                `)
+                .in("id", matchIds)
+                .eq("league_id", id)
+            : { data: [] as any[] };
+
+        const { data: teamReqMatches } = teamMatchIds.length > 0
+            ? await supabase
+                .from("team_matches")
+                .select(`
+                    id,
+                    league_id,
+                    week_number,
                     team_a:team_a_id(name),
                     team_b:team_b_id(name)
-                )
-            `)
-            .eq("team_match.league_id", id)
-            .eq("status", "pending_operator")
-            .order('created_at', { ascending: false });
-        rescheduleRequests = [...(singlesReqs || []), ...(teamReqs || [])];
+                `)
+                .in("id", teamMatchIds)
+                .eq("league_id", id)
+            : { data: [] as any[] };
+
+        const requesterMap = new Map((requesters || []).map((requester: any) => [requester.id, requester]));
+        const singleMatchMap = new Map((singleMatches || []).map((match: any) => [match.id, match]));
+        const teamMatchMap = new Map((teamReqMatches || []).map((match: any) => [match.id, match]));
+
+        rescheduleRequests = (requestRows || [])
+            .map((req: any) => {
+                if (req.match_id) {
+                    const match = singleMatchMap.get(req.match_id);
+                    if (!match) return null;
+
+                    return {
+                        ...req,
+                        match,
+                        requester: requesterMap.get(req.requester_id) || null
+                    };
+                }
+
+                if (req.team_match_id) {
+                    const teamMatch = teamMatchMap.get(req.team_match_id);
+                    if (!teamMatch) return null;
+
+                    return {
+                        ...req,
+                        team_match: teamMatch,
+                        requester: requesterMap.get(req.requester_id) || null
+                    };
+                }
+
+                return null;
+            })
+            .filter(Boolean);
     }
 
     const unlockRequests = rescheduleRequests.filter((req: any) => req.status === 'pending_operator');
@@ -524,8 +566,45 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                 <div className="console-split">
                     {/* Left Column: Matches & Actions */}
                     <div className="space-y-8">
-
-
+                        {!isLeagueOrg && unlockRequests.length > 0 && (
+                            <div className="console-panel">
+                                <h2 className="console-section-title flex items-center gap-2">
+                                    Unlock Requests
+                                    <span className="console-pill console-pill-warning">
+                                        {unlockRequests.length}
+                                    </span>
+                                </h2>
+                                <div className="console-table-wrap">
+                                    <table className="console-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Match</th>
+                                                <th>Requester</th>
+                                                <th>Reason</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {unlockRequests.map((req: any) => (
+                                                <tr key={req.id}>
+                                                    <td className="font-semibold text-white">
+                                                        {req.match
+                                                            ? `${req.match.player1?.full_name || 'Player 1'} vs ${req.match.player2?.full_name || 'Player 2'}`
+                                                            : `${req.team_match?.team_a?.name || 'Team A'} vs ${req.team_match?.team_b?.name || 'Team B'}${req.team_match?.week_number ? ` • Week ${req.team_match.week_number}` : ''}`
+                                                        }
+                                                    </td>
+                                                    <td>{req.requester?.full_name || 'Unknown'}</td>
+                                                    <td className="max-w-md text-gray-300">{req.reason}</td>
+                                                    <td>
+                                                        <UnlockRequestAction requestId={req.id} />
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Session Actions Panel */}
                         {!isCompleted && (
@@ -743,46 +822,6 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                             </div>
                                         </div>
                                     ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {!isLeagueOrg && unlockRequests.length > 0 && (
-                            <div className="console-panel mb-4">
-                                <h2 className="console-section-title flex items-center gap-2">
-                                    Unlock Requests
-                                    <span className="console-pill console-pill-warning">
-                                        {unlockRequests.length}
-                                    </span>
-                                </h2>
-                                <div className="console-table-wrap">
-                                    <table className="console-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Match</th>
-                                                <th>Requester</th>
-                                                <th>Reason</th>
-                                                <th>Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {unlockRequests.map((req: any) => (
-                                                <tr key={req.id}>
-                                                    <td className="font-semibold text-white">
-                                                        {req.match
-                                                            ? `${req.match.player1?.full_name || 'Player 1'} vs ${req.match.player2?.full_name || 'Player 2'}`
-                                                            : `${req.team_match?.team_a?.name || 'Team A'} vs ${req.team_match?.team_b?.name || 'Team B'} • Week ${req.team_match?.week_number ?? '-'}`
-                                                        }
-                                                    </td>
-                                                    <td>{req.requester?.full_name || 'Unknown'}</td>
-                                                    <td className="max-w-md text-gray-300">{req.reason}</td>
-                                                    <td>
-                                                        <UnlockRequestAction requestId={req.id} />
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
                                 </div>
                             </div>
                         )}
