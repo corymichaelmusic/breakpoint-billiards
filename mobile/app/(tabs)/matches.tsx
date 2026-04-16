@@ -55,7 +55,7 @@ export default function MatchesScreen() {
     const lastFetchTime = useRef<number>(0);
     const lastFetchedSessionId = useRef<string | null>(null);
     const CACHE_DURATION = 60000; // 60 seconds
-    const { currentSession } = useSession();
+    const { currentSession, refreshSessions } = useSession();
     const isSessionLive = currentSession?.status === 'active';
 
     useEffect(() => {
@@ -71,6 +71,7 @@ export default function MatchesScreen() {
     const fetchMatches = useCallback(async (force = false) => {
         const now = Date.now();
         const sessionChanged = currentSession?.id !== lastFetchedSessionId.current;
+        let session = currentSession;
 
         if (!force && !sessionChanged && lastFetchTime.current > 0 && (now - lastFetchTime.current) < CACHE_DURATION && matches.length > 0) {
             console.log(" [Matches] Using cached data");
@@ -82,7 +83,7 @@ export default function MatchesScreen() {
             if (!userId) return;
             console.log(" [Matches] Fetching new data...");
             lastFetchTime.current = now;
-            lastFetchedSessionId.current = currentSession?.id || null;
+            lastFetchedSessionId.current = session?.id || null;
 
             const token = await getToken({ template: 'supabase' });
             // ... (rest of logic same)
@@ -92,7 +93,7 @@ export default function MatchesScreen() {
                 { global: { headers: { Authorization: `Bearer ${token}` } } }
             );
 
-            if (!currentSession) {
+            if (!session) {
                 setMatches([]);
                 setTeamMatches([]);
                 setUserTeamId(null);
@@ -101,7 +102,19 @@ export default function MatchesScreen() {
                 return;
             }
 
-            if (currentSession.status !== 'active') {
+            if (force || session.status !== 'active') {
+                const refreshedSessions = await refreshSessions();
+                const refreshedSession =
+                    refreshedSessions.find((item) => item.id === session?.id) ||
+                    refreshedSessions.find((item) => item.isPrimary) ||
+                    refreshedSessions[0] ||
+                    session;
+
+                session = refreshedSession;
+                lastFetchedSessionId.current = session?.id || null;
+            }
+
+            if (!session || session.status !== 'active') {
                 setMatches([]);
                 setTeamMatches([]);
                 setUserTeamId(null);
@@ -121,7 +134,7 @@ export default function MatchesScreen() {
             player2:player2_id(full_name, breakpoint_rating, fargo_rating),
             games (winner_id, is_break_and_run, is_rack_and_run, is_9_on_snap, game_type, game_number, scored_by)
           `)
-                .eq("league_id", currentSession.id)
+                .eq("league_id", session.id)
                 .eq('is_team_match_set', false)
                 .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
                 .order("week_number", { ascending: true }) // Order by Week
@@ -160,7 +173,7 @@ export default function MatchesScreen() {
                             player_b:player_b_id(full_name)
                         )
                     `)
-                    .eq('league_id', currentSession.id)
+                    .eq('league_id', session.id)
                     .or(`team_a_id.eq.${uTeamId},team_b_id.eq.${uTeamId}`)
                     .order('week_number', { ascending: true })
                     .order('created_at', { ascending: true });
@@ -194,7 +207,7 @@ export default function MatchesScreen() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [userId, getToken, currentSession]);
+    }, [userId, getToken, currentSession, matches.length, refreshSessions]);
 
     useFocusEffect(
         useCallback(() => {
@@ -246,7 +259,13 @@ export default function MatchesScreen() {
                     <View className="mb-6">
                         <Text className="text-gray-400 font-bold text-xs uppercase tracking-widest mb-3 pl-2">Team Matches</Text>
                         {teamMatches.map(tm => (
-                            <TeamMatchCard key={tm.id} match={tm} userTeamId={userTeamId!} expandableCompleted />
+                            <TeamMatchCard
+                                key={tm.id}
+                                match={tm}
+                                userTeamId={userTeamId!}
+                                expandableCompleted
+                                timezone={currentSession?.timezone || 'America/Chicago'}
+                            />
                         ))}
                     </View>
                 )}

@@ -100,6 +100,7 @@ export async function createSession(
         status: 'setup',
         type: 'session',
         parent_league_id: parentLeagueId,
+        is_team_league: isTeamLeague,
         creation_fee_status: 'unpaid',
         session_fee: sessionFee,
         creation_fee: creationFee,
@@ -977,6 +978,11 @@ export async function resetSchedule(leagueId: string) {
 
     if (league.is_team_league) {
         if (teamMatchIds.length > 0) {
+            await supabase
+                .from("reschedule_requests")
+                .delete()
+                .in("team_match_id", teamMatchIds);
+
             const { data: captainSubmissions, error: captainSubmissionFetchError } = await supabase
                 .from("team_match_captain_submissions")
                 .select("id")

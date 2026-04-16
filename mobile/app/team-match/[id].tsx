@@ -8,6 +8,7 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import { getBreakpointLevel } from "../../utils/rating";
 import { supabase } from "../../lib/supabase";
 import { applyRealtimeAuth } from "../../lib/realtimeAuth";
+import { getTeamMatchLockState } from "../../utils/match";
 
 const EMPTY_SETS = Array.from({ length: 8 }, (_, i) => ({
     set_number: i + 1,
@@ -43,6 +44,37 @@ async function attachScorerProfiles(supabase: any, sets: any[]) {
     }));
 }
 
+async function attachSetScores(supabase: any, sets: any[]) {
+    const setIds = (sets || []).map((set) => set.id).filter(Boolean);
+
+    if (setIds.length === 0) {
+        return (sets || []).map((set) => ({
+            ...set,
+            score_p1: 0,
+            score_p2: 0
+        }));
+    }
+
+    const { data: games, error } = await supabase
+        .from('team_match_submission_games')
+        .select('submission_set_id, winner_id')
+        .in('submission_set_id', setIds);
+
+    if (error) throw error;
+
+    return (sets || []).map((set) => {
+        const setGames = (games || []).filter((game: any) => game.submission_set_id === set.id);
+        const scoreP1 = setGames.filter((game: any) => game.winner_id === set.player_a_id).length;
+        const scoreP2 = setGames.filter((game: any) => game.winner_id === set.player_b_id).length;
+
+        return {
+            ...set,
+            score_p1: scoreP1,
+            score_p2: scoreP2
+        };
+    });
+}
+
 export default function TeamMatchScreen() {
     const { id } = useLocalSearchParams();
     const idParam = firstParam(id);
@@ -70,10 +102,19 @@ export default function TeamMatchScreen() {
     const [handoffCodeValue, setHandoffCodeValue] = useState("");
     const [claimCodeModalSet, setClaimCodeModalSet] = useState<any>(null);
     const [claimCodeValue, setClaimCodeValue] = useState("");
+    const [hasPendingUnlockRequest, setHasPendingUnlockRequest] = useState(false);
+    const [requestingUnlock, setRequestingUnlock] = useState(false);
     const isSubmissionLocked =
         submission?.verification_status === 'submitted' ||
         submission?.verification_status === 'verified' ||
         match?.status === 'completed';
+    const teamMatchLockState = getTeamMatchLockState(
+        match?.scheduled_date || null,
+        match?.league?.timezone || 'America/Chicago',
+        !!match?.is_manually_unlocked,
+        match?.status || 'scheduled'
+    );
+    const isTeamMatchLocked = teamMatchLockState.locked && !isSubmissionLocked;
 
     useEffect(() => {
         getTokenRef.current = getToken;
@@ -192,9 +233,10 @@ export default function TeamMatchScreen() {
 
                     if (setError) throw setError;
                     const hydratedSetRows = await attachScorerProfiles(supabase, setRows || []);
+                    const hydratedSetsWithScores = await attachSetScores(supabase, hydratedSetRows);
 
                     setSubmissionSets(
-                        hydratedSetRows.reduce((acc: Record<number, any>, row: any) => {
+                        hydratedSetsWithScores.reduce((acc: Record<number, any>, row: any) => {
                             acc[row.set_number] = row;
                             return acc;
                         }, {})
@@ -206,6 +248,16 @@ export default function TeamMatchScreen() {
                 setSubmission(null);
                 setSubmissionSets({});
             }
+
+            const { data: pendingUnlockRequests, error: pendingUnlockError } = await supabase
+                .from('reschedule_requests')
+                .select('id')
+                .eq('team_match_id', idParam)
+                .eq('status', 'pending_operator')
+                .limit(1);
+
+            if (pendingUnlockError) throw pendingUnlockError;
+            setHasPendingUnlockRequest((pendingUnlockRequests || []).length > 0);
         } catch (e) {
             console.error("Fetch Team Match Error", e);
             if (!options?.silent) {
@@ -312,6 +364,29 @@ export default function TeamMatchScreen() {
         setClaimCodeValue("");
     }, [isSubmissionLocked]);
 
+    const showLockedAlert = useCallback(() => {
+        if (hasPendingUnlockRequest) {
+            Alert.alert("Match Locked", "This team match is still locked. Your unlock request is pending operator approval.");
+            return;
+        }
+
+        Alert.alert("Match Locked", teamMatchLockState.reason || "This team match will unlock on match day.");
+    }, [hasPendingUnlockRequest, teamMatchLockState.reason]);
+
+    const blockMatchEditing = useCallback(() => {
+        if (isTeamMatchLocked) {
+            showLockedAlert();
+            return true;
+        }
+
+        if (isSubmissionLocked) {
+            Alert.alert("Match Submitted", "This match has already been submitted and can no longer be edited.");
+            return true;
+        }
+
+        return false;
+    }, [isSubmissionLocked, isTeamMatchLocked, showLockedAlert]);
+
     const calculateTeamLevelSum = (
         isTeamA: boolean,
         pendingPlayerId: string | null,
@@ -372,10 +447,7 @@ export default function TeamMatchScreen() {
 
     const handleSaveCoinFlip = async () => {
         if (!userTeamId || !pendingCoinFlipTeamId) return;
-        if (isSubmissionLocked) {
-            Alert.alert("Match Submitted", "This match has already been submitted and can no longer be edited.");
-            return;
-        }
+        if (blockMatchEditing()) return;
 
         const teamIdToSave = pendingCoinFlipTeamId;
 
@@ -404,10 +476,7 @@ export default function TeamMatchScreen() {
     };
 
     const openSetModal = (setConfig: any) => {
-        if (isSubmissionLocked) {
-            Alert.alert("Match Submitted", "This match has already been submitted and can no longer be edited.");
-            return;
-        }
+        if (blockMatchEditing()) return;
         const existing = submissionSets[setConfig.set_number];
         setSelectedSet(setConfig);
         setPlayerAId(existing?.player_a_id || null);
@@ -416,10 +485,7 @@ export default function TeamMatchScreen() {
 
     const handleClaimSet = async (setConfig: any, set?: any) => {
         if (!idParam || !userTeamId) return;
-        if (isSubmissionLocked) {
-            Alert.alert("Match Submitted", "This match has already been submitted and can no longer be edited.");
-            return;
-        }
+        if (blockMatchEditing()) return;
 
         try {
             setSaving(true);
@@ -477,10 +543,7 @@ export default function TeamMatchScreen() {
 
     const handleHandOffSet = async (set: any) => {
         if (!set?.id) return;
-        if (isSubmissionLocked) {
-            Alert.alert("Match Submitted", "This match has already been submitted and can no longer be edited.");
-            return;
-        }
+        if (blockMatchEditing()) return;
         try {
             setSaving(true);
             const supabase = await createSupabaseClient();
@@ -512,10 +575,7 @@ export default function TeamMatchScreen() {
             Alert.alert("Enter Code", "Enter the handoff code from the other phone.");
             return;
         }
-        if (isSubmissionLocked) {
-            Alert.alert("Match Submitted", "This match has already been submitted and can no longer be edited.");
-            return;
-        }
+        if (blockMatchEditing()) return;
 
         try {
             setSaving(true);
@@ -565,10 +625,7 @@ export default function TeamMatchScreen() {
 
     const handleResetSetLineup = async (set: any) => {
         if (!set?.id) return;
-        if (isSubmissionLocked) {
-            Alert.alert("Match Submitted", "This match has already been submitted and can no longer be edited.");
-            return;
-        }
+        if (blockMatchEditing()) return;
 
         Alert.alert(
             "Reset Set",
@@ -595,6 +652,7 @@ export default function TeamMatchScreen() {
                                 .update({
                                     player_a_id: null,
                                     player_b_id: null,
+                                    initial_breaker_id: null,
                                     race_p1: null,
                                     race_p2: null,
                                     winner_team_id: null,
@@ -627,10 +685,7 @@ export default function TeamMatchScreen() {
             Alert.alert("Error", "Choose both players first.");
             return;
         }
-        if (isSubmissionLocked) {
-            Alert.alert("Match Submitted", "This match has already been submitted and can no longer be edited.");
-            return;
-        }
+        if (blockMatchEditing()) return;
 
         try {
             setSaving(true);
@@ -647,6 +702,7 @@ export default function TeamMatchScreen() {
                     game_type: selectedSet.game_type,
                     player_a_id: playerAId,
                     player_b_id: playerBId,
+                    initial_breaker_id: null,
                     status: 'in_progress',
                     winner_team_id: null,
                     scored_by_user_id: userId,
@@ -696,6 +752,10 @@ export default function TeamMatchScreen() {
 
     const handleSubmitMatch = async () => {
         if (!submission) return;
+        if (isTeamMatchLocked) {
+            showLockedAlert();
+            return;
+        }
 
         try {
             setSaving(true);
@@ -744,6 +804,7 @@ export default function TeamMatchScreen() {
     };
 
     const openSetScoring = (setConfig: any, set: any) => {
+        if (blockMatchEditing()) return;
         const playerA = teamAMembers.find((member) => member.player_id === set.player_a_id);
         const playerB = teamBMembers.find((member) => member.player_id === set.player_b_id);
 
@@ -797,6 +858,39 @@ export default function TeamMatchScreen() {
     const isVerified = submission?.verification_status === 'verified' || match?.status === 'completed';
     const canSubmitForVerification = isCaptain(userTeamId);
 
+    const handleRequestUnlock = async () => {
+        if (!idParam || !userId || hasPendingUnlockRequest) return;
+
+        try {
+            setRequestingUnlock(true);
+            const token = await getTokenRef.current({ template: 'supabase' });
+            const supabase = createClient(
+                process.env.EXPO_PUBLIC_SUPABASE_URL!,
+                process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+                { global: { headers: { Authorization: `Bearer ${token}` } } }
+            );
+
+            const { error } = await supabase
+                .from('reschedule_requests')
+                .insert({
+                    team_match_id: idParam,
+                    requester_id: userId,
+                    reason: 'Team requested manual unlock',
+                    status: 'pending_operator'
+                });
+
+            if (error) throw error;
+
+            setHasPendingUnlockRequest(true);
+            Alert.alert("Unlock Requested", "Your operator has been notified.");
+        } catch (e) {
+            console.error("Team Match Unlock Request Error", e);
+            Alert.alert("Error", "Failed to request an unlock.");
+        } finally {
+            setRequestingUnlock(false);
+        }
+    };
+
     return (
         <SafeAreaView className="flex-1 bg-background">
             <View className="px-4 py-4 border-b border-border/50 bg-surface/30 flex-row items-center justify-between">
@@ -832,6 +926,41 @@ export default function TeamMatchScreen() {
                             <Text className="text-gray-500 text-xs">9B {localNineBallLosses}-{localNineBallWins}</Text>
                         </View>
                     </View>
+                </View>
+
+                <View className={`rounded-xl border p-4 mb-4 ${isTeamMatchLocked ? 'bg-red-500/10 border-red-500/30' : 'bg-green-500/10 border-green-500/30'}`}>
+                    <View className="flex-row items-center justify-between mb-2">
+                        <Text className={`font-bold uppercase tracking-widest text-xs ${isTeamMatchLocked ? 'text-red-300' : 'text-green-400'}`}>
+                            {isTeamMatchLocked ? 'Match Locked' : 'Match Unlocked'}
+                        </Text>
+                        {match?.is_manually_unlocked ? (
+                            <Text className="text-primary text-[10px] font-bold uppercase tracking-widest">
+                                Manual Unlock
+                            </Text>
+                        ) : null}
+                    </View>
+                    <Text className="text-gray-200 text-sm leading-5">
+                        {isTeamMatchLocked
+                            ? (teamMatchLockState.reason || 'This team match is locked until match day.')
+                            : 'This team match is open for scoring and stays unlocked after match day.'}
+                    </Text>
+                    {isTeamMatchLocked ? (
+                        hasPendingUnlockRequest ? (
+                            <Text className="text-yellow-300 text-xs font-bold uppercase tracking-widest mt-3">
+                                Unlock request pending
+                            </Text>
+                        ) : (
+                            <TouchableOpacity
+                                onPress={handleRequestUnlock}
+                                disabled={requestingUnlock}
+                                className={`self-start mt-3 rounded-full px-4 py-2 ${requestingUnlock ? 'bg-primary/40' : 'bg-primary'}`}
+                            >
+                                <Text className="text-black text-xs font-bold uppercase tracking-widest">
+                                    {requestingUnlock ? 'Requesting...' : 'Request Unlock'}
+                                </Text>
+                            </TouchableOpacity>
+                        )
+                    ) : null}
                 </View>
 
                 <View className="bg-blue-900/20 border border-blue-500/30 rounded-xl p-4 mb-6">
@@ -878,6 +1007,22 @@ export default function TeamMatchScreen() {
                         const currentPutUpTeamId = putUpPattern[(setConfig.set_number - 1) % 2];
                         const currentPutUpTeamName = currentPutUpTeamId === teamA.id ? teamA.name : teamB.name;
                         const setStatus = set?.status || 'pending';
+                        const winningTeamName = set?.winner_team_id
+                            ? (set.winner_team_id === teamA.id ? teamA.name : set.winner_team_id === teamB.id ? teamB.name : 'Winning Team')
+                            : null;
+                        const winningPlayerName = set?.winner_team_id
+                            ? (
+                                set.winner_team_id === teamA.id
+                                    ? teamAMembers.find((member) => member.player_id === set.player_a_id)?.profiles?.full_name
+                                    : teamBMembers.find((member) => member.player_id === set.player_b_id)?.profiles?.full_name
+                            )
+                            : null;
+                        const completedSetScore = setStatus === 'completed'
+                            ? {
+                                p1: Number(set?.score_p1 || 0),
+                                p2: Number(set?.score_p2 || 0)
+                            }
+                            : null;
                         const scorerName = getProfileDisplayName(
                             set?.scorer || (
                                 set?.scored_by_user_id === userId
@@ -898,8 +1043,8 @@ export default function TeamMatchScreen() {
                                 p2: Number(set?.race_p2 || 0)
                             }
                             : null;
-                        const setActionDisabled = saving || isSubmissionLocked || isOwnedByOtherUser;
-                        const canEditSet = setStatus !== 'completed' && !isSubmissionLocked;
+                        const setActionDisabled = saving || isSubmissionLocked || isTeamMatchLocked || isOwnedByOtherUser;
+                        const canEditSet = setStatus !== 'completed' && !isSubmissionLocked && !isTeamMatchLocked;
 
                         return (
                             <View key={setConfig.set_number}>
@@ -940,6 +1085,24 @@ export default function TeamMatchScreen() {
                                                 </Text>
                                                 <Text className="text-gray-500 text-xs">Race {displayedRace?.p2 || '-'}</Text>
                                             </View>
+                                        </View>
+                                    ) : null}
+
+                                    {setStatus === 'completed' && winningTeamName ? (
+                                        <View className="mb-3 bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2">
+                                            <Text className="text-green-400 text-xs font-bold uppercase tracking-widest text-center">
+                                                {winningPlayerName ? `${winningPlayerName} won the set` : `${winningTeamName} won the set`}
+                                            </Text>
+                                            {completedSetScore ? (
+                                                <Text className="text-white text-xs font-bold text-center mt-1">
+                                                    Final Score {completedSetScore.p1}-{completedSetScore.p2}
+                                                </Text>
+                                            ) : null}
+                                            {winningPlayerName ? (
+                                                <Text className="text-gray-400 text-[11px] text-center mt-1">
+                                                    {winningTeamName}
+                                                </Text>
+                                            ) : null}
                                         </View>
                                     ) : null}
 

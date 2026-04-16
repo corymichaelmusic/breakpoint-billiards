@@ -19,6 +19,7 @@ import StartSessionButton from "@/components/StartSessionButton";
 
 import { verifyOperator } from "@/utils/auth-helpers";
 import { isMatchDateLocked } from "@/utils/match-utils";
+import { getBreakpointLevel } from "@/utils/stats-calculator";
 
 export default async function LeaguePage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -254,15 +255,22 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
 
         leaderboardLimit = parseInt(settings?.value || '25');
 
-        const { getSessionLeaderboard } = await import("@/app/actions/stats-actions");
-        leaderboard = await getSessionLeaderboard(id, 5);
+        const { getSessionLeaderboard, getTeamSessionLeaderboard } = await import("@/app/actions/stats-actions");
+        leaderboard = league.is_team_league
+            ? await getTeamSessionLeaderboard(id, 5)
+            : await getSessionLeaderboard(id, 5);
 
-        const { count } = await supabase
-            .from("league_players")
-            .select("*, profiles!inner(is_active)", { count: 'exact', head: true })
-            .eq("league_id", id)
-            .eq("status", "active")
-            .eq("profiles.is_active", true);
+        const { count } = league.is_team_league
+            ? await supabase
+                .from("teams")
+                .select("*", { count: 'exact', head: true })
+                .eq("league_id", id)
+            : await supabase
+                .from("league_players")
+                .select("*, profiles!inner(is_active)", { count: 'exact', head: true })
+                .eq("league_id", id)
+                .eq("status", "active")
+                .eq("profiles.is_active", true);
         totalPlayers = count || 0;
     }
 
@@ -297,7 +305,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
     // Fetch Reschedule Requests (if session)
     let rescheduleRequests: any[] = [];
     if (!isLeagueOrg) {
-        const { data: reqs } = await supabase
+        const { data: singlesReqs } = await supabase
             .from("reschedule_requests")
             .select(`
                 *,
@@ -311,7 +319,22 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
             .eq("match.league_id", id)
             .eq("status", "pending_operator")
             .order('created_at', { ascending: false });
-        rescheduleRequests = reqs || [];
+        const { data: teamReqs } = await supabase
+            .from("reschedule_requests")
+            .select(`
+                *,
+                requester:requester_id(full_name),
+                team_match:team_matches!reschedule_requests_team_match_id_fkey(
+                    week_number,
+                    league_id,
+                    team_a:team_a_id(name),
+                    team_b:team_b_id(name)
+                )
+            `)
+            .eq("team_match.league_id", id)
+            .eq("status", "pending_operator")
+            .order('created_at', { ascending: false });
+        rescheduleRequests = [...(singlesReqs || []), ...(teamReqs || [])];
     }
 
 
@@ -650,7 +673,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                                 {submission.members.map((m: any) => (
                                                     <div key={m.id} className="flex justify-between text-xs text-white bg-black/20 px-2 py-1.5 rounded">
                                                         <span>{m.profiles?.full_name}</span>
-                                                        <span className="text-[#D4AF37] font-bold">{m.profiles?.breakpoint_rating}</span>
+                                                        <span className="text-[#D4AF37] font-bold">{getBreakpointLevel(m.profiles?.breakpoint_rating)}</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -696,7 +719,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                                                 {submission.members.map((m: any) => (
                                                     <div key={m.id} className="flex justify-between text-xs text-white bg-black/20 px-2 py-1.5 rounded">
                                                         <span>{m.profiles?.full_name}</span>
-                                                        <span className="text-[#D4AF37] font-bold">{m.profiles?.breakpoint_rating}</span>
+                                                        <span className="text-[#D4AF37] font-bold">{getBreakpointLevel(m.profiles?.breakpoint_rating)}</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -725,13 +748,14 @@ export default async function LeaguePage({ params }: { params: Promise<{ id: str
                             <div className="card-glass p-0 overflow-hidden">
                                 <SessionLeaderboard
                                     sessionId={id}
-                                    sessionName="Leaderboard"
-                                    initialStats={leaderboard}
-                                    totalPlayers={totalPlayers}
-                                    limit={leaderboardLimit}
-                                    enablePlayerLinks={true}
-                                />
-                            </div>
+                                sessionName="Leaderboard"
+                                initialStats={leaderboard}
+                                totalPlayers={totalPlayers}
+                                limit={leaderboardLimit}
+                                enablePlayerLinks={true}
+                                isTeamLeague={league.is_team_league}
+                            />
+                        </div>
                         )}
 
                         {!isLeagueOrg && rescheduleRequests.length > 0 && (

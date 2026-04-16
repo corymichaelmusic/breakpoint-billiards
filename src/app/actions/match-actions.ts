@@ -90,6 +90,61 @@ export async function requestUnlock(matchId: string, reason: string) {
     return { success: true };
 }
 
+export async function requestTeamMatchUnlock(teamMatchId: string, reason: string) {
+    const supabase = createAdminClient();
+    const { userId } = await import("@clerk/nextjs/server").then(mod => mod.auth());
+
+    if (!userId) return { error: "Unauthorized" };
+
+    const { data: teamMatch, error: teamMatchError } = await supabase
+        .from("team_matches")
+        .select(`
+            id,
+            team_a_id,
+            team_b_id,
+            team_a:team_a_id(captain_id),
+            team_b:team_b_id(captain_id)
+        `)
+        .eq("id", teamMatchId)
+        .single();
+
+    if (teamMatchError || !teamMatch) {
+        return { error: "Team match not found" };
+    }
+
+    const isCaptain =
+        (Array.isArray(teamMatch.team_a) ? teamMatch.team_a[0] : teamMatch.team_a)?.captain_id === userId ||
+        (Array.isArray(teamMatch.team_b) ? teamMatch.team_b[0] : teamMatch.team_b)?.captain_id === userId;
+
+    const { data: membership } = await supabase
+        .from("team_members")
+        .select("id")
+        .or(`team_id.eq.${teamMatch.team_a_id},team_id.eq.${teamMatch.team_b_id}`)
+        .eq("player_id", userId)
+        .limit(1);
+
+    if (!isCaptain && !membership?.length) {
+        return { error: "You are not part of this team match" };
+    }
+
+    const { error } = await supabase
+        .from("reschedule_requests")
+        .insert({
+            team_match_id: teamMatchId,
+            requester_id: userId,
+            reason,
+            status: 'pending_operator'
+        });
+
+    if (error) {
+        console.error("Error requesting team match unlock:", error);
+        return { error: "Failed to request unlock" };
+    }
+
+    revalidatePath(`/dashboard`);
+    return { success: true };
+}
+
 export async function respondToRescheduleRequest(requestId: string, approved: boolean) {
     const supabase = createAdminClient();
     const { userId } = await import("@clerk/nextjs/server").then(mod => mod.auth());
@@ -145,20 +200,30 @@ export async function approveRescheduleRequest(requestId: string, approved: bool
 
     const { data: request } = await supabase
         .from("reschedule_requests")
-        .select("*")
+        .select("id, match_id, team_match_id")
         .eq("id", requestId)
         .single();
 
     if (!request) return { error: "Request not found" };
 
     if (approved) {
-        // Unlock the match manually
-        const { error: matchError } = await supabase
-            .from("matches")
-            .update({ is_manually_unlocked: true })
-            .eq("id", request.match_id);
+        if (request.match_id) {
+            const { error: matchError } = await supabase
+                .from("matches")
+                .update({ is_manually_unlocked: true })
+                .eq("id", request.match_id);
 
-        if (matchError) return { error: "Failed to unlock match" };
+            if (matchError) return { error: "Failed to unlock match" };
+        } else if (request.team_match_id) {
+            const { error: teamMatchError } = await supabase
+                .from("team_matches")
+                .update({ is_manually_unlocked: true })
+                .eq("id", request.team_match_id);
+
+            if (teamMatchError) return { error: "Failed to unlock team match" };
+        } else {
+            return { error: "Request is missing a match target" };
+        }
 
         // Update request status
         await supabase

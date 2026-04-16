@@ -5,7 +5,8 @@ import { respondToRescheduleRequest, approveRescheduleRequest, dismissReschedule
 
 interface Request {
     id: string;
-    match_id: string;
+    match_id?: string | null;
+    team_match_id?: string | null;
     requester_id: string;
     requested_date: string | null;
     reason: string;
@@ -13,10 +14,15 @@ interface Request {
     created_at: string;
     dismissed?: boolean;
     requester: { full_name: string };
-    match: {
+    match?: {
         player1: { full_name: string };
         player2: { full_name: string };
-    };
+    } | null;
+    team_match?: {
+        week_number?: number | null;
+        team_a?: { name: string } | null;
+        team_b?: { name: string } | null;
+    } | null;
 }
 
 interface Props {
@@ -133,7 +139,10 @@ export default function RescheduleInbox({ requests, userId, userRole }: Props) {
                                     {req.requester.full_name} requested {req.requested_date ? 'reschedule' : 'unlock'}
                                 </div>
                                 <div style={{ fontSize: '0.9rem', color: '#ccc' }}>
-                                    Match: {req.match.player1.full_name} vs {req.match.player2.full_name}
+                                    Match: {req.match
+                                        ? `${req.match.player1.full_name} vs ${req.match.player2.full_name}`
+                                        : `${req.team_match?.team_a?.name || 'Team A'} vs ${req.team_match?.team_b?.name || 'Team B'}${req.team_match?.week_number ? ` • Week ${req.team_match.week_number}` : ''}`
+                                    }
                                 </div>
                                 {req.requested_date && (
                                     <div style={{ fontSize: '0.9rem', color: 'var(--primary)', marginTop: '0.25rem' }}>

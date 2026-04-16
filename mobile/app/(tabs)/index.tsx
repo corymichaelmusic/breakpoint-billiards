@@ -17,6 +17,7 @@ import { isMatchLocked } from "../../utils/match";
 import MatchReminderBanner from "../../components/MatchReminderBanner";
 import TeamStatusBanner from "../../components/TeamStatusBanner";
 import { registerForPushNotificationsAsync, scheduleMatchReminder } from "../../utils/notifications";
+import { getApiBaseUrl } from "../../lib/api";
 
 export default function HomeScreen() {
   const { userId, getToken } = useAuth();
@@ -706,7 +707,7 @@ export default function HomeScreen() {
     setIsPaying(true);
     try {
       const token = await getToken();
-      const apiUrl = process.env.EXPO_PUBLIC_APP_URL || 'https://breakpointbilliardsleague.com';
+      const apiUrl = getApiBaseUrl();
 
       const response = await fetch(`${apiUrl}/api/create-checkout`, {
         method: 'POST',
@@ -973,7 +974,13 @@ export default function HomeScreen() {
             {nextMatch ? (
               (() => {
                 if (activeSession?.isTeamLeague && userTeamId) {
-                  return <TeamMatchCard match={nextMatch} userTeamId={userTeamId} />;
+                  return (
+                    <TeamMatchCard
+                      match={nextMatch}
+                      userTeamId={userTeamId}
+                      timezone={activeSession?.timezone || 'America/Chicago'}
+                    />
+                  );
                 }
 
                 // Logic for status calculation (Same as MatchesScreen)

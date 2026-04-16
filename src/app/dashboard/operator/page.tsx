@@ -105,7 +105,7 @@ export default async function OperatorDashboard() {
         }
     });
 
-    const { data: unlockRequests } = await supabase
+    const { data: singlesUnlockRequests } = await supabase
         .from("reschedule_requests")
         .select(`
             *,
@@ -123,6 +123,36 @@ export default async function OperatorDashboard() {
         `)
         .in("match.league_id", allRelevantIds)
         .eq("status", "pending_operator");
+
+    const { data: teamUnlockRequests } = await supabase
+        .from("reschedule_requests")
+        .select(`
+            *,
+            team_match:team_matches!reschedule_requests_team_match_id_fkey(
+                league_id,
+                week_number,
+                team_a:team_a_id(name),
+                team_b:team_b_id(name),
+                league:league_id(
+                    name,
+                    parent_league:parent_league_id(name)
+                )
+            ),
+            requester:requester_id(full_name)
+        `)
+        .in("team_match.league_id", allRelevantIds)
+        .eq("status", "pending_operator");
+
+    const unlockRequests = [
+        ...((singlesUnlockRequests || []).map((req: any) => ({
+            ...req,
+            request_type: 'singles'
+        }))),
+        ...((teamUnlockRequests || []).map((req: any) => ({
+            ...req,
+            request_type: 'team'
+        })))
+    ];
 
     return (
         <main className="console-page flex flex-col">
@@ -183,15 +213,21 @@ export default async function OperatorDashboard() {
                                 <tr key={req.id}>
                                     <td>
                                             {/* @ts-ignore */}
-                                            {req.match?.league?.parent_league?.name || 'Unknown League'}
+                                            {req.request_type === 'team'
+                                                ? req.team_match?.league?.parent_league?.name || 'Unknown League'
+                                                : req.match?.league?.parent_league?.name || 'Unknown League'}
                                     </td>
                                     <td>
-                                            {/* @ts-ignore */}
-                                            {req.match?.league?.name} • Week {req.match?.week_number}
+                                            {req.request_type === 'team'
+                                                ? `${req.team_match?.league?.name || 'Unknown Session'} • Week ${req.team_match?.week_number ?? '-'}`
+                                                : `${req.match?.league?.name || 'Unknown Session'} • Week ${req.match?.week_number ?? '-'}`
+                                            }
                                     </td>
                                     <td className="font-semibold text-white">
-                                            {/* @ts-ignore */}
-                                            {req.match?.player1?.full_name} vs {req.match?.player2?.full_name}
+                                            {req.request_type === 'team'
+                                                ? `${req.team_match?.team_a?.name || 'Team A'} vs ${req.team_match?.team_b?.name || 'Team B'}`
+                                                : `${req.match?.player1?.full_name || 'Player 1'} vs ${req.match?.player2?.full_name || 'Player 2'}`
+                                            }
                                     </td>
                                     <td>{req.requester?.full_name}</td>
                                     <td className="max-w-md text-gray-300">{req.reason}</td>
